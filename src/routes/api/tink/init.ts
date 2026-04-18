@@ -16,8 +16,9 @@ export const Route = createFileRoute("/api/tink/init")({
         if (!clientId) {
           return new Response(JSON.stringify({ error: "TINK_CLIENT_ID manquant" }), { status: 500, headers: CORS });
         }
-        const origin = request.headers.get("origin") ?? "";
-        const redirect = `${origin}/portefeuille`;
+        const redirect =
+          process.env.TINK_REDIRECT_URI ??
+          "https://prism-getapp-test-rc-2026efefrcderrdxzdd.lovable.app/api/tink/callback";
         // Tink Link hosted flow — Account Check (read accounts/holdings).
         // Sandbox: market=FR, test=true forces sandbox provider list.
         const url =
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/api/tink/init")({
           `?client_id=${encodeURIComponent(clientId)}` +
           `&redirect_uri=${encodeURIComponent(redirect)}` +
           `&market=FR&locale=fr_FR&test=true`;
+        console.log("[tink/init] Generated Tink Link URL:", url);
         return new Response(JSON.stringify({ url }), { status: 200, headers: CORS });
       },
     },
