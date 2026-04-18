@@ -26,6 +26,8 @@ type Position = {
   source: string;
 };
 
+type Quote = { price: number | null; change: number | null; changePct: number | null };
+
 function Portefeuille() {
   const navigate = useNavigate();
   const [positions, setPositions] = useState<Position[]>([]);
@@ -34,6 +36,7 @@ function Portefeuille() {
   const [showAdd, setShowAdd] = useState(false);
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Position | null>(null);
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
 
   const load = useCallback(async () => {
     const { data: sess } = await supabase.auth.getSession();
@@ -55,6 +58,49 @@ function Portefeuille() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Fetch real-time quotes whenever positions change
+  useEffect(() => {
+    if (positions.length === 0) {
+      setQuotes({});
+      return;
+    }
+    const symbols = Array.from(new Set(positions.map((p) => p.ticker).filter(Boolean)));
+    if (symbols.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await apiFetch<{ quotes: Record<string, Quote> }>(
+          `/api/stocks/quote?symbols=${encodeURIComponent(symbols.join(","))}`,
+        );
+        if (!cancelled) setQuotes(d.quotes ?? {});
+      } catch {
+        // silent — quotes are best-effort
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [positions]);
+
+  // Live totals derived from real quotes (fallback to purchase_price / current_price)
+  const { liveTotal, dayChangeAbs, dayChangePct } = useMemo(() => {
+    let total = 0;
+    let prev = 0;
+    for (const p of positions) {
+      const q = quotes[p.ticker];
+      const price = q?.price ?? p.current_price ?? p.purchase_price ?? 0;
+      const qty = Number(p.quantity ?? 0);
+      const value = Number(price) * qty;
+      total += value;
+      const change = q?.change ?? 0;
+      prev += (Number(price) - Number(change)) * qty;
+    }
+    const abs = total - prev;
+    const pct = prev > 0 ? (abs / prev) * 100 : 0;
+    return { liveTotal: total, dayChangeAbs: abs, dayChangePct: pct };
+  }, [positions, quotes]);
+
 
   // Detect Tink callback (?code=... on this page)
   useEffect(() => {
