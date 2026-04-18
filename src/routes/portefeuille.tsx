@@ -299,7 +299,26 @@ function Portefeuille() {
         </section>
       </div>
 
-      {showAdd && <AddPositionModal onClose={() => setShowAdd(false)} onAdded={load} />}
+      {showAdd && (
+        <AddPositionModal
+          onClose={() => setShowAdd(false)}
+          onAdded={async ({ item, quote }) => {
+            setPositions((prev) => [item, ...prev.filter((p) => p.id !== item.id)]);
+            if (quote) {
+              setQuotes((prev) => ({
+                ...prev,
+                [item.ticker]: {
+                  price: quote.price ?? item.current_price ?? null,
+                  change: quote.change ?? null,
+                  changePct: quote.changePct ?? null,
+                },
+              }));
+            }
+            window.dispatchEvent(new CustomEvent("portfolio:changed"));
+            await load();
+          }}
+        />
+      )}
       {editing && <EditPositionModal position={editing} onClose={() => setEditing(null)} onSaved={load} />}
     </AppShellWithNav>
   );
@@ -397,7 +416,7 @@ type StockSuggestion = {
   geography: string | null;
 };
 
-function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (payload: AddedPositionPayload) => Promise<void> | void }) {
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
@@ -460,7 +479,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     e.preventDefault();
     setSaving(true);
     try {
-      await apiFetch("/api/portfolio", {
+      const payload = await apiFetch<AddedPositionPayload>("/api/portfolio", {
         method: "POST",
         body: JSON.stringify({
           ticker: ticker.toUpperCase(),
@@ -471,8 +490,8 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           buy_price: price ? Number(price) : null,
         }),
       });
+      await onAdded(payload);
       toast.success("Position ajoutée");
-      onAdded();
       onClose();
     } catch (e: any) {
       toast.error(e.message ?? "Erreur");

@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/portfolio")({
           console.error("[api/portfolio POST] db error", error);
           return errorResponse("Une erreur interne est survenue", 500);
         }
-        return jsonResponse({ item: data, quote }, 201);
+        return jsonResponse({ item: data, quote, refreshedAt: new Date().toISOString() }, 201);
       },
     },
   },
