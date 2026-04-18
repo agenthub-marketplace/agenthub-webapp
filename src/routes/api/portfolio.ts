@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
-import { fetchQuote } from "@/lib/quotes.server";
+import { fetchQuote, fetchQuotes, computePortfolioTotals } from "@/lib/quotes.server";
 
 export const Route = createFileRoute("/api/portfolio")({
   server: {
@@ -20,12 +20,20 @@ export const Route = createFileRoute("/api/portfolio")({
         }
 
         const items = data ?? [];
-        const totalValue = items.reduce((sum, p) => {
-          const price = Number(p.current_price ?? p.purchase_price ?? 0);
-          return sum + price * Number(p.quantity ?? 0);
-        }, 0);
 
-        return jsonResponse({ items, totalValue });
+        // Fetch live quotes server-side so portfolio totals are accurate immediately,
+        // matching the dashboard's calculation (single source of truth).
+        const apiKey = process.env.FINNHUB_API_KEY;
+        const quotes = apiKey
+          ? await fetchQuotes(items.map((p) => p.ticker), apiKey)
+          : {};
+
+        const { totalValue, dayChangeAbs, dayChangePct } = computePortfolioTotals(
+          items,
+          quotes,
+        );
+
+        return jsonResponse({ items, totalValue, dayChangeAbs, dayChangePct, quotes });
       },
       POST: async ({ request }) => {
         const auth = await requireUser(request);

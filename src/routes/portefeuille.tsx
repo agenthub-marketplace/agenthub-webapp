@@ -45,9 +45,17 @@ function Portefeuille() {
       return;
     }
     try {
-      const d = await apiFetch<{ items: Position[]; totalValue: number }>("/api/portfolio");
+      const d = await apiFetch<{
+        items: Position[];
+        totalValue: number;
+        quotes?: Record<string, Quote>;
+      }>("/api/portfolio");
       setPositions(d.items);
       setTotalValue(d.totalValue);
+      // Server now returns live quotes alongside positions — seed them so
+      // totals & per-position variations are correct on the first render
+      // (including any position that was just added).
+      if (d.quotes) setQuotes((prev) => ({ ...prev, ...d.quotes }));
       // Notify other listeners (dashboard, etc.) that portfolio data changed
       window.dispatchEvent(new CustomEvent("portfolio:changed"));
     } catch (e: any) {
