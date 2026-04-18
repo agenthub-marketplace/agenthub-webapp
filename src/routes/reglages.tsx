@@ -27,11 +27,11 @@ function Reglages() {
 
   return (
     <AppShellWithNav>
-      <header className="bg-surface px-5 pt-6 pb-5">
+      <header className="bg-surface px-5 pt-8 pb-5">
         <h1 className="text-[22px] font-bold text-foreground">Réglages</h1>
       </header>
 
-      <div className="px-4 space-y-2.5">
+      <div className="px-4 space-y-2.5 pt-3">
         {/* Profil */}
         <section className="bg-surface border border-border rounded-2xl p-5 flex items-center gap-4">
           <div className="w-[52px] h-[52px] rounded-full bg-subtle flex items-center justify-center">

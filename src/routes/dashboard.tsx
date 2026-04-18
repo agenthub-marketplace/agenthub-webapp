@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
@@ -27,15 +27,15 @@ function Dashboard() {
   return (
     <AppShellWithNav>
       {/* Top bar */}
-      <header className="bg-surface px-5 pt-6 pb-5 flex items-start justify-between">
+      <header className="bg-surface px-5 pt-8 pb-5 flex items-start justify-between">
         <div>
           <p className="text-[13px] text-muted-foreground leading-tight">Bonjour,</p>
           <h1 className="text-[22px] font-bold text-foreground leading-tight">{name}</h1>
         </div>
-        <button className="relative">
+        <Link to="/analyses" search={{ filter: "non-lues" }} className="relative" aria-label="Notifications non lues">
           <Bell size={22} className="text-foreground" strokeWidth={1.75} />
-          <span className="absolute top-0 right-0 w-2 h-2 bg-foreground rounded-full" />
-        </button>
+          <span className="absolute top-0 right-0 w-2 h-2 bg-danger rounded-full" />
+        </Link>
       </header>
 
       <div className="px-4 space-y-2.5 pt-1">

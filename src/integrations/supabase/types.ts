@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      broker_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          credentials_id: string | null
+          expires_at: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          credentials_id?: string | null
+          expires_at?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          credentials_id?: string | null
+          expires_at?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      positions: {
+        Row: {
+          company: string
+          created_at: string
+          current_price: number | null
+          id: string
+          purchase_price: number | null
+          quantity: number
+          sector: string | null
+          source: string
+          ticker: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          current_price?: number | null
+          id?: string
+          purchase_price?: number | null
+          quantity?: number
+          sector?: string | null
+          source?: string
+          ticker: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          current_price?: number | null
+          id?: string
+          purchase_price?: number | null
+          quantity?: number
+          sector?: string | null
+          source?: string
+          ticker?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
