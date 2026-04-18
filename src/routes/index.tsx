@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Mail } from "lucide-react";
 import { PrismLogo } from "@/components/PrismLogo";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
