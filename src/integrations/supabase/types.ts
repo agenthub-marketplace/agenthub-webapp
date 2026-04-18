@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      alerts: {
+        Row: {
+          content: string | null
+          correlations_directes: Json | null
+          correlations_indirectes: Json | null
+          created_at: string
+          id: string
+          impact_long_term: string | null
+          impact_short_term: string | null
+          investor_reaction: Json | null
+          is_read: boolean
+          isins: string[] | null
+          scenario_neutre: Json | null
+          scenario_optimiste: Json | null
+          scenario_pessimiste: Json | null
+          sent_at: string
+          title: string | null
+          updated_at: string
+          urgency: number
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          correlations_directes?: Json | null
+          correlations_indirectes?: Json | null
+          created_at?: string
+          id?: string
+          impact_long_term?: string | null
+          impact_short_term?: string | null
+          investor_reaction?: Json | null
+          is_read?: boolean
+          isins?: string[] | null
+          scenario_neutre?: Json | null
+          scenario_optimiste?: Json | null
+          scenario_pessimiste?: Json | null
+          sent_at?: string
+          title?: string | null
+          updated_at?: string
+          urgency?: number
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          correlations_directes?: Json | null
+          correlations_indirectes?: Json | null
+          created_at?: string
+          id?: string
+          impact_long_term?: string | null
+          impact_short_term?: string | null
+          investor_reaction?: Json | null
+          is_read?: boolean
+          isins?: string[] | null
+          scenario_neutre?: Json | null
+          scenario_optimiste?: Json | null
+          scenario_pessimiste?: Json | null
+          sent_at?: string
+          title?: string | null
+          updated_at?: string
+          urgency?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       broker_connections: {
         Row: {
           access_token: string | null
@@ -58,7 +121,10 @@ export type Database = {
           company: string
           created_at: string
           current_price: number | null
+          geography: string | null
           id: string
+          isin: string | null
+          name: string | null
           purchase_price: number | null
           quantity: number
           sector: string | null
@@ -71,7 +137,10 @@ export type Database = {
           company: string
           created_at?: string
           current_price?: number | null
+          geography?: string | null
           id?: string
+          isin?: string | null
+          name?: string | null
           purchase_price?: number | null
           quantity?: number
           sector?: string | null
@@ -84,12 +153,72 @@ export type Database = {
           company?: string
           created_at?: string
           current_price?: number | null
+          geography?: string | null
           id?: string
+          isin?: string | null
+          name?: string | null
           purchase_price?: number | null
           quantity?: number
           sector?: string | null
           source?: string
           ticker?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          plan?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          plan: string
+          status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan?: string
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan?: string
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
         }
