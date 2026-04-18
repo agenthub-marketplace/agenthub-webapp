@@ -28,6 +28,7 @@ type Position = {
 };
 
 type Quote = { price: number | null; change: number | null; changePct: number | null };
+type AddedPositionPayload = { item: Position; quote: Quote | null };
 
 function Portefeuille() {
   const navigate = useNavigate();
