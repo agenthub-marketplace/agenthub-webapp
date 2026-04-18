@@ -307,3 +307,86 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     </div>
   );
 }
+
+function EditPositionModal({
+  position,
+  onClose,
+  onSaved,
+}: {
+  position: Position;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [ticker, setTicker] = useState(position.ticker ?? "");
+  const [name, setName] = useState(position.name ?? position.company ?? "");
+  const [sector, setSector] = useState(position.sector ?? "");
+  const [geography, setGeography] = useState(position.geography ?? "");
+  const [isin, setIsin] = useState(position.isin ?? "");
+  const [quantity, setQuantity] = useState(String(position.quantity ?? ""));
+  const [price, setPrice] = useState(
+    position.purchase_price != null ? String(position.purchase_price) : "",
+  );
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await apiFetch(`/api/portfolio/${position.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ticker: ticker.toUpperCase(),
+          name,
+          sector: sector || null,
+          geography: geography || null,
+          isin: isin || null,
+          quantity: Number(quantity),
+          buy_price: price === "" ? null : Number(price),
+        }),
+      });
+      toast.success("Position mise à jour");
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-[393px] bg-surface rounded-t-[24px] p-5 pb-8 animate-in slide-in-from-bottom"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[18px] font-bold text-foreground">Modifier la position</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-subtle flex items-center justify-center">
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={submit} className="space-y-2.5">
+          <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'entreprise" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <input value={isin} onChange={(e) => setIsin(e.target.value)} placeholder="ISIN (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
+            <option value="">Géographie (optionnel)</option>
+            <option value="Europe">Europe</option>
+            <option value="États-Unis">États-Unis</option>
+            <option value="Asie">Asie</option>
+            <option value="Autre">Autre</option>
+          </select>
+          <div className="grid grid-cols-2 gap-2.5">
+            <input required type="number" step="0.0001" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Quantité" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+            <input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix unitaire (€)" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          </div>
+          <button type="submit" disabled={saving} className="w-full h-12 bg-foreground text-primary-foreground rounded-xl font-semibold text-[14px] disabled:opacity-60">
+            {saving ? "..." : "Enregistrer"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
