@@ -48,6 +48,8 @@ function Portefeuille() {
       const d = await apiFetch<{ items: Position[]; totalValue: number }>("/api/portfolio");
       setPositions(d.items);
       setTotalValue(d.totalValue);
+      // Notify other listeners (dashboard, etc.) that portfolio data changed
+      window.dispatchEvent(new CustomEvent("portfolio:changed"));
     } catch (e: any) {
       toast.error(e.message ?? "Erreur de chargement");
     } finally {
@@ -165,6 +167,7 @@ function Portefeuille() {
     const { error } = await supabase.from("positions").delete().eq("id", id);
     if (error) return toast.error("Erreur suppression");
     setPositions((prev) => prev.filter((p) => p.id !== id));
+    window.dispatchEvent(new CustomEvent("portfolio:changed"));
   };
 
   return (

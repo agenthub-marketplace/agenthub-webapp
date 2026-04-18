@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Bell, ArrowUp, ArrowDown } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +51,15 @@ function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refresh = useCallback(async () => {
+    try {
+      const d = await apiFetch<DashboardData>("/api/dashboard");
+      setData(d);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur de chargement");
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
@@ -62,16 +71,22 @@ function Dashboard() {
         const local = sess.session.user.email.split("@")[0];
         setName(local.charAt(0).toUpperCase() + local.slice(1));
       }
-      try {
-        const d = await apiFetch<DashboardData>("/api/dashboard");
-        setData(d);
-      } catch (e: any) {
-        toast.error(e.message ?? "Erreur de chargement");
-      } finally {
-        setLoading(false);
-      }
+      await refresh();
+      setLoading(false);
     })();
-  }, [navigate]);
+  }, [navigate, refresh]);
+
+  // Refresh when portfolio changes (same tab) or window regains focus
+  useEffect(() => {
+    const onChange = () => refresh();
+    const onFocus = () => refresh();
+    window.addEventListener("portfolio:changed", onChange);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("portfolio:changed", onChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refresh]);
 
   const risk = data ? riskTone(data.riskLevel) : null;
   const hasUnread = (data?.recentAlerts ?? []).some((a) => !a.is_read);
