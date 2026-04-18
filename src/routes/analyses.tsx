@@ -130,6 +130,11 @@ function Analyses() {
   const [filter, setFilter] = useState<Filter>(search.filter ?? "toutes");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (search.filter && search.filter !== filter) setFilter(search.filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.filter]);
+
   const filtered = useMemo(() => {
     if (filter === "urgentes") return ANALYSES.filter((a) => a.urgent);
     if (filter === "non-lues") return ANALYSES.filter((a) => !a.read);
