@@ -101,3 +101,21 @@
 @media (min-width: 1280px) {
   .app-shell { padding-inline: 64px; }
 }
+
+/* Page header bandeau — full-bleed across the app-shell padding on tablet+. */
+.page-header {
+  background-color: var(--color-surface);
+  padding: 56px 20px 20px;
+}
+@media (min-width: 768px) {
+  .page-header {
+    margin-inline: -24px;
+    padding-inline: 24px;
+  }
+}
+@media (min-width: 1280px) {
+  .page-header {
+    margin-inline: -64px;
+    padding-inline: 64px;
+  }
+}
