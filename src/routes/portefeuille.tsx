@@ -251,6 +251,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           ticker: ticker.toUpperCase(),
           name,
           sector: sector || null,
+          geography: geography || null,
           quantity: Number(quantity),
           buy_price: price ? Number(price) : null,
         }),
