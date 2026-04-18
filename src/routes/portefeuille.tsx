@@ -236,6 +236,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
+  const [geography, setGeography] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
@@ -250,6 +251,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           ticker: ticker.toUpperCase(),
           name,
           sector: sector || null,
+          geography: geography || null,
           quantity: Number(quantity),
           buy_price: price ? Number(price) : null,
         }),
@@ -280,6 +282,13 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (ex: TTE)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'entreprise" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
+            <option value="">Géographie (optionnel)</option>
+            <option value="Europe">Europe</option>
+            <option value="États-Unis">États-Unis</option>
+            <option value="Asie">Asie</option>
+            <option value="Autre">Autre</option>
+          </select>
           <div className="grid grid-cols-2 gap-2.5">
             <input required type="number" step="0.0001" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Quantité" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
             <input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix unitaire (€)" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
