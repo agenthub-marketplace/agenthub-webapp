@@ -69,13 +69,16 @@ export const Route = createFileRoute("/api/tink/callback")({
               const holdJson: any = await holdRes.json();
               for (const h of holdJson.instruments ?? []) {
                 const ticker = h.symbol ?? h.isin ?? "N/A";
-                const company = h.name ?? ticker;
+                const name = h.name ?? ticker;
+                const isin = h.isin ?? null;
                 const quantity = Number(h.quantity ?? 0);
                 const price = Number(h.price?.unscaledValue ?? 0) / Math.pow(10, h.price?.scale ?? 0);
                 await supabaseAdmin.from("positions").insert({
                   user_id: userId,
                   ticker,
-                  company,
+                  company: name,
+                  name,
+                  isin,
                   quantity,
                   current_price: price || null,
                   source: "tink",
