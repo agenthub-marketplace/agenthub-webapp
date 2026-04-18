@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, ArrowUp, ArrowDown } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, formatEuro, timeAgo } from "@/lib/api-client";
@@ -26,6 +26,8 @@ type RiskLevel = "Faible" | "Modéré" | "Élevé";
 
 type DashboardData = {
   totalValue: number;
+  dayChangeAbs: number;
+  dayChangePct: number;
   riskScore: number;
   riskLevel: RiskLevel;
   recentAlerts: Alert[];
@@ -97,6 +99,14 @@ function Dashboard() {
             <p className="text-[34px] font-bold text-foreground mt-2 leading-none">
               {formatEuro(data?.totalValue ?? 0)}
             </p>
+          )}
+          {!loading && data && data.totalValue > 0 && Math.abs(data.dayChangeAbs) > 0.001 && (
+            <div className={`mt-2 flex items-center gap-1 text-[12px] font-semibold ${data.dayChangeAbs >= 0 ? "text-success" : "text-danger"}`}>
+              {data.dayChangeAbs >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+              <span>
+                {data.dayChangeAbs >= 0 ? "+" : ""}{formatEuro(data.dayChangeAbs)} ({data.dayChangeAbs >= 0 ? "+" : ""}{data.dayChangePct.toFixed(2)}%) aujourd'hui
+              </span>
+            </div>
           )}
           <p className="text-[12px] text-muted-foreground mt-3">
             {data && data.totalValue === 0 ? "Aucune position. Ajoutez-en depuis Portefeuille." : "Vue d'ensemble de votre portefeuille"}
