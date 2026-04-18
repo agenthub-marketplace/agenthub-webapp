@@ -24,8 +24,20 @@ export const Route = createFileRoute("/api/stocks/logo")({
           );
           if (!res.ok) return jsonResponse({ logo: null });
           const data = (await res.json()) as { logo?: string };
+          const logo = data.logo || null;
+
+          // Cache the logo on every position the user has for this ticker so
+          // future page loads don't need to call Finnhub again.
+          if (logo) {
+            await auth.userClient
+              .from("positions")
+              .update({ logo_url: logo })
+              .eq("user_id", auth.userId)
+              .eq("ticker", symbol);
+          }
+
           return new Response(
-            JSON.stringify({ logo: data.logo || null }),
+            JSON.stringify({ logo }),
             {
               status: 200,
               headers: {

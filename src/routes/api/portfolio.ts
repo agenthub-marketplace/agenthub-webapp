@@ -2,6 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
 import { fetchQuote, fetchQuotes, computePortfolioTotals } from "@/lib/quotes.server";
 
+async function fetchLogo(symbol: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+    );
+    if (!res.ok) return null;
+    const d = (await res.json()) as { logo?: string };
+    return d.logo || null;
+  } catch {
+    return null;
+  }
+}
+
 export const Route = createFileRoute("/api/portfolio")({
   server: {
     handlers: {
@@ -51,9 +64,13 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("ticker, name, quantity requis", 400);
         }
 
-        // Fetch the current price right away so totals reflect the new position immediately.
+        // Fetch the current price + logo right away so the new position
+        // shows up immediately with correct totals AND avatar.
         const apiKey = process.env.FINNHUB_API_KEY;
-        const quote = apiKey ? await fetchQuote(String(ticker), apiKey) : null;
+        const [quote, logo] = await Promise.all([
+          apiKey ? fetchQuote(String(ticker), apiKey) : Promise.resolve(null),
+          apiKey ? fetchLogo(String(ticker), apiKey) : Promise.resolve(null),
+        ]);
 
         const { data, error } = await auth.userClient
           .from("positions")
@@ -69,6 +86,7 @@ export const Route = createFileRoute("/api/portfolio")({
             geography: geography ?? null,
             isin: isin ?? null,
             source: "manual",
+            logo_url: logo,
           })
           .select()
           .single();

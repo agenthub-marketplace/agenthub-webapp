@@ -24,6 +24,7 @@ type Position = {
   current_price: number | null;
   isin: string | null;
   source: string;
+  logo_url: string | null;
 };
 
 type Quote = { price: number | null; change: number | null; changePct: number | null };
@@ -259,7 +260,7 @@ function Portefeuille() {
 
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
-                    <PositionLogo ticker={p.ticker} />
+                    <PositionLogo ticker={p.ticker} initialLogo={p.logo_url} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
@@ -314,11 +315,18 @@ function Bar({ pct }: { pct: number }) {
 // Module-level cache so we don't refetch logos on re-renders.
 const logoCache = new Map<string, string | null>();
 
-function PositionLogo({ ticker }: { ticker: string }) {
-  const [logo, setLogo] = useState<string | null>(() => logoCache.get(ticker) ?? null);
+function PositionLogo({ ticker, initialLogo }: { ticker: string; initialLogo?: string | null }) {
+  const seed = initialLogo ?? logoCache.get(ticker) ?? null;
+  const [logo, setLogo] = useState<string | null>(seed);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    // If we already have a cached logo (from DB or memory), no fetch needed.
+    if (initialLogo) {
+      logoCache.set(ticker, initialLogo);
+      setLogo(initialLogo);
+      return;
+    }
     if (logoCache.has(ticker)) {
       setLogo(logoCache.get(ticker) ?? null);
       return;
@@ -342,7 +350,7 @@ function PositionLogo({ ticker }: { ticker: string }) {
     return () => {
       cancelled = true;
     };
-  }, [ticker]);
+  }, [ticker, initialLogo]);
 
   if (logo && !failed) {
     return (
