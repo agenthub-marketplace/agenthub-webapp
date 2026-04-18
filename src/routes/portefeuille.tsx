@@ -270,6 +270,7 @@ function Portefeuille() {
                         {p.sector ? ` · ${p.sector}` : ""}
                         {p.source === "tink" ? " · Tink" : ""}
                         {q?.stale ? " · Données différées" : ""}
+                        {q && q.source === "none" ? " · Cours indisponible (marché EU non couvert)" : ""}
                       </p>
                       {hasPerf && (
                         <p className={`text-[11px] font-semibold mt-0.5 ${perfUp ? "text-success" : "text-danger"}`}>
