@@ -130,11 +130,12 @@ function Portefeuille() {
     })();
   }, [load]);
 
-  // Sector / geography aggregations
+  // Sector / geography aggregations (use live quote price when available)
   const aggregate = (key: "sector" | "geography") => {
     const buckets = new Map<string, number>();
     positions.forEach((p) => {
-      const v = Number(p.current_price ?? p.purchase_price ?? 0) * Number(p.quantity);
+      const liveP = quotes[p.ticker]?.price;
+      const v = Number(liveP ?? p.current_price ?? p.purchase_price ?? 0) * Number(p.quantity);
       const k = (p[key] ?? "Autre") || "Autre";
       buckets.set(k, (buckets.get(k) ?? 0) + v);
     });
