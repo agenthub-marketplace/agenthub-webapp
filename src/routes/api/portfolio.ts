@@ -13,7 +13,10 @@ export const Route = createFileRoute("/api/portfolio")({
           .from("positions")
           .select("*")
           .order("created_at", { ascending: false });
-        if (error) return errorResponse(error.message, 500);
+        if (error) {
+          console.error("[api/portfolio GET] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
 
         const items = data ?? [];
         const totalValue = items.reduce((sum, p) => {
@@ -55,7 +58,10 @@ export const Route = createFileRoute("/api/portfolio")({
           })
           .select()
           .single();
-        if (error) return errorResponse(error.message, 500);
+        if (error) {
+          console.error("[api/portfolio POST] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
         return jsonResponse({ item: data }, 201);
       },
     },

@@ -39,9 +39,14 @@ export const Route = createFileRoute("/api/dashboard")({
             .limit(3),
         ]);
 
-        if (profileRes.error) return errorResponse(profileRes.error.message, 500);
-        if (positionsRes.error) return errorResponse(positionsRes.error.message, 500);
-        if (alertsRes.error) return errorResponse(alertsRes.error.message, 500);
+        if (profileRes.error || positionsRes.error || alertsRes.error) {
+          console.error("[api/dashboard] db error", {
+            profile: profileRes.error,
+            positions: positionsRes.error,
+            alerts: alertsRes.error,
+          });
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
 
         const positions = positionsRes.data ?? [];
         const totalValue = positions.reduce((sum, p) => {

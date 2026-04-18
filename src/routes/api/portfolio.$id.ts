@@ -13,7 +13,10 @@ export const Route = createFileRoute("/api/portfolio/$id")({
           .from("positions")
           .delete()
           .eq("id", params.id);
-        if (error) return errorResponse(error.message, 500);
+        if (error) {
+          console.error("[api/portfolio DELETE] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
         return jsonResponse({ success: true });
       },
     },

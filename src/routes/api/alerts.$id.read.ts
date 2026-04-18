@@ -13,7 +13,10 @@ export const Route = createFileRoute("/api/alerts/$id/read")({
           .from("alerts")
           .update({ is_read: true })
           .eq("id", params.id);
-        if (error) return errorResponse(error.message, 500);
+        if (error) {
+          console.error("[api/alerts/read] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
         return jsonResponse({ success: true });
       },
     },
