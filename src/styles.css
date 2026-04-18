@@ -83,7 +83,8 @@
 }
 
 /* App shell — responsive container.
-   Phone: full width. Tablet: 720px. Desktop: 960px. */
+   Phone: capped at 393px column.
+   Tablet+: full width with comfortable padding so it really fills the screen. */
 .app-shell {
   max-width: 393px;
   margin-inline: auto;
@@ -92,8 +93,11 @@
   position: relative;
 }
 @media (min-width: 768px) {
-  .app-shell { max-width: 720px; }
+  .app-shell {
+    max-width: 100%;
+    padding-inline: 24px;
+  }
 }
-@media (min-width: 1024px) {
-  .app-shell { max-width: 960px; }
+@media (min-width: 1280px) {
+  .app-shell { padding-inline: 64px; }
 }
