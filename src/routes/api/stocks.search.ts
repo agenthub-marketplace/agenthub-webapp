@@ -72,15 +72,34 @@ export const Route = createFileRoute("/api/stocks/search")({
             return errorResponse("Recherche indisponible", 502);
           }
           const json = (await searchRes.json()) as FinnhubSearchResult;
-          const top = (json.result ?? [])
+
+          // Suffixes for which we have reliable live quote coverage (Yahoo/Stooq EU + US no-suffix).
+          const COVERED_EU_SUFFIXES = [
+            ".PA",".AS",".DE",".BR",".MI",".MC",".LS",".VI",".SW",".HE",
+            ".CO",".OL",".ST",".AT",".WA",".PR",".L",
+          ];
+          const symbolRank = (sym: string): number => {
+            const s = sym.toUpperCase();
+            // 0 = US (no suffix), best coverage via Finnhub
+            if (!s.includes(".")) return 0;
+            // 1 = covered EU markets (Yahoo/Stooq fallback)
+            if (COVERED_EU_SUFFIXES.some((suf) => s.endsWith(suf))) return 1;
+            // 2 = anything else (Toronto .NE, .TO, Asia, etc.)
+            return 2;
+          };
+
+          const filtered = (json.result ?? [])
             .filter((r) => r.type === "Common Stock" || r.type === "")
-            .slice(0, 8)
             .map((r) => ({
               symbol: r.symbol,
               displaySymbol: r.displaySymbol,
               name: r.description,
               geography: detectGeography(r.symbol),
+              _rank: symbolRank(r.symbol),
             }));
+          // Stable sort by coverage rank (0 < 1 < 2), preserving Finnhub relevance within each bucket.
+          filtered.sort((a, b) => a._rank - b._rank);
+          const top = filtered.slice(0, 8).map(({ _rank, ...rest }) => rest);
           return jsonResponse({ results: top });
         } catch (e) {
           console.error("[api/stocks/search] error", e);
