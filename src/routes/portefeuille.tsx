@@ -27,7 +27,7 @@ type Position = {
   logo_url: string | null;
 };
 
-type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean };
+type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean; source?: "quote" | "candle" | "exchange-prefix" | "none" };
 type AddedPositionPayload = { item: Position; quote: Quote | null };
 
 function Portefeuille() {
@@ -270,6 +270,7 @@ function Portefeuille() {
                         {p.sector ? ` · ${p.sector}` : ""}
                         {p.source === "tink" ? " · Tink" : ""}
                         {q?.stale ? " · Données différées" : ""}
+                        {q && q.source === "none" ? " · Cours indisponible (marché EU non couvert)" : ""}
                       </p>
                       {hasPerf && (
                         <p className={`text-[11px] font-semibold mt-0.5 ${perfUp ? "text-success" : "text-danger"}`}>
