@@ -167,6 +167,7 @@ function Portefeuille() {
     const { error } = await supabase.from("positions").delete().eq("id", id);
     if (error) return toast.error("Erreur suppression");
     setPositions((prev) => prev.filter((p) => p.id !== id));
+    window.dispatchEvent(new CustomEvent("portfolio:changed"));
   };
 
   return (
