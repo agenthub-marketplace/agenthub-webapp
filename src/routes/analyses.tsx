@@ -1,5 +1,5 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppShellWithNav } from "@/components/BottomNav";
 
 type Filter = "toutes" | "urgentes" | "non-lues";
