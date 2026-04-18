@@ -217,6 +217,57 @@ function Bar({ pct }: { pct: number }) {
   );
 }
 
+// Module-level cache so we don't refetch logos on re-renders.
+const logoCache = new Map<string, string | null>();
+
+function PositionLogo({ ticker }: { ticker: string }) {
+  const [logo, setLogo] = useState<string | null>(() => logoCache.get(ticker) ?? null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (logoCache.has(ticker)) {
+      setLogo(logoCache.get(ticker) ?? null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await apiFetch<{ logo: string | null }>(
+          `/api/stocks/logo?symbol=${encodeURIComponent(ticker)}`,
+        );
+        if (cancelled) return;
+        logoCache.set(ticker, d.logo);
+        setLogo(d.logo);
+      } catch {
+        if (!cancelled) {
+          logoCache.set(ticker, null);
+          setLogo(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  if (logo && !failed) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="w-10 h-10 rounded-full object-contain bg-white border border-border"
+      />
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center border border-border">
+      <span className="text-[12px] font-bold text-foreground">{ticker.slice(0, 4)}</span>
+    </div>
+  );
+}
+
 function AllocCard({ title, items }: { title: string; items: { name: string; pct: number }[] }) {
   return (
     <section className="bg-surface border border-border rounded-2xl p-5">
