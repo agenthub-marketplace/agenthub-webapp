@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
+import { fetchQuote } from "@/lib/quotes.server";
 
 export const Route = createFileRoute("/api/portfolio")({
   server: {
@@ -42,6 +43,10 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("ticker, name, quantity requis", 400);
         }
 
+        // Fetch the current price right away so totals reflect the new position immediately.
+        const apiKey = process.env.FINNHUB_API_KEY;
+        const quote = apiKey ? await fetchQuote(String(ticker), apiKey) : null;
+
         const { data, error } = await auth.userClient
           .from("positions")
           .insert({
@@ -51,6 +56,7 @@ export const Route = createFileRoute("/api/portfolio")({
             company: name,
             quantity: Number(quantity),
             purchase_price: buy_price != null ? Number(buy_price) : null,
+            current_price: quote?.price ?? null,
             sector: sector ?? null,
             geography: geography ?? null,
             isin: isin ?? null,
@@ -62,7 +68,7 @@ export const Route = createFileRoute("/api/portfolio")({
           console.error("[api/portfolio POST] db error", error);
           return errorResponse("Une erreur interne est survenue", 500);
         }
-        return jsonResponse({ item: data }, 201);
+        return jsonResponse({ item: data, quote }, 201);
       },
     },
   },
