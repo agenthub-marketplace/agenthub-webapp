@@ -9,11 +9,45 @@ export type Quote = {
   source?: "finnhub" | "twelvedata" | "candle" | "exchange-prefix" | "none";
 };
 
-const EU_SUFFIXES = [".PA", ".AS", ".DE", ".MI", ".MC", ".LS", ".BR", ".L", ".F"];
+// Map Yahoo-style suffix → Twelve Data exchange code (MIC-ish).
+// Twelve Data accepts "SYMBOL:EXCHANGE" disambiguation.
+const EU_SUFFIX_TO_EXCHANGE: Record<string, string> = {
+  ".PA": "Euronext",       // Paris
+  ".AS": "Euronext",       // Amsterdam
+  ".BR": "Euronext",       // Brussels
+  ".LS": "Euronext",       // Lisbon
+  ".DE": "XETRA",
+  ".F": "FSX",             // Frankfurt
+  ".MI": "MTA",            // Borsa Italiana
+  ".MC": "BME",            // Madrid
+  ".SW": "SIX",
+  ".VI": "VSE",            // Vienna
+  ".HE": "Helsinki",
+  ".ST": "Stockholm",
+  ".CO": "Copenhagen",
+  ".OL": "Oslo",
+  ".AT": "ATHEX",          // Athens
+  ".WA": "WSE",            // Warsaw
+  ".PR": "PSE",            // Prague
+  ".L": "LSE",
+};
+
+const EU_SUFFIXES = Object.keys(EU_SUFFIX_TO_EXCHANGE);
 
 export function isEuropeanTicker(symbol: string): boolean {
   const upper = symbol.toUpperCase();
   return EU_SUFFIXES.some((s) => upper.endsWith(s));
+}
+
+/** Convert "MT.AS" → { base: "MT", exchange: "Euronext" } */
+function splitEuTicker(symbol: string): { base: string; exchange: string | null } {
+  const upper = symbol.toUpperCase();
+  for (const suffix of EU_SUFFIXES) {
+    if (upper.endsWith(suffix)) {
+      return { base: upper.slice(0, -suffix.length), exchange: EU_SUFFIX_TO_EXCHANGE[suffix] };
+    }
+  }
+  return { base: upper, exchange: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +101,7 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
+async function twelveDataQuoteRaw(symbol: string, apiKey: string): Promise<Quote> {
   const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
   console.log(`[quotes:twelvedata] GET ${url.replace(apiKey, "***")}`);
   try {
@@ -96,6 +130,24 @@ async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
     console.error(`[quotes:twelvedata] ${symbol} fetch error`, e);
     return { price: null, change: null, changePct: null, source: "none" };
   }
+}
+
+/** Twelve Data does NOT accept Yahoo-style ".AS" suffixes. Try several formats. */
+async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
+  const { base, exchange } = splitEuTicker(symbol);
+  const candidates: string[] = [];
+  if (exchange) candidates.push(`${base}:${exchange}`); // e.g. MT:Euronext
+  candidates.push(base);                                 // e.g. MT (NYSE fallback for dual-listed)
+  candidates.push(symbol);                               // last resort
+
+  for (const candidate of Array.from(new Set(candidates))) {
+    const q = await twelveDataQuoteRaw(candidate, apiKey);
+    if (q.price != null) {
+      console.log(`[quotes:twelvedata] ${symbol} resolved via "${candidate}"`);
+      return q;
+    }
+  }
+  return { price: null, change: null, changePct: null, source: "none" };
 }
 
 // ---------------------------------------------------------------------------
@@ -129,17 +181,30 @@ export async function fetchQuotes(
 // Logos (Finnhub for US, Twelve Data for EU)
 // ---------------------------------------------------------------------------
 
+async function twelveDataLogoRaw(symbol: string, apiKey: string): Promise<string | null> {
+  const url = `https://api.twelvedata.com/logo?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
+  console.log(`[logo:twelvedata] GET ${url.replace(apiKey, "***")}`);
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const d = (await res.json()) as { url?: string; status?: string; code?: number };
+  if (d.status === "error" || d.code) return null;
+  return d.url || null;
+}
+
 export async function fetchLogo(symbol: string, finnhubKey: string): Promise<string | null> {
   try {
     if (isEuropeanTicker(symbol)) {
       const twelveKey = process.env.TWELVE_DATA_API_KEY;
       if (!twelveKey) return null;
-      const url = `https://api.twelvedata.com/logo?symbol=${encodeURIComponent(symbol)}&apikey=${twelveKey}`;
-      console.log(`[logo:twelvedata] GET ${url.replace(twelveKey, "***")}`);
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const d = (await res.json()) as { url?: string };
-      return d.url || null;
+      const { base, exchange } = splitEuTicker(symbol);
+      const candidates = Array.from(
+        new Set([exchange ? `${base}:${exchange}` : null, base, symbol].filter(Boolean) as string[]),
+      );
+      for (const candidate of candidates) {
+        const logo = await twelveDataLogoRaw(candidate, twelveKey);
+        if (logo) return logo;
+      }
+      return null;
     }
     const res = await fetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${finnhubKey}`,
