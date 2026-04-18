@@ -22,7 +22,10 @@ export const Route = createFileRoute("/api/admin/watchlist")({
           );
         }
 
-        const provided = request.headers.get("x-admin-secret");
+        const url = new URL(request.url);
+        const provided =
+          request.headers.get("x-admin-secret") ??
+          url.searchParams.get("secret");
         if (provided !== expected) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,
