@@ -1,10 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutGrid, Briefcase, BarChart3, Settings } from "lucide-react";
+import { LayoutGrid, Settings } from "lucide-react";
+import { CubeIcon } from "@/components/icons/CubeIcon";
+import { TrendIcon } from "@/components/icons/TrendIcon";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", Icon: LayoutGrid },
-  { to: "/portefeuille", label: "Portefeuille", Icon: Briefcase },
-  { to: "/analyses", label: "Analyses", Icon: BarChart3 },
+  { to: "/portefeuille", label: "Portefeuille", Icon: CubeIcon },
+  { to: "/analyses", label: "Analyses", Icon: TrendIcon },
   { to: "/reglages", label: "Réglages", Icon: Settings },
 ] as const;
 
