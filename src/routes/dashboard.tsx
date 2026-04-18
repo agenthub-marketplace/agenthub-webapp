@@ -71,7 +71,7 @@ function Dashboard() {
     })();
   }, [navigate]);
 
-  const risk = data ? riskLabel(data.riskScore) : null;
+  const risk = data ? riskTone(data.riskLevel) : null;
   const hasUnread = (data?.recentAlerts ?? []).some((a) => !a.is_read);
 
   return (
