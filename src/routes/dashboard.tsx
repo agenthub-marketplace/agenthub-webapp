@@ -27,7 +27,7 @@ function Dashboard() {
   return (
     <AppShellWithNav>
       {/* Top bar */}
-      <header className="bg-surface px-5 pt-8 pb-5 flex items-start justify-between">
+      <header className="bg-surface px-5 pt-10 pb-5 flex items-start justify-between">
         <div>
           <p className="text-[13px] text-muted-foreground leading-tight">Bonjour,</p>
           <h1 className="text-[22px] font-bold text-foreground leading-tight">{name}</h1>
@@ -38,9 +38,9 @@ function Dashboard() {
         </Link>
       </header>
 
-      <div className="px-4 space-y-2.5 pt-1">
+      <div className="px-4 space-y-2.5 pt-3">
         {/* Portfolio card */}
-        <section className="bg-surface border border-border rounded-2xl p-5">
+        <Link to="/portefeuille" className="block bg-surface border border-border rounded-2xl p-5 active:scale-[0.99] transition">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Valeur du portefeuille</p>
           <p className="text-[34px] font-bold text-foreground mt-2 leading-none">{portfolio.value}</p>
           <div className="flex gap-2 mt-3">
@@ -55,10 +55,10 @@ function Dashboard() {
               </div>
             ))}
           </div>
-        </section>
+        </Link>
 
         {/* Risk card */}
-        <section className="bg-surface border border-border rounded-2xl p-5">
+        <Link to="/analyses" search={{ filter: "urgentes" }} className="block bg-surface border border-border rounded-2xl p-5 active:scale-[0.99] transition">
           <div className="flex items-center justify-between">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Risque du portefeuille</p>
             <p className="text-[12px] font-bold uppercase tracking-wider text-warning">Modéré</p>
@@ -73,30 +73,40 @@ function Dashboard() {
             <span className="text-warning font-medium">Modéré</span>
             <span className="text-muted-foreground">Élevé</span>
           </div>
-        </section>
+        </Link>
 
         {/* Analyses */}
         <section className="pt-3">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-[16px] font-bold text-foreground">Analyses récentes</h2>
-            <button className="text-[12px] text-muted-foreground">Voir tout</button>
+            <Link to="/analyses" search={{ filter: "toutes" }} className="text-[12px] text-muted-foreground active:text-foreground">
+              Voir tout
+            </Link>
           </div>
           <div className="space-y-2.5">
-            {analyses.map((a) => (
-              <article key={a.ticker} className="bg-surface border border-border rounded-[14px] flex overflow-hidden">
-                <div className={`w-1 ${a.color === "danger" ? "bg-danger" : a.color === "warning" ? "bg-warning" : "bg-success"}`} />
-                <div className="flex-1 p-3.5">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-[14px] font-bold text-foreground leading-tight">{a.ticker}</p>
-                      <p className="text-[12px] text-muted-foreground">{a.company}</p>
+            {analyses.map((a) => {
+              const filter = a.color === "danger" ? "urgentes" : "toutes";
+              return (
+                <Link
+                  key={a.ticker}
+                  to="/analyses"
+                  search={{ filter }}
+                  className="bg-surface border border-border rounded-[14px] flex overflow-hidden active:scale-[0.99] transition"
+                >
+                  <div className={`w-1 ${a.color === "danger" ? "bg-danger" : a.color === "warning" ? "bg-warning" : "bg-success"}`} />
+                  <div className="flex-1 p-3.5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-[14px] font-bold text-foreground leading-tight">{a.ticker}</p>
+                        <p className="text-[12px] text-muted-foreground">{a.company}</p>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{a.time}</p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">{a.time}</p>
+                    <p className="mt-2 text-[12px] text-foreground leading-[1.5]">{a.summary}</p>
                   </div>
-                  <p className="mt-2 text-[12px] text-foreground leading-[1.5]">{a.summary}</p>
-                </div>
-              </article>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
       </div>
