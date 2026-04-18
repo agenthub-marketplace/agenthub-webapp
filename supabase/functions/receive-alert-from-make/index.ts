@@ -22,9 +22,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const secret = req.headers.get("x-make-secret");
-    const expected = Deno.env.get("MAKE_WEBHOOK_SECRET");
-    if (!expected || secret !== expected) {
+    const auth = req.headers.get("authorization");
+    if (auth !== "Bearer prism_make_2026") {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
