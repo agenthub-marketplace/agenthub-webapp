@@ -34,6 +34,12 @@ export const Route = createRootRoute({
       { name: "description", content: "Votre portefeuille, éclairé par l'actualité." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { property: "og:title", content: "PRISM" },
+      { name: "twitter:title", content: "PRISM" },
+      { property: "og:description", content: "Votre portefeuille, éclairé par l'actualité." },
+      { name: "twitter:description", content: "Votre portefeuille, éclairé par l'actualité." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/748e92ae-1b95-4948-a210-fced1a1051d2/id-preview-5a1321b5--413356d8-41fd-41f7-89f2-7a635f72cbf4.lovable.app-1776529017683.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/748e92ae-1b95-4948-a210-fced1a1051d2/id-preview-5a1321b5--413356d8-41fd-41f7-89f2-7a635f72cbf4.lovable.app-1776529017683.png" },
     ],
     links: [
       {
