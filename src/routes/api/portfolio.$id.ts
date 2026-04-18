@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/api/portfolio/$id")({
   server: {
