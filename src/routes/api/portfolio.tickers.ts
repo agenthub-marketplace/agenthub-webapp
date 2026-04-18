@@ -1,52 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
 
 export const Route = createFileRoute("/api/portfolio/tickers")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
-      GET: async () => {
-        try {
-          const supabase = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          );
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
+      GET: async ({ request }) => {
+        const auth = await requireUser(request);
+        if ("error" in auth) return auth.error;
 
-          const { data, error } = await supabase
-            .from("positions")
-            .select("ticker, isin");
+        const { data, error } = await auth.userClient
+          .from("positions")
+          .select("ticker, isin");
 
-          if (error) throw error;
-
-          const tickers = Array.from(
-            new Set((data ?? []).map((r) => r.ticker).filter(Boolean)),
-          ).sort();
-          const isins = Array.from(
-            new Set((data ?? []).map((r) => r.isin).filter(Boolean)),
-          ).sort();
-
-          return new Response(
-            JSON.stringify({ tickers, isins, count: tickers.length }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json", ...corsHeaders },
-            },
-          );
-        } catch (e) {
-          return new Response(
-            JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }),
-            {
-              status: 500,
-              headers: { "Content-Type": "application/json", ...corsHeaders },
-            },
-          );
+        if (error) {
+          console.error("[portfolio.tickers] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
         }
+
+        const tickers = Array.from(
+          new Set((data ?? []).map((r) => r.ticker).filter(Boolean)),
+        ).sort();
+        const isins = Array.from(
+          new Set((data ?? []).map((r) => r.isin).filter(Boolean)),
+        ).sort();
+
+        return jsonResponse({ tickers, isins, count: tickers.length });
       },
     },
   },

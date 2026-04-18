@@ -13,7 +13,10 @@ export const Route = createFileRoute("/api/alerts")({
           .from("alerts")
           .select("*")
           .order("sent_at", { ascending: false });
-        if (error) return errorResponse(error.message, 500);
+        if (error) {
+          console.error("[api/alerts] db error", error);
+          return errorResponse("Une erreur interne est survenue", 500);
+        }
 
         // Mark unread ones as read (fire and forget result)
         const unreadIds = (data ?? []).filter((a) => !a.is_read).map((a) => a.id);

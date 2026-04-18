@@ -46,7 +46,8 @@ export const Route = createFileRoute("/api/tink/callback")({
           });
           const tokenJson: any = await tokenRes.json();
           if (!tokenRes.ok) {
-            return new Response(JSON.stringify({ error: `Tink token: ${tokenJson.error_description ?? tokenJson.error ?? tokenRes.status}` }), { status: 502, headers: CORS });
+            console.error("[tink/callback] token exchange failed", tokenRes.status, tokenJson);
+            return new Response(JSON.stringify({ error: "Échec de la connexion bancaire" }), { status: 502, headers: CORS });
           }
           const accessToken = tokenJson.access_token as string;
           const refreshToken = tokenJson.refresh_token as string | undefined;
@@ -101,8 +102,9 @@ export const Route = createFileRoute("/api/tink/callback")({
           });
 
           return new Response(JSON.stringify({ imported }), { status: 200, headers: CORS });
-        } catch (e: any) {
-          return new Response(JSON.stringify({ error: e?.message ?? "Erreur serveur" }), { status: 500, headers: CORS });
+        } catch (e) {
+          console.error("[tink/callback] error", e);
+          return new Response(JSON.stringify({ error: "Une erreur interne est survenue" }), { status: 500, headers: CORS });
         }
       },
     },
