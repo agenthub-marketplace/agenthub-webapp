@@ -27,7 +27,7 @@ type Position = {
   logo_url: string | null;
 };
 
-type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean };
+type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean; source?: "quote" | "candle" | "exchange-prefix" | "none" };
 type AddedPositionPayload = { item: Position; quote: Quote | null };
 
 function Portefeuille() {
