@@ -9,11 +9,45 @@ export type Quote = {
   source?: "finnhub" | "twelvedata" | "candle" | "exchange-prefix" | "none";
 };
 
-const EU_SUFFIXES = [".PA", ".AS", ".DE", ".MI", ".MC", ".LS", ".BR", ".L", ".F"];
+// Map Yahoo-style suffix → Twelve Data exchange code (MIC-ish).
+// Twelve Data accepts "SYMBOL:EXCHANGE" disambiguation.
+const EU_SUFFIX_TO_EXCHANGE: Record<string, string> = {
+  ".PA": "Euronext",       // Paris
+  ".AS": "Euronext",       // Amsterdam
+  ".BR": "Euronext",       // Brussels
+  ".LS": "Euronext",       // Lisbon
+  ".DE": "XETRA",
+  ".F": "FSX",             // Frankfurt
+  ".MI": "MTA",            // Borsa Italiana
+  ".MC": "BME",            // Madrid
+  ".SW": "SIX",
+  ".VI": "VSE",            // Vienna
+  ".HE": "Helsinki",
+  ".ST": "Stockholm",
+  ".CO": "Copenhagen",
+  ".OL": "Oslo",
+  ".AT": "ATHEX",          // Athens
+  ".WA": "WSE",            // Warsaw
+  ".PR": "PSE",            // Prague
+  ".L": "LSE",
+};
+
+const EU_SUFFIXES = Object.keys(EU_SUFFIX_TO_EXCHANGE);
 
 export function isEuropeanTicker(symbol: string): boolean {
   const upper = symbol.toUpperCase();
   return EU_SUFFIXES.some((s) => upper.endsWith(s));
+}
+
+/** Convert "MT.AS" → { base: "MT", exchange: "Euronext" } */
+function splitEuTicker(symbol: string): { base: string; exchange: string | null } {
+  const upper = symbol.toUpperCase();
+  for (const suffix of EU_SUFFIXES) {
+    if (upper.endsWith(suffix)) {
+      return { base: upper.slice(0, -suffix.length), exchange: EU_SUFFIX_TO_EXCHANGE[suffix] };
+    }
+  }
+  return { base: upper, exchange: null };
 }
 
 // ---------------------------------------------------------------------------
