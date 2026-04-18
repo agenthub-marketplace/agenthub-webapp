@@ -20,6 +20,8 @@ import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiTinkInitRouteImport } from './routes/api/tink/init'
 import { Route as ApiTinkConnectUrlRouteImport } from './routes/api/tink/connect-url'
 import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
+import { Route as ApiStocksSearchRouteImport } from './routes/api/stocks.search'
+import { Route as ApiStocksProfileRouteImport } from './routes/api/stocks.profile'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
 import { Route as ApiAdminWatchlistRouteImport } from './routes/api/admin.watchlist'
@@ -80,6 +82,16 @@ const ApiTinkCallbackRoute = ApiTinkCallbackRouteImport.update({
   path: '/api/tink/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStocksSearchRoute = ApiStocksSearchRouteImport.update({
+  id: '/api/stocks/search',
+  path: '/api/stocks/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStocksProfileRoute = ApiStocksProfileRouteImport.update({
+  id: '/api/stocks/profile',
+  path: '/api/stocks/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPortfolioTickersRoute = ApiPortfolioTickersRouteImport.update({
   id: '/tickers',
   path: '/tickers',
@@ -113,6 +125,8 @@ export interface FileRoutesByFullPath {
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
+  '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -130,6 +144,8 @@ export interface FileRoutesByTo {
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
+  '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -148,6 +164,8 @@ export interface FileRoutesById {
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
+  '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -167,6 +185,8 @@ export interface FileRouteTypes {
     | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
+    | '/api/stocks/profile'
+    | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -184,6 +204,8 @@ export interface FileRouteTypes {
     | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
+    | '/api/stocks/profile'
+    | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -201,6 +223,8 @@ export interface FileRouteTypes {
     | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
+    | '/api/stocks/profile'
+    | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -217,6 +241,8 @@ export interface RootRouteChildren {
   ApiDashboardRoute: typeof ApiDashboardRoute
   ApiPortfolioRoute: typeof ApiPortfolioRouteWithChildren
   ApiAdminWatchlistRoute: typeof ApiAdminWatchlistRoute
+  ApiStocksProfileRoute: typeof ApiStocksProfileRoute
+  ApiStocksSearchRoute: typeof ApiStocksSearchRoute
   ApiTinkCallbackRoute: typeof ApiTinkCallbackRoute
   ApiTinkConnectUrlRoute: typeof ApiTinkConnectUrlRoute
   ApiTinkInitRoute: typeof ApiTinkInitRoute
@@ -301,6 +327,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTinkCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/stocks/search': {
+      id: '/api/stocks/search'
+      path: '/api/stocks/search'
+      fullPath: '/api/stocks/search'
+      preLoaderRoute: typeof ApiStocksSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stocks/profile': {
+      id: '/api/stocks/profile'
+      path: '/api/stocks/profile'
+      fullPath: '/api/stocks/profile'
+      preLoaderRoute: typeof ApiStocksProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/portfolio/tickers': {
       id: '/api/portfolio/tickers'
       path: '/tickers'
@@ -368,6 +408,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDashboardRoute: ApiDashboardRoute,
   ApiPortfolioRoute: ApiPortfolioRouteWithChildren,
   ApiAdminWatchlistRoute: ApiAdminWatchlistRoute,
+  ApiStocksProfileRoute: ApiStocksProfileRoute,
+  ApiStocksSearchRoute: ApiStocksSearchRoute,
   ApiTinkCallbackRoute: ApiTinkCallbackRoute,
   ApiTinkConnectUrlRoute: ApiTinkConnectUrlRoute,
   ApiTinkInitRoute: ApiTinkInitRoute,
@@ -375,3 +417,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
