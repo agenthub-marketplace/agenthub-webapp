@@ -1,4 +1,3 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -28,17 +27,19 @@ export async function requireUser(request: Request) {
     return { error: errorResponse("Non authentifié", 401) } as const;
   }
 
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data.user) {
-    return { error: errorResponse("Session invalide", 401) } as const;
-  }
-
   const SUPABASE_URL = process.env.SUPABASE_URL!;
   const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+
+  // Use the publishable-key client to validate the JWT (no service role needed).
   const userClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  const { data, error } = await userClient.auth.getUser(token);
+  if (error || !data.user) {
+    return { error: errorResponse("Session invalide", 401) } as const;
+  }
 
   return { userId: data.user.id, email: data.user.email, userClient } as const;
 }
