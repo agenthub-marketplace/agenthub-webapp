@@ -39,9 +39,9 @@ export const Route = createFileRoute("/hooks/refresh-prices")({
               ? [requested as Market]
               : "all";
 
-        const apiKey = process.env.FINNHUB_API_KEY;
-        if (!apiKey) {
-          return jsonResponse({ error: "FINNHUB_API_KEY not configured" }, 500);
+        const apiKey = process.env.FINNHUB_API_KEY ?? "";
+        if (!apiKey && !process.env.TWELVE_DATA_API_KEY) {
+          return jsonResponse({ error: "No quote provider configured" }, 500);
         }
 
         // Use service role to read every user's positions (cron has no user context).
