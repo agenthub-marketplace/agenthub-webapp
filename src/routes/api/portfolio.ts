@@ -1,19 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
-import { fetchQuote, fetchQuotes, computePortfolioTotals } from "@/lib/quotes.server";
-
-async function fetchLogo(symbol: string, apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-    );
-    if (!res.ok) return null;
-    const d = (await res.json()) as { logo?: string };
-    return d.logo || null;
-  } catch {
-    return null;
-  }
-}
+import { fetchQuote, fetchQuotes, fetchLogo, computePortfolioTotals } from "@/lib/quotes.server";
 
 export const Route = createFileRoute("/api/portfolio")({
   server: {
