@@ -179,9 +179,7 @@ function Portefeuille() {
                 const value = Number(p.current_price ?? p.purchase_price ?? 0) * Number(p.quantity);
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-subtle flex items-center justify-center">
-                      <span className="text-[12px] font-bold text-foreground">{p.ticker.slice(0, 4)}</span>
-                    </div>
+                    <PositionLogo ticker={p.ticker} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
@@ -215,6 +213,57 @@ function Bar({ pct }: { pct: number }) {
   return (
     <div className="h-1 w-full bg-border rounded-full mt-1.5 overflow-hidden">
       <div className="h-full bg-foreground rounded-full" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// Module-level cache so we don't refetch logos on re-renders.
+const logoCache = new Map<string, string | null>();
+
+function PositionLogo({ ticker }: { ticker: string }) {
+  const [logo, setLogo] = useState<string | null>(() => logoCache.get(ticker) ?? null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (logoCache.has(ticker)) {
+      setLogo(logoCache.get(ticker) ?? null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await apiFetch<{ logo: string | null }>(
+          `/api/stocks/logo?symbol=${encodeURIComponent(ticker)}`,
+        );
+        if (cancelled) return;
+        logoCache.set(ticker, d.logo);
+        setLogo(d.logo);
+      } catch {
+        if (!cancelled) {
+          logoCache.set(ticker, null);
+          setLogo(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  if (logo && !failed) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="w-10 h-10 rounded-full object-contain bg-white border border-border"
+      />
+    );
+  }
+  return (
+    <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center border border-border">
+      <span className="text-[12px] font-bold text-foreground">{ticker.slice(0, 4)}</span>
     </div>
   );
 }
