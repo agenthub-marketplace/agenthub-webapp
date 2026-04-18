@@ -22,6 +22,7 @@ type Position = {
   quantity: number;
   purchase_price: number | null;
   current_price: number | null;
+  isin: string | null;
   source: string;
 };
 
