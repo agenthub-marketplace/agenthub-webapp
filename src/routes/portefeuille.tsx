@@ -459,17 +459,25 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
 
   const pickSuggestion = async (s: StockSuggestion) => {
     setName(s.name);
-    setTicker(s.displaySymbol || s.symbol);
+    // CRITICAL: use Finnhub's full `symbol` (e.g. "GLE.PA", "MT.AS") — NOT
+    // `displaySymbol` which strips the market suffix and breaks /quote calls
+    // for European stocks.
+    const fullSymbol = s.symbol || s.displaySymbol;
+    setTicker(fullSymbol);
     if (s.geography) setGeography(s.geography);
     setShowSug(false);
-    // Enrich with sector via profile endpoint
+    // Enrich with sector via profile endpoint — but DO NOT overwrite the
+    // ticker with the profile's bare symbol (Finnhub returns "MT" for MT.AS).
     try {
       const d = await apiFetch<{
         profile: { sector: string | null; geography: string | null; ticker: string };
       }>(`/api/stocks/profile?symbol=${encodeURIComponent(s.symbol)}`);
       if (d.profile?.sector) setSector(d.profile.sector);
       if (d.profile?.geography) setGeography(d.profile.geography);
-      if (d.profile?.ticker) setTicker(d.profile.ticker);
+      // Only adopt the profile ticker if it preserves the market suffix
+      if (d.profile?.ticker && d.profile.ticker.includes(".")) {
+        setTicker(d.profile.ticker);
+      }
     } catch {
       // best-effort
     }
