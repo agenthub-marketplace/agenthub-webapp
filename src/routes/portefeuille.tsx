@@ -27,7 +27,7 @@ type Position = {
   logo_url: string | null;
 };
 
-type Quote = { price: number | null; change: number | null; changePct: number | null };
+type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean };
 type AddedPositionPayload = { item: Position; quote: Quote | null };
 
 function Portefeuille() {
@@ -269,6 +269,7 @@ function Portefeuille() {
                         {q?.price ? ` · ${formatEuro(q.price)}/titre` : ""}
                         {p.sector ? ` · ${p.sector}` : ""}
                         {p.source === "tink" ? " · Tink" : ""}
+                        {q?.stale ? " · Données différées" : ""}
                       </p>
                       {hasPerf && (
                         <p className={`text-[11px] font-semibold mt-0.5 ${perfUp ? "text-success" : "text-danger"}`}>
