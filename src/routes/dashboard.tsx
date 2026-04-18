@@ -27,7 +27,7 @@ function Dashboard() {
   return (
     <AppShellWithNav>
       {/* Top bar */}
-      <header className="bg-surface px-5 pt-10 pb-5 flex items-start justify-between">
+      <header className="bg-surface px-5 pt-14 pb-5 flex items-start justify-between">
         <div>
           <p className="text-[13px] text-muted-foreground leading-tight">Bonjour,</p>
           <h1 className="text-[22px] font-bold text-foreground leading-tight">{name}</h1>
