@@ -1,5 +1,5 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppShellWithNav } from "@/components/BottomNav";
 
 type Filter = "toutes" | "urgentes" | "non-lues";
@@ -128,6 +128,12 @@ const ANALYSES: Analysis[] = [
 function Analyses() {
   const search = useSearch({ from: "/analyses" });
   const [filter, setFilter] = useState<Filter>(search.filter ?? "toutes");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (search.filter && search.filter !== filter) setFilter(search.filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.filter]);
 
   const filtered = useMemo(() => {
     if (filter === "urgentes") return ANALYSES.filter((a) => a.urgent);
@@ -135,16 +141,29 @@ function Analyses() {
     return ANALYSES;
   }, [filter]);
 
-  const expanded = filtered[0];
-  const collapsed = filtered.slice(1);
+  // Tinted header per filter to visually differentiate
+  const headerTint =
+    filter === "urgentes"
+      ? "bg-danger-soft"
+      : filter === "non-lues"
+      ? "bg-warning-soft"
+      : "bg-surface";
+
+  const filterLabel =
+    filter === "urgentes"
+      ? "Alertes urgentes nécessitant votre attention"
+      : filter === "non-lues"
+      ? "Nouvelles analyses non consultées"
+      : "Toutes les analyses récentes";
 
   return (
     <AppShellWithNav>
-      <header className="bg-surface px-5 pt-8 pb-5">
+      <header className={`px-5 pt-10 pb-5 transition-colors ${headerTint}`}>
         <h1 className="text-[22px] font-bold text-foreground">Analyses</h1>
+        <p className="text-[12px] text-muted-foreground mt-1">{filterLabel}</p>
       </header>
 
-      <div className="px-4 space-y-2.5">
+      <div className="px-4 space-y-2.5 pt-3">
         <div className="flex gap-2 pt-1 pb-2">
           <Pill active={filter === "toutes"} onClick={() => setFilter("toutes")}>Toutes</Pill>
           <Pill active={filter === "urgentes"} onClick={() => setFilter("urgentes")}>
@@ -163,8 +182,19 @@ function Analyses() {
           </div>
         )}
 
-        {expanded && <ExpandedCard a={expanded} />}
-        {collapsed.map((a) => <CollapsedCard key={a.id} a={a} />)}
+        {filtered.map((a, i) => {
+          const isExpanded = expandedId ? expandedId === a.id : i === 0;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => setExpandedId(isExpanded ? "__none__" : a.id)}
+              className="w-full text-left active:scale-[0.995] transition"
+            >
+              {isExpanded ? <ExpandedCard a={a} /> : <CollapsedCard a={a} />}
+            </button>
+          );
+        })}
       </div>
     </AppShellWithNav>
   );
