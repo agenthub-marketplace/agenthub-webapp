@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/portfolio/$id")({
           return errorResponse("Body JSON invalide", 400);
         }
 
-        const updates: Record<string, any> = {};
+        const updates: TablesUpdate<"positions"> = {};
         if (body.ticker !== undefined) updates.ticker = String(body.ticker).toUpperCase();
         if (body.name !== undefined) {
           updates.name = body.name;
