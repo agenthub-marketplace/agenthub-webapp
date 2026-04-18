@@ -231,7 +231,9 @@ function Portefeuille() {
         )}
 
         <section className="pt-3">
-          <h2 className="text-[16px] font-bold text-foreground mb-2.5">Mes positions</h2>
+          <h2 className="text-[16px] font-bold text-foreground mb-2.5">
+            Mes positions{!loading && ` (${positions.length})`}
+          </h2>
           {loading ? (
             <div className="space-y-2.5">
               {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-[14px]" />)}
