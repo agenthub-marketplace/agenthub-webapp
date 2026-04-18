@@ -124,6 +124,7 @@ export type Database = {
           geography: string | null
           id: string
           isin: string | null
+          logo_url: string | null
           name: string | null
           purchase_price: number | null
           quantity: number
@@ -140,6 +141,7 @@ export type Database = {
           geography?: string | null
           id?: string
           isin?: string | null
+          logo_url?: string | null
           name?: string | null
           purchase_price?: number | null
           quantity?: number
@@ -156,6 +158,7 @@ export type Database = {
           geography?: string | null
           id?: string
           isin?: string | null
+          logo_url?: string | null
           name?: string | null
           purchase_price?: number | null
           quantity?: number
