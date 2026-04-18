@@ -272,20 +272,22 @@ type YahooQuoteSummary = {
  * itself uses. Free, no API key, returns a clean transparent PNG.
  */
 async function yahooLogo(symbol: string): Promise<string | null> {
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile`;
-  console.log(`[logo:yahoo] GET ${url}`);
-  try {
-    const res = await fetch(url, { headers: YAHOO_HEADERS });
-    if (!res.ok) return null;
-    const d = (await res.json()) as YahooQuoteSummary;
-    const website = d.quoteSummary?.result?.[0]?.assetProfile?.website;
-    if (!website) return null;
-    const host = new URL(website).hostname.replace(/^www\./, "");
-    return `https://logo.clearbit.com/${host}`;
-  } catch (e) {
-    console.error(`[logo:yahoo] ${symbol} error`, e);
-    return null;
+  for (const host of ["query2.finance.yahoo.com", "query1.finance.yahoo.com"]) {
+    const url = `https://${host}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile`;
+    console.log(`[logo:yahoo] GET ${url}`);
+    try {
+      const res = await fetch(url, { headers: YAHOO_HEADERS });
+      if (!res.ok) continue;
+      const d = (await res.json()) as YahooQuoteSummary;
+      const website = d.quoteSummary?.result?.[0]?.assetProfile?.website;
+      if (!website) continue;
+      const hostname = new URL(website).hostname.replace(/^www\./, "");
+      return `https://logo.clearbit.com/${hostname}`;
+    } catch (e) {
+      console.error(`[logo:yahoo] ${symbol} error on ${host}`, e);
+    }
   }
+  return null;
 }
 
 export async function fetchLogo(symbol: string, finnhubKey: string): Promise<string | null> {
