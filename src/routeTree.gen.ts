@@ -22,6 +22,7 @@ import { Route as ApiTinkConnectUrlRouteImport } from './routes/api/tink/connect
 import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
+import { Route as ApiAdminWatchlistRouteImport } from './routes/api/admin.watchlist'
 import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
 
 const ReglagesRoute = ReglagesRouteImport.update({
@@ -89,6 +90,11 @@ const ApiPortfolioIdRoute = ApiPortfolioIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiPortfolioRoute,
 } as any)
+const ApiAdminWatchlistRoute = ApiAdminWatchlistRouteImport.update({
+  id: '/api/admin/watchlist',
+  path: '/api/admin/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
   id: '/$id/read',
   path: '/$id/read',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/dashboard'
     | '/api/portfolio'
+    | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/tink/callback'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/dashboard'
     | '/api/portfolio'
+    | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/tink/callback'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/dashboard'
     | '/api/portfolio'
+    | '/api/admin/watchlist'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/tink/callback'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiDashboardRoute: typeof ApiDashboardRoute
   ApiPortfolioRoute: typeof ApiPortfolioRouteWithChildren
+  ApiAdminWatchlistRoute: typeof ApiAdminWatchlistRoute
   ApiTinkCallbackRoute: typeof ApiTinkCallbackRoute
   ApiTinkConnectUrlRoute: typeof ApiTinkConnectUrlRoute
   ApiTinkInitRoute: typeof ApiTinkInitRoute
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPortfolioIdRouteImport
       parentRoute: typeof ApiPortfolioRoute
     }
+    '/api/admin/watchlist': {
+      id: '/api/admin/watchlist'
+      path: '/api/admin/watchlist'
+      fullPath: '/api/admin/watchlist'
+      preLoaderRoute: typeof ApiAdminWatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/alerts/$id/read': {
       id: '/api/alerts/$id/read'
       path: '/$id/read'
@@ -347,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiDashboardRoute: ApiDashboardRoute,
   ApiPortfolioRoute: ApiPortfolioRouteWithChildren,
+  ApiAdminWatchlistRoute: ApiAdminWatchlistRoute,
   ApiTinkCallbackRoute: ApiTinkCallbackRoute,
   ApiTinkConnectUrlRoute: ApiTinkConnectUrlRoute,
   ApiTinkInitRoute: ApiTinkInitRoute,
@@ -354,3 +375,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
