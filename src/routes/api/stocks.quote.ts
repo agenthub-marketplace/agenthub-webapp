@@ -1,24 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
-
-type Quote = { price: number | null; change: number | null; changePct: number | null };
-
-async function fetchQuote(symbol: string, apiKey: string): Promise<Quote> {
-  try {
-    const res = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-    );
-    if (!res.ok) return { price: null, change: null, changePct: null };
-    const d = (await res.json()) as { c?: number; d?: number; dp?: number };
-    return {
-      price: typeof d.c === "number" && d.c > 0 ? d.c : null,
-      change: typeof d.d === "number" ? d.d : null,
-      changePct: typeof d.dp === "number" ? d.dp : null,
-    };
-  } catch {
-    return { price: null, change: null, changePct: null };
-  }
-}
+import { fetchQuotes, type Quote } from "@/lib/quotes.server";
 
 export const Route = createFileRoute("/api/stocks/quote")({
   server: {
@@ -45,15 +27,11 @@ export const Route = createFileRoute("/api/stocks/quote")({
           return jsonResponse({ quotes: empty });
         }
 
-        const results = await Promise.all(symbols.map((s) => fetchQuote(s, apiKey)));
-        const quotes: Record<string, Quote> = {};
-        symbols.forEach((s, i) => (quotes[s] = results[i]));
-
+        const quotes = await fetchQuotes(symbols, apiKey);
         return new Response(JSON.stringify({ quotes }), {
           status: 200,
           headers: {
             ...CORS,
-            // Cache 60s — quotes are realtime-ish but we want to limit Finnhub calls
             "Cache-Control": "private, max-age=60",
           },
         });

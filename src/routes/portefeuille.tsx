@@ -232,29 +232,43 @@ function Portefeuille() {
             <div className="space-y-2.5">
               {positions.map((p) => {
                 const q = quotes[p.ticker];
-                const livePrice = q?.price ?? p.current_price ?? p.purchase_price ?? 0;
-                const value = Number(livePrice) * Number(p.quantity);
+                const livePrice = Number(q?.price ?? p.current_price ?? p.purchase_price ?? 0);
+                const qty = Number(p.quantity);
+                const value = livePrice * qty;
                 const pct = q?.changePct;
-                const hasPct = typeof pct === "number" && !Number.isNaN(pct);
-                const up = hasPct && pct >= 0;
+                const hasDayPct = typeof pct === "number" && !Number.isNaN(pct);
+                const dayUp = hasDayPct && pct >= 0;
+
+                // Performance vs cost basis
+                const buy = p.purchase_price != null ? Number(p.purchase_price) : null;
+                const hasPerf = buy != null && buy > 0 && q?.price != null;
+                const perfAbs = hasPerf ? (livePrice - buy) * qty : 0;
+                const perfPct = hasPerf ? ((livePrice - buy) / buy) * 100 : 0;
+                const perfUp = perfAbs >= 0;
+
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
                     <PositionLogo ticker={p.ticker} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {p.quantity} titres
+                        {qty} titres
                         {q?.price ? ` · ${formatEuro(q.price)}/titre` : ""}
                         {p.sector ? ` · ${p.sector}` : ""}
                         {p.source === "tink" ? " · Tink" : ""}
                       </p>
+                      {hasPerf && (
+                        <p className={`text-[11px] font-semibold mt-0.5 ${perfUp ? "text-success" : "text-danger"}`}>
+                          {perfUp ? "+" : ""}{formatEuro(perfAbs)} ({perfUp ? "+" : ""}{perfPct.toFixed(2)}%) vs achat
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] font-bold text-foreground">{formatEuro(value)}</p>
-                      {hasPct && (
-                        <div className={`flex items-center justify-end gap-0.5 text-[11px] font-semibold ${up ? "text-success" : "text-danger"}`}>
-                          {up ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
-                          <span>{up ? "+" : ""}{pct.toFixed(2)}%</span>
+                      {hasDayPct && (
+                        <div className={`flex items-center justify-end gap-0.5 text-[11px] font-semibold ${dayUp ? "text-success" : "text-danger"}`}>
+                          {dayUp ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
+                          <span>{dayUp ? "+" : ""}{pct.toFixed(2)}%</span>
                         </div>
                       )}
                     </div>
