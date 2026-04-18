@@ -22,16 +22,19 @@ type Alert = {
   isins: string[] | null;
 };
 
+type RiskLevel = "Faible" | "Modéré" | "Élevé";
+
 type DashboardData = {
   totalValue: number;
   riskScore: number;
+  riskLevel: RiskLevel;
   recentAlerts: Alert[];
 };
 
-function riskLabel(score: number): { label: string; tone: "success" | "warning" | "danger"; bar: 0 | 1 | 2 } {
-  if (score < 33) return { label: "Faible", tone: "success", bar: 0 };
-  if (score < 66) return { label: "Modéré", tone: "warning", bar: 1 };
-  return { label: "Élevé", tone: "danger", bar: 2 };
+function riskTone(level: RiskLevel): { tone: "success" | "warning" | "danger"; bar: 0 | 1 | 2 } {
+  if (level === "Faible") return { tone: "success", bar: 0 };
+  if (level === "Modéré") return { tone: "warning", bar: 1 };
+  return { tone: "danger", bar: 2 };
 }
 
 function alertTone(urgency: number): "danger" | "warning" | "success" {
@@ -68,7 +71,7 @@ function Dashboard() {
     })();
   }, [navigate]);
 
-  const risk = data ? riskLabel(data.riskScore) : null;
+  const risk = data ? riskTone(data.riskLevel) : null;
   const hasUnread = (data?.recentAlerts ?? []).some((a) => !a.is_read);
 
   return (
@@ -107,7 +110,7 @@ function Dashboard() {
             {loading || !risk ? (
               <Skeleton className="h-3 w-16" />
             ) : (
-              <p className={`text-[12px] font-bold uppercase tracking-wider text-${risk.tone}`}>{risk.label}</p>
+              <p className={`text-[12px] font-bold uppercase tracking-wider text-${risk.tone}`}>{data!.riskLevel}</p>
             )}
           </div>
           <div className="flex gap-1.5 mt-4">
