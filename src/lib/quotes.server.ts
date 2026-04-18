@@ -1,12 +1,13 @@
 // Server-only quote helper.
-// US tickers → Finnhub. European tickers (.PA .AS .DE .MI .MC .LS .BR .L) → Twelve Data.
+// US tickers → Finnhub. European tickers (.PA .AS .DE .MI .MC .LS .BR .L .F .SW ...) → Yahoo Finance.
 
 export type Quote = {
   price: number | null;
-  change: number | null; // absolute daily change per share
+  change: number | null; // absolute daily change per share, native currency
   changePct: number | null; // daily % change
+  currency?: string | null; // ISO currency code returned by data source (EUR, USD, GBP...)
   stale?: boolean;
-  source?: "finnhub" | "twelvedata" | "candle" | "exchange-prefix" | "none";
+  source?: "finnhub" | "twelvedata" | "yahoo" | "candle" | "exchange-prefix" | "none";
 };
 
 // Map Yahoo-style suffix → Twelve Data exchange code (MIC-ish).
