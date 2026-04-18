@@ -12,9 +12,9 @@ export const Route = createFileRoute("/api/tink/connect-url")({
         const clientId = process.env.TINK_CLIENT_ID;
         if (!clientId) return errorResponse("TINK_CLIENT_ID manquant", 500);
 
-        const origin = request.headers.get("origin") ?? new URL(request.url).origin;
-        const redirect = process.env.TINK_REDIRECT_URI ?? `${origin}/api/tink/callback`;
-        console.log("[tink/connect-url] redirect_uri =", redirect);
+        const redirect =
+          process.env.TINK_REDIRECT_URI ??
+          "https://prism-getapp-test-rc-2026efefrcderrdxzdd.lovable.app/api/tink/callback";
 
         const url =
           `https://link.tink.com/1.0/transactions/connect-accounts/` +
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/api/tink/connect-url")({
           `&redirect_uri=${encodeURIComponent(redirect)}` +
           `&market=FR&locale=fr_FR&test=true` +
           `&state=${encodeURIComponent(auth.userId)}`;
+        console.log("[tink/connect-url] Generated Tink Link URL:", url);
         return jsonResponse({ url });
       },
     },
