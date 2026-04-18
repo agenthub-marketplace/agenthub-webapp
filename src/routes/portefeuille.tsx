@@ -48,6 +48,8 @@ function Portefeuille() {
       const d = await apiFetch<{ items: Position[]; totalValue: number }>("/api/portfolio");
       setPositions(d.items);
       setTotalValue(d.totalValue);
+      // Notify other listeners (dashboard, etc.) that portfolio data changed
+      window.dispatchEvent(new CustomEvent("portfolio:changed"));
     } catch (e: any) {
       toast.error(e.message ?? "Erreur de chargement");
     } finally {
