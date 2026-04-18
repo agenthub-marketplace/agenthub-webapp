@@ -14,8 +14,14 @@ import { Route as PortefeuilleRouteImport } from './routes/portefeuille'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPortfolioRouteImport } from './routes/api/portfolio'
+import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
+import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiTinkInitRouteImport } from './routes/api/tink/init'
+import { Route as ApiTinkConnectUrlRouteImport } from './routes/api/tink/connect-url'
 import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
+import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
+import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
 
 const ReglagesRoute = ReglagesRouteImport.update({
   id: '/reglages',
@@ -42,15 +48,45 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPortfolioRoute = ApiPortfolioRouteImport.update({
+  id: '/api/portfolio',
+  path: '/api/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDashboardRoute = ApiDashboardRouteImport.update({
+  id: '/api/dashboard',
+  path: '/api/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAlertsRoute = ApiAlertsRouteImport.update({
+  id: '/api/alerts',
+  path: '/api/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTinkInitRoute = ApiTinkInitRouteImport.update({
   id: '/api/tink/init',
   path: '/api/tink/init',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTinkConnectUrlRoute = ApiTinkConnectUrlRouteImport.update({
+  id: '/api/tink/connect-url',
+  path: '/api/tink/connect-url',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTinkCallbackRoute = ApiTinkCallbackRouteImport.update({
   id: '/api/tink/callback',
   path: '/api/tink/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPortfolioIdRoute = ApiPortfolioIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPortfolioRoute,
+} as any)
+const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
+  id: '/$id/read',
+  path: '/$id/read',
+  getParentRoute: () => ApiAlertsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -59,8 +95,14 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,8 +110,14 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,8 +126,14 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/portfolio': typeof ApiPortfolioRouteWithChildren
+  '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -89,8 +143,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/portefeuille'
     | '/reglages'
+    | '/api/alerts'
+    | '/api/dashboard'
+    | '/api/portfolio'
+    | '/api/portfolio/$id'
     | '/api/tink/callback'
+    | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/read'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -98,8 +158,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/portefeuille'
     | '/reglages'
+    | '/api/alerts'
+    | '/api/dashboard'
+    | '/api/portfolio'
+    | '/api/portfolio/$id'
     | '/api/tink/callback'
+    | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/read'
   id:
     | '__root__'
     | '/'
@@ -107,8 +173,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/portefeuille'
     | '/reglages'
+    | '/api/alerts'
+    | '/api/dashboard'
+    | '/api/portfolio'
+    | '/api/portfolio/$id'
     | '/api/tink/callback'
+    | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/read'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,7 +189,11 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   PortefeuilleRoute: typeof PortefeuilleRoute
   ReglagesRoute: typeof ReglagesRoute
+  ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
+  ApiDashboardRoute: typeof ApiDashboardRoute
+  ApiPortfolioRoute: typeof ApiPortfolioRouteWithChildren
   ApiTinkCallbackRoute: typeof ApiTinkCallbackRoute
+  ApiTinkConnectUrlRoute: typeof ApiTinkConnectUrlRoute
   ApiTinkInitRoute: typeof ApiTinkInitRoute
 }
 
@@ -158,11 +234,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/portfolio': {
+      id: '/api/portfolio'
+      path: '/api/portfolio'
+      fullPath: '/api/portfolio'
+      preLoaderRoute: typeof ApiPortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dashboard': {
+      id: '/api/dashboard'
+      path: '/api/dashboard'
+      fullPath: '/api/dashboard'
+      preLoaderRoute: typeof ApiDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/alerts': {
+      id: '/api/alerts'
+      path: '/api/alerts'
+      fullPath: '/api/alerts'
+      preLoaderRoute: typeof ApiAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tink/init': {
       id: '/api/tink/init'
       path: '/api/tink/init'
       fullPath: '/api/tink/init'
       preLoaderRoute: typeof ApiTinkInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tink/connect-url': {
+      id: '/api/tink/connect-url'
+      path: '/api/tink/connect-url'
+      fullPath: '/api/tink/connect-url'
+      preLoaderRoute: typeof ApiTinkConnectUrlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/tink/callback': {
@@ -172,8 +276,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTinkCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/portfolio/$id': {
+      id: '/api/portfolio/$id'
+      path: '/$id'
+      fullPath: '/api/portfolio/$id'
+      preLoaderRoute: typeof ApiPortfolioIdRouteImport
+      parentRoute: typeof ApiPortfolioRoute
+    }
+    '/api/alerts/$id/read': {
+      id: '/api/alerts/$id/read'
+      path: '/$id/read'
+      fullPath: '/api/alerts/$id/read'
+      preLoaderRoute: typeof ApiAlertsIdReadRouteImport
+      parentRoute: typeof ApiAlertsRoute
+    }
   }
 }
+
+interface ApiAlertsRouteChildren {
+  ApiAlertsIdReadRoute: typeof ApiAlertsIdReadRoute
+}
+
+const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
+  ApiAlertsIdReadRoute: ApiAlertsIdReadRoute,
+}
+
+const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
+  ApiAlertsRouteChildren,
+)
+
+interface ApiPortfolioRouteChildren {
+  ApiPortfolioIdRoute: typeof ApiPortfolioIdRoute
+}
+
+const ApiPortfolioRouteChildren: ApiPortfolioRouteChildren = {
+  ApiPortfolioIdRoute: ApiPortfolioIdRoute,
+}
+
+const ApiPortfolioRouteWithChildren = ApiPortfolioRoute._addFileChildren(
+  ApiPortfolioRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -181,7 +323,11 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   PortefeuilleRoute: PortefeuilleRoute,
   ReglagesRoute: ReglagesRoute,
+  ApiAlertsRoute: ApiAlertsRouteWithChildren,
+  ApiDashboardRoute: ApiDashboardRoute,
+  ApiPortfolioRoute: ApiPortfolioRouteWithChildren,
   ApiTinkCallbackRoute: ApiTinkCallbackRoute,
+  ApiTinkConnectUrlRoute: ApiTinkConnectUrlRoute,
   ApiTinkInitRoute: ApiTinkInitRoute,
 }
 export const routeTree = rootRouteImport
