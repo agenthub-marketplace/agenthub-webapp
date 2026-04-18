@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Plus, Link2, Trash2, Pencil, X } from "lucide-react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { Plus, Link2, Trash2, Pencil, X, ArrowUp, ArrowDown } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, formatEuro } from "@/lib/api-client";

@@ -21,6 +21,7 @@ import { Route as ApiTinkInitRouteImport } from './routes/api/tink/init'
 import { Route as ApiTinkConnectUrlRouteImport } from './routes/api/tink/connect-url'
 import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
 import { Route as ApiStocksSearchRouteImport } from './routes/api/stocks.search'
+import { Route as ApiStocksQuoteRouteImport } from './routes/api/stocks.quote'
 import { Route as ApiStocksProfileRouteImport } from './routes/api/stocks.profile'
 import { Route as ApiStocksLogoRouteImport } from './routes/api/stocks.logo'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
@@ -88,6 +89,11 @@ const ApiStocksSearchRoute = ApiStocksSearchRouteImport.update({
   path: '/api/stocks/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStocksQuoteRoute = ApiStocksQuoteRouteImport.update({
+  id: '/api/stocks/quote',
+  path: '/api/stocks/quote',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStocksProfileRoute = ApiStocksProfileRouteImport.update({
   id: '/api/stocks/profile',
   path: '/api/stocks/profile',
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
   '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/quote': typeof ApiStocksQuoteRoute
   '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
   '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/quote': typeof ApiStocksQuoteRoute
   '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
   '/api/stocks/profile': typeof ApiStocksProfileRoute
+  '/api/stocks/quote': typeof ApiStocksQuoteRoute
   '/api/stocks/search': typeof ApiStocksSearchRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
     | '/api/stocks/profile'
+    | '/api/stocks/quote'
     | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
     | '/api/stocks/profile'
+    | '/api/stocks/quote'
     | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
     | '/api/stocks/profile'
+    | '/api/stocks/quote'
     | '/api/stocks/search'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   ApiAdminWatchlistRoute: typeof ApiAdminWatchlistRoute
   ApiStocksLogoRoute: typeof ApiStocksLogoRoute
   ApiStocksProfileRoute: typeof ApiStocksProfileRoute
+  ApiStocksQuoteRoute: typeof ApiStocksQuoteRoute
   ApiStocksSearchRoute: typeof ApiStocksSearchRoute
   ApiTinkCallbackRoute: typeof ApiTinkCallbackRoute
   ApiTinkConnectUrlRoute: typeof ApiTinkConnectUrlRoute
@@ -347,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStocksSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/stocks/quote': {
+      id: '/api/stocks/quote'
+      path: '/api/stocks/quote'
+      fullPath: '/api/stocks/quote'
+      preLoaderRoute: typeof ApiStocksQuoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stocks/profile': {
       id: '/api/stocks/profile'
       path: '/api/stocks/profile'
@@ -430,6 +450,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminWatchlistRoute: ApiAdminWatchlistRoute,
   ApiStocksLogoRoute: ApiStocksLogoRoute,
   ApiStocksProfileRoute: ApiStocksProfileRoute,
+  ApiStocksQuoteRoute: ApiStocksQuoteRoute,
   ApiStocksSearchRoute: ApiStocksSearchRoute,
   ApiTinkCallbackRoute: ApiTinkCallbackRoute,
   ApiTinkConnectUrlRoute: ApiTinkConnectUrlRoute,
