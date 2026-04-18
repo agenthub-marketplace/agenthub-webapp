@@ -179,9 +179,7 @@ function Portefeuille() {
                 const value = Number(p.current_price ?? p.purchase_price ?? 0) * Number(p.quantity);
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-subtle flex items-center justify-center">
-                      <span className="text-[12px] font-bold text-foreground">{p.ticker.slice(0, 4)}</span>
-                    </div>
+                    <PositionLogo ticker={p.ticker} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
