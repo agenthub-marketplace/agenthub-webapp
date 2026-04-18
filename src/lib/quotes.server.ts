@@ -73,6 +73,7 @@ async function finnhubQuote(symbol: string, apiKey: string): Promise<Quote> {
         price: d.c,
         change: typeof d.d === "number" ? d.d : null,
         changePct: typeof d.dp === "number" ? d.dp : null,
+        currency: "USD",
         source: "finnhub",
       };
     }
