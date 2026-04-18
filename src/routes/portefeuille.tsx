@@ -238,6 +238,13 @@ function AllocCard({ title, items }: { title: string; items: { name: string; pct
   );
 }
 
+type StockSuggestion = {
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  geography: string | null;
+};
+
 function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
@@ -246,6 +253,56 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
+  const [showSug, setShowSug] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const lastQueryRef = useRef("");
+
+  useEffect(() => {
+    const q = name.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    lastQueryRef.current = q;
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const d = await apiFetch<{ results: StockSuggestion[] }>(
+          `/api/stocks/search?q=${encodeURIComponent(q)}`,
+        );
+        // Ignore if user kept typing
+        if (lastQueryRef.current !== q) return;
+        setSuggestions(d.results ?? []);
+        setShowSug(true);
+      } catch {
+        // Silent — autocomplete is best-effort
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [name]);
+
+  const pickSuggestion = async (s: StockSuggestion) => {
+    setName(s.name);
+    setTicker(s.displaySymbol || s.symbol);
+    if (s.geography) setGeography(s.geography);
+    setShowSug(false);
+    // Enrich with sector via profile endpoint
+    try {
+      const d = await apiFetch<{
+        profile: { sector: string | null; geography: string | null; ticker: string };
+      }>(`/api/stocks/profile?symbol=${encodeURIComponent(s.symbol)}`);
+      if (d.profile?.sector) setSector(d.profile.sector);
+      if (d.profile?.geography) setGeography(d.profile.geography);
+      if (d.profile?.ticker) setTicker(d.profile.ticker);
+    } catch {
+      // best-effort
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,8 +342,38 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           </button>
         </div>
         <form onSubmit={submit} className="space-y-2.5">
-          <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (ex: TTE)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
-          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom de l'entreprise" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <div className="relative">
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowSug(true)}
+              placeholder="Nom de l'entreprise (ex: TotalEnergies)"
+              className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+              autoComplete="off"
+            />
+            {showSug && suggestions.length > 0 && (
+              <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg max-h-60 overflow-auto">
+                {suggestions.map((s) => (
+                  <button
+                    type="button"
+                    key={`${s.symbol}-${s.displaySymbol}`}
+                    onClick={() => pickSuggestion(s)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-subtle border-b border-border last:border-0"
+                  >
+                    <p className="text-[13px] font-bold text-foreground truncate">{s.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {s.displaySymbol}{s.geography ? ` · ${s.geography}` : ""}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {searching && (
+              <p className="absolute right-3 top-3.5 text-[11px] text-muted-foreground">…</p>
+            )}
+          </div>
+          <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (ex: TTE.PA)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
             <option value="">Géographie (optionnel)</option>
