@@ -79,7 +79,12 @@ function LoginPage() {
               Sign up with e-mail
             </button>
             <button
-              onClick={() => toast.info("Google sign-in bientôt disponible")}
+              onClick={async () => {
+                const result = await lovable.auth.signInWithOAuth("google", {
+                  redirect_uri: `${window.location.origin}/dashboard`,
+                });
+                if (result.error) toast.error(result.error.message ?? "Erreur Google sign-in");
+              }}
               className="w-full h-14 bg-surface border border-border text-foreground rounded-full font-semibold flex items-center justify-center gap-3 active:scale-[0.99] transition"
             >
               <GoogleIcon />
