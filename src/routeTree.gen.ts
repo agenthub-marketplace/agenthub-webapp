@@ -14,6 +14,8 @@ import { Route as PortefeuilleRouteImport } from './routes/portefeuille'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AnalysesRouteImport } from './routes/analyses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTinkInitRouteImport } from './routes/api/tink/init'
+import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
 
 const ReglagesRoute = ReglagesRouteImport.update({
   id: '/reglages',
@@ -40,6 +42,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTinkInitRoute = ApiTinkInitRouteImport.update({
+  id: '/api/tink/init',
+  path: '/api/tink/init',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTinkCallbackRoute = ApiTinkCallbackRouteImport.update({
+  id: '/api/tink/callback',
+  path: '/api/tink/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/init': typeof ApiTinkInitRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +68,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/init': typeof ApiTinkInitRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +78,28 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/portefeuille': typeof PortefeuilleRoute
   '/reglages': typeof ReglagesRoute
+  '/api/tink/callback': typeof ApiTinkCallbackRoute
+  '/api/tink/init': typeof ApiTinkInitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/analyses' | '/dashboard' | '/portefeuille' | '/reglages'
+  fullPaths:
+    | '/'
+    | '/analyses'
+    | '/dashboard'
+    | '/portefeuille'
+    | '/reglages'
+    | '/api/tink/callback'
+    | '/api/tink/init'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analyses' | '/dashboard' | '/portefeuille' | '/reglages'
+  to:
+    | '/'
+    | '/analyses'
+    | '/dashboard'
+    | '/portefeuille'
+    | '/reglages'
+    | '/api/tink/callback'
+    | '/api/tink/init'
   id:
     | '__root__'
     | '/'
@@ -75,6 +107,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/portefeuille'
     | '/reglages'
+    | '/api/tink/callback'
+    | '/api/tink/init'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +117,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   PortefeuilleRoute: typeof PortefeuilleRoute
   ReglagesRoute: typeof ReglagesRoute
+  ApiTinkCallbackRoute: typeof ApiTinkCallbackRoute
+  ApiTinkInitRoute: typeof ApiTinkInitRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +158,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tink/init': {
+      id: '/api/tink/init'
+      path: '/api/tink/init'
+      fullPath: '/api/tink/init'
+      preLoaderRoute: typeof ApiTinkInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tink/callback': {
+      id: '/api/tink/callback'
+      path: '/api/tink/callback'
+      fullPath: '/api/tink/callback'
+      preLoaderRoute: typeof ApiTinkCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -131,7 +181,18 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   PortefeuilleRoute: PortefeuilleRoute,
   ReglagesRoute: ReglagesRoute,
+  ApiTinkCallbackRoute: ApiTinkCallbackRoute,
+  ApiTinkInitRoute: ApiTinkInitRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
