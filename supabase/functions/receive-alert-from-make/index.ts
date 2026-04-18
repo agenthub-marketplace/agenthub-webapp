@@ -22,14 +22,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const secret = req.headers.get("x-make-secret");
-    const expected = Deno.env.get("MAKE_WEBHOOK_SECRET");
-    if (!expected || secret !== expected) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // TEMP: x-make-secret check disabled for Make.com testing. RE-ENABLE BEFORE PRODUCTION.
 
     const body = await req.json();
     const {
