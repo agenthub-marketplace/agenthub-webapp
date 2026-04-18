@@ -187,8 +187,16 @@ function Portefeuille() {
             <Skeleton className="h-9 w-40 mt-2" />
           ) : (
             <p className="text-[34px] font-bold text-foreground mt-2 leading-none">
-              {totalValue > 0 ? formatEuro(totalValue) : "€ 0"}
+              {liveTotal > 0 ? formatEuro(liveTotal) : totalValue > 0 ? formatEuro(totalValue) : "€ 0"}
             </p>
+          )}
+          {!loading && liveTotal > 0 && Math.abs(dayChangeAbs) > 0.001 && (
+            <div className={`mt-2 flex items-center gap-1 text-[12px] font-semibold ${dayChangeAbs >= 0 ? "text-success" : "text-danger"}`}>
+              {dayChangeAbs >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+              <span>
+                {dayChangeAbs >= 0 ? "+" : ""}{formatEuro(dayChangeAbs)} ({dayChangeAbs >= 0 ? "+" : ""}{dayChangePct.toFixed(2)}%) aujourd'hui
+              </span>
+            </div>
           )}
           <p className="text-[12px] text-muted-foreground mt-2">{positions.length} position(s)</p>
         </section>
