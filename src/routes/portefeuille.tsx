@@ -191,7 +191,10 @@ function Portefeuille() {
                     <div className="text-right">
                       <p className="text-[13px] font-bold text-foreground">{formatEuro(value)}</p>
                     </div>
-                    <button onClick={() => remove(p.id)} className="ml-2 text-muted-foreground active:text-danger" aria-label="Supprimer">
+                    <button onClick={() => setEditing(p)} className="ml-2 text-muted-foreground active:text-foreground" aria-label="Modifier">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => remove(p.id)} className="ml-1 text-muted-foreground active:text-danger" aria-label="Supprimer">
                       <Trash2 size={16} />
                     </button>
                   </article>
