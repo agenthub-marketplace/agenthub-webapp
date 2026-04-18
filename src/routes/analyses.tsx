@@ -90,26 +90,60 @@ const ANALYSES: Analysis[] = [
   {
     id: "lvmh",
     ticker: "LVMH",
-    company: "LVMH Moët Hennessy",
+    company: "LVMH · Luxe · CAC 40",
     meta: "LVMH",
     time: "Il y a 2h",
+    badge: { label: "ATTENTION", tone: "warning" },
     side: "warning",
     read: false,
     urgent: false,
     summary:
-      "Ralentissement du luxe en Asie confirmé. Pression sur les ventes Q2, analystes divisés sur l'impact annuel.",
+      "Ralentissement du luxe en Asie confirmé. Pression sur les ventes Q2, analystes divisés sur l'impact annuel. Le titre cède 2,3% à l'ouverture.",
+    position: { perf: "-€ 198", qty: "8 titres · -1,4%", impact: "-0,47%" },
+    scenarios: [
+      { color: "success", label: "Optimiste", perf: "+4%", prob: "20%" },
+      { color: "muted", label: "Neutre", perf: "-2%", prob: "55%" },
+      { color: "danger", label: "Pessimiste", perf: "-9%", prob: "25%" },
+    ],
+    correlations: [
+      { dot: "warning", name: "Kering", sector: "Luxe", pct: "-2,8%" },
+      { dot: "warning", name: "Hermès", sector: "Luxe", pct: "-1,1%" },
+      { dot: "success", name: "L'Oréal", sector: "Beauté", pct: "+0,4%" },
+    ],
+    reactions: [
+      { label: "Conservé", pct: 64, colorClass: "bg-foreground", textClass: "text-foreground" },
+      { label: "Renforcé", pct: 18, colorClass: "bg-success", textClass: "text-success" },
+      { label: "Vendu", pct: 18, colorClass: "bg-danger", textClass: "text-danger" },
+    ],
   },
   {
     id: "bnp",
     ticker: "BNP",
-    company: "BNP Paribas",
+    company: "BNP Paribas · Finance · CAC 40",
     meta: "BNP",
     time: "Il y a 4h",
+    badge: { label: "POSITIF", tone: "success" },
     side: "success",
     read: true,
     urgent: false,
     summary:
-      "BCE maintient ses taux stables. BNP bénéficie d'un contexte favorable sur ses marges nettes d'intérêt.",
+      "BCE maintient ses taux stables. BNP bénéficie d'un contexte favorable sur ses marges nettes d'intérêt. Recommandation acheteur réitérée par 3 brokers.",
+    position: { perf: "+€ 124", qty: "60 titres · +0,8%", impact: "+0,29%" },
+    scenarios: [
+      { color: "success", label: "Optimiste", perf: "+8%", prob: "40%" },
+      { color: "muted", label: "Neutre", perf: "+2%", prob: "45%" },
+      { color: "danger", label: "Pessimiste", perf: "-3%", prob: "15%" },
+    ],
+    correlations: [
+      { dot: "success", name: "Société Générale", sector: "Finance", pct: "+1,4%" },
+      { dot: "success", name: "Crédit Agricole", sector: "Finance", pct: "+0,9%" },
+      { dot: "warning", name: "AXA", sector: "Assurance", pct: "+0,2%" },
+    ],
+    reactions: [
+      { label: "Conservé", pct: 71, colorClass: "bg-foreground", textClass: "text-foreground" },
+      { label: "Renforcé", pct: 24, colorClass: "bg-success", textClass: "text-success" },
+      { label: "Vendu", pct: 5, colorClass: "bg-danger", textClass: "text-danger" },
+    ],
   },
   {
     id: "sanofi",
@@ -117,11 +151,28 @@ const ANALYSES: Analysis[] = [
     company: "SAN · Santé · CAC 40",
     meta: "SAN",
     time: "Il y a 6h",
+    badge: { label: "POSITIF", tone: "success" },
     side: "success",
     read: false,
     urgent: false,
     summary:
-      "Phase 3 positive sur traitement immuno-oncologie. Pic de ventes potentiel estimé à 4 Mds€ d'ici 2028.",
+      "Phase 3 positive sur traitement immuno-oncologie. Pic de ventes potentiel estimé à 4 Mds€ d'ici 2028. Le titre s'envole +5,2% en pré-marché.",
+    position: { perf: "+€ 287", qty: "30 titres · +1,9%", impact: "+0,68%" },
+    scenarios: [
+      { color: "success", label: "Optimiste", perf: "+15%", prob: "40%" },
+      { color: "muted", label: "Neutre", perf: "+6%", prob: "45%" },
+      { color: "danger", label: "Pessimiste", perf: "-2%", prob: "15%" },
+    ],
+    correlations: [
+      { dot: "success", name: "Novo Nordisk", sector: "Santé", pct: "+2,1%" },
+      { dot: "success", name: "Roche", sector: "Santé", pct: "+1,3%" },
+      { dot: "warning", name: "Bayer", sector: "Pharma", pct: "+0,3%" },
+    ],
+    reactions: [
+      { label: "Conservé", pct: 52, colorClass: "bg-foreground", textClass: "text-foreground" },
+      { label: "Renforcé", pct: 44, colorClass: "bg-success", textClass: "text-success" },
+      { label: "Vendu", pct: 4, colorClass: "bg-danger", textClass: "text-danger" },
+    ],
   },
 ];
 

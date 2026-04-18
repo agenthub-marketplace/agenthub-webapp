@@ -15,7 +15,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-surface border-t border-border h-16 flex items-stretch z-50 max-w-[393px] md:max-w-[720px] lg:max-w-[960px]"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-surface border-t border-border h-16 flex items-stretch z-50 max-w-[393px] md:max-w-full"
     >
       {items.map(({ to, label, Icon }) => {
         const active = pathname === to;
