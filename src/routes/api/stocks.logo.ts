@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
+import { fetchLogo } from "@/lib/quotes.server";
 
 export const Route = createFileRoute("/api/stocks/logo")({
   server: {
@@ -13,18 +14,10 @@ export const Route = createFileRoute("/api/stocks/logo")({
         const symbol = (url.searchParams.get("symbol") ?? "").trim();
         if (!symbol || symbol.length > 32) return errorResponse("symbol requis", 400);
 
-        const apiKey = process.env.FINNHUB_API_KEY;
-        if (!apiKey) {
-          return jsonResponse({ logo: null });
-        }
+        const finnhubKey = process.env.FINNHUB_API_KEY ?? "";
 
         try {
-          const res = await fetch(
-            `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-          );
-          if (!res.ok) return jsonResponse({ logo: null });
-          const data = (await res.json()) as { logo?: string };
-          const logo = data.logo || null;
+          const logo = await fetchLogo(symbol, finnhubKey);
 
           // Cache the logo on every position the user has for this ticker so
           // future page loads don't need to call Finnhub again.
