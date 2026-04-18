@@ -181,17 +181,30 @@ export async function fetchQuotes(
 // Logos (Finnhub for US, Twelve Data for EU)
 // ---------------------------------------------------------------------------
 
+async function twelveDataLogoRaw(symbol: string, apiKey: string): Promise<string | null> {
+  const url = `https://api.twelvedata.com/logo?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
+  console.log(`[logo:twelvedata] GET ${url.replace(apiKey, "***")}`);
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const d = (await res.json()) as { url?: string; status?: string; code?: number };
+  if (d.status === "error" || d.code) return null;
+  return d.url || null;
+}
+
 export async function fetchLogo(symbol: string, finnhubKey: string): Promise<string | null> {
   try {
     if (isEuropeanTicker(symbol)) {
       const twelveKey = process.env.TWELVE_DATA_API_KEY;
       if (!twelveKey) return null;
-      const url = `https://api.twelvedata.com/logo?symbol=${encodeURIComponent(symbol)}&apikey=${twelveKey}`;
-      console.log(`[logo:twelvedata] GET ${url.replace(twelveKey, "***")}`);
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const d = (await res.json()) as { url?: string };
-      return d.url || null;
+      const { base, exchange } = splitEuTicker(symbol);
+      const candidates = Array.from(
+        new Set([exchange ? `${base}:${exchange}` : null, base, symbol].filter(Boolean) as string[]),
+      );
+      for (const candidate of candidates) {
+        const logo = await twelveDataLogoRaw(candidate, twelveKey);
+        if (logo) return logo;
+      }
+      return null;
     }
     const res = await fetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${finnhubKey}`,
