@@ -192,14 +192,6 @@ function Analyses() {
     return ANALYSES;
   }, [filter]);
 
-  // Tinted header per filter to visually differentiate
-  const headerTint =
-    filter === "urgentes"
-      ? "bg-danger-soft"
-      : filter === "non-lues"
-      ? "bg-warning-soft"
-      : "bg-surface";
-
   const filterLabel =
     filter === "urgentes"
       ? "Alertes urgentes nécessitant votre attention"
@@ -209,7 +201,7 @@ function Analyses() {
 
   return (
     <AppShellWithNav>
-      <header className={`px-5 pt-10 pb-5 transition-colors ${headerTint}`}>
+      <header className="bg-surface px-5 pt-14 pb-5">
         <h1 className="text-[22px] font-bold text-foreground">Analyses</h1>
         <p className="text-[12px] text-muted-foreground mt-1">{filterLabel}</p>
       </header>
