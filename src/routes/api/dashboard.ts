@@ -115,12 +115,13 @@ export const Route = createFileRoute("/api/dashboard")({
           const price = Number(p.current_price ?? p.purchase_price ?? 0);
           return sum + price * Number(p.quantity ?? 0);
         }, 0);
-        const riskScore = computeRiskScore(positions);
+        const risk = computeRiskScore(positions);
 
         return jsonResponse({
           profile: profileRes.data,
           totalValue,
-          riskScore,
+          riskScore: risk.score,
+          riskLevel: risk.level,
           recentAlerts: alertsRes.data ?? [],
         });
       },
