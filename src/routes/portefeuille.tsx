@@ -236,6 +236,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
+  const [geography, setGeography] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
