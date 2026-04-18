@@ -51,9 +51,13 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("ticker, name, quantity requis", 400);
         }
 
-        // Fetch the current price right away so totals reflect the new position immediately.
+        // Fetch the current price + logo right away so the new position
+        // shows up immediately with correct totals AND avatar.
         const apiKey = process.env.FINNHUB_API_KEY;
-        const quote = apiKey ? await fetchQuote(String(ticker), apiKey) : null;
+        const [quote, logo] = await Promise.all([
+          apiKey ? fetchQuote(String(ticker), apiKey) : Promise.resolve(null),
+          apiKey ? fetchLogo(String(ticker), apiKey) : Promise.resolve(null),
+        ]);
 
         const { data, error } = await auth.userClient
           .from("positions")
@@ -69,6 +73,7 @@ export const Route = createFileRoute("/api/portfolio")({
             geography: geography ?? null,
             isin: isin ?? null,
             source: "manual",
+            logo_url: logo,
           })
           .select()
           .single();
