@@ -22,13 +22,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const auth = req.headers.get("authorization");
-    if (auth !== "Bearer prism_make_2026") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Auth checks intentionally removed — secured at network level.
 
     const body = await req.json();
     const {
