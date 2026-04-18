@@ -110,7 +110,7 @@ function Dashboard() {
             {loading || !risk ? (
               <Skeleton className="h-3 w-16" />
             ) : (
-              <p className={`text-[12px] font-bold uppercase tracking-wider text-${risk.tone}`}>{risk.label}</p>
+              <p className={`text-[12px] font-bold uppercase tracking-wider text-${risk.tone}`}>{data!.riskLevel}</p>
             )}
           </div>
           <div className="flex gap-1.5 mt-4">
