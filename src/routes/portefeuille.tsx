@@ -206,6 +206,7 @@ function Portefeuille() {
       </div>
 
       {showAdd && <AddPositionModal onClose={() => setShowAdd(false)} onAdded={load} />}
+      {editing && <EditPositionModal position={editing} onClose={() => setEditing(null)} onSaved={load} />}
     </AppShellWithNav>
   );
 }
