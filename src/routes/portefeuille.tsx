@@ -269,6 +269,7 @@ function Portefeuille() {
                         {q?.price ? ` · ${formatEuro(q.price)}/titre` : ""}
                         {p.sector ? ` · ${p.sector}` : ""}
                         {p.source === "tink" ? " · Tink" : ""}
+                        {q?.stale ? " · Données différées" : ""}
                       </p>
                       {hasPerf && (
                         <p className={`text-[11px] font-semibold mt-0.5 ${perfUp ? "text-success" : "text-danger"}`}>
