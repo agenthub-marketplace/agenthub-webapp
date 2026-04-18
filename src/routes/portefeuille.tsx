@@ -231,18 +231,32 @@ function Portefeuille() {
           ) : (
             <div className="space-y-2.5">
               {positions.map((p) => {
-                const value = Number(p.current_price ?? p.purchase_price ?? 0) * Number(p.quantity);
+                const q = quotes[p.ticker];
+                const livePrice = q?.price ?? p.current_price ?? p.purchase_price ?? 0;
+                const value = Number(livePrice) * Number(p.quantity);
+                const pct = q?.changePct;
+                const hasPct = typeof pct === "number" && !Number.isNaN(pct);
+                const up = hasPct && pct >= 0;
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
                     <PositionLogo ticker={p.ticker} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {p.quantity} titres{p.sector ? ` · ${p.sector}` : ""}{p.source === "tink" ? " · Tink" : ""}
+                        {p.quantity} titres
+                        {q?.price ? ` · ${formatEuro(q.price)}/titre` : ""}
+                        {p.sector ? ` · ${p.sector}` : ""}
+                        {p.source === "tink" ? " · Tink" : ""}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] font-bold text-foreground">{formatEuro(value)}</p>
+                      {hasPct && (
+                        <div className={`flex items-center justify-end gap-0.5 text-[11px] font-semibold ${up ? "text-success" : "text-danger"}`}>
+                          {up ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
+                          <span>{up ? "+" : ""}{pct.toFixed(2)}%</span>
+                        </div>
+                      )}
                     </div>
                     <button onClick={() => setEditing(p)} className="ml-2 text-muted-foreground active:text-foreground" aria-label="Modifier">
                       <Pencil size={16} />
