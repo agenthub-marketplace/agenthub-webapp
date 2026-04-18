@@ -33,6 +33,7 @@ function Portefeuille() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [editing, setEditing] = useState<Position | null>(null);
 
   const load = useCallback(async () => {
     const { data: sess } = await supabase.auth.getSession();
