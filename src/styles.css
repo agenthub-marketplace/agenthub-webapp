@@ -82,11 +82,18 @@
   body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 }
 
-/* App mobile shell — keep app centered, max 393px */
+/* App shell — responsive container.
+   Phone: full width. Tablet: 720px. Desktop: 960px. */
 .app-shell {
   max-width: 393px;
   margin-inline: auto;
   min-height: 100dvh;
   background-color: var(--color-background);
   position: relative;
+}
+@media (min-width: 768px) {
+  .app-shell { max-width: 720px; }
+}
+@media (min-width: 1024px) {
+  .app-shell { max-width: 960px; }
 }
