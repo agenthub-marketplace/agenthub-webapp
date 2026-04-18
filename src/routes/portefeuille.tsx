@@ -84,9 +84,13 @@ function Portefeuille() {
     (async () => {
       toast.loading("Connexion à votre banque…", { id: "tink" });
       try {
+        const { data: sess } = await supabase.auth.getSession();
         const res = await fetch("/api/tink/callback", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
+          },
           body: JSON.stringify({ code }),
         });
         const json = await res.json();
