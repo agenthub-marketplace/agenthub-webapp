@@ -27,7 +27,7 @@ function Reglages() {
 
   return (
     <AppShellWithNav>
-      <header className="bg-surface px-5 pt-14 pb-5">
+      <header className="page-header">
         <h1 className="text-[22px] font-bold text-foreground">Réglages</h1>
       </header>
 

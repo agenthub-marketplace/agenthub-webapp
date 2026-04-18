@@ -182,7 +182,7 @@ function Portefeuille() {
 
   return (
     <AppShellWithNav>
-      <header className="bg-surface px-5 pt-14 pb-5 flex items-center justify-between">
+      <header className="page-header flex items-center justify-between">
         <h1 className="text-[22px] font-bold text-foreground">Portefeuille</h1>
         <button
           onClick={() => setShowAdd(true)}
@@ -211,7 +211,7 @@ function Portefeuille() {
               </span>
             </div>
           )}
-          <p className="text-[12px] text-muted-foreground mt-2">{positions.length} position(s)</p>
+          
         </section>
 
         <button
