@@ -20,6 +20,7 @@ import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiTinkInitRouteImport } from './routes/api/tink/init'
 import { Route as ApiTinkConnectUrlRouteImport } from './routes/api/tink/connect-url'
 import { Route as ApiTinkCallbackRouteImport } from './routes/api/tink/callback'
+import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
 import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
 
@@ -78,6 +79,11 @@ const ApiTinkCallbackRoute = ApiTinkCallbackRouteImport.update({
   path: '/api/tink/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPortfolioTickersRoute = ApiPortfolioTickersRouteImport.update({
+  id: '/tickers',
+  path: '/tickers',
+  getParentRoute: () => ApiPortfolioRoute,
+} as any)
 const ApiPortfolioIdRoute = ApiPortfolioIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
+  '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
+  '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
+  '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/api/dashboard'
     | '/api/portfolio'
     | '/api/portfolio/$id'
+    | '/api/portfolio/tickers'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/api/dashboard'
     | '/api/portfolio'
     | '/api/portfolio/$id'
+    | '/api/portfolio/tickers'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/api/dashboard'
     | '/api/portfolio'
     | '/api/portfolio/$id'
+    | '/api/portfolio/tickers'
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
@@ -276,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTinkCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/portfolio/tickers': {
+      id: '/api/portfolio/tickers'
+      path: '/tickers'
+      fullPath: '/api/portfolio/tickers'
+      preLoaderRoute: typeof ApiPortfolioTickersRouteImport
+      parentRoute: typeof ApiPortfolioRoute
+    }
     '/api/portfolio/$id': {
       id: '/api/portfolio/$id'
       path: '/$id'
@@ -307,10 +326,12 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
 
 interface ApiPortfolioRouteChildren {
   ApiPortfolioIdRoute: typeof ApiPortfolioIdRoute
+  ApiPortfolioTickersRoute: typeof ApiPortfolioTickersRoute
 }
 
 const ApiPortfolioRouteChildren: ApiPortfolioRouteChildren = {
   ApiPortfolioIdRoute: ApiPortfolioIdRoute,
+  ApiPortfolioTickersRoute: ApiPortfolioTickersRoute,
 }
 
 const ApiPortfolioRouteWithChildren = ApiPortfolioRoute._addFileChildren(
@@ -333,3 +354,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
