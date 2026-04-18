@@ -85,16 +85,35 @@ async function finnhubQuote(symbol: string, apiKey: string): Promise<Quote> {
 }
 
 // ---------------------------------------------------------------------------
-// Twelve Data (Europe)
+// Yahoo Finance (Europe + fallback)
 // ---------------------------------------------------------------------------
+//
+// Yahoo's chart endpoint is unauthenticated and supports every European
+// suffix we care about (.PA .AS .DE .MI .MC .LS .BR .L .F .SW .HE .CO .OL
+// .ST .VI .AT .WA .PR ...). Prices come back in the listing's native
+// currency (EUR for Euronext/XETRA/Borsa, GBP for LSE, etc.).
+//
+// We use a desktop User-Agent header — Yahoo blocks default fetch UAs on
+// Cloudflare Workers.
 
-type TwelveQuoteResponse = {
-  close?: string | number;
-  change?: string | number;
-  percent_change?: string | number;
-  status?: string;
-  code?: number;
-  message?: string;
+const YAHOO_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  Accept: "application/json",
+};
+
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        chartPreviousClose?: number;
+        previousClose?: number;
+        currency?: string;
+      };
+    }> | null;
+    error?: { code?: string; description?: string } | null;
+  };
 };
 
 function num(v: unknown): number | null {
@@ -103,53 +122,41 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function twelveDataQuoteRaw(symbol: string, apiKey: string): Promise<Quote> {
-  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
-  console.log(`[quotes:twelvedata] GET ${url.replace(apiKey, "***")}`);
+async function yahooQuote(symbol: string): Promise<Quote> {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+  console.log(`[quotes:yahoo] GET ${url}`);
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: YAHOO_HEADERS });
     if (!res.ok) {
-      console.warn(`[quotes:twelvedata] ${symbol} -> HTTP ${res.status}`);
+      console.warn(`[quotes:yahoo] ${symbol} -> HTTP ${res.status}`);
       return { price: null, change: null, changePct: null, source: "none" };
     }
-    const d = (await res.json()) as TwelveQuoteResponse;
-    console.log(`[quotes:twelvedata] ${symbol} ->`, JSON.stringify(d));
-    if (d.status === "error" || d.code) {
-      console.warn(`[quotes:twelvedata] ${symbol} error: ${d.message ?? "unknown"}`);
+    const d = (await res.json()) as YahooChartResponse;
+    if (d.chart?.error) {
+      console.warn(`[quotes:yahoo] ${symbol} error:`, JSON.stringify(d.chart.error));
       return { price: null, change: null, changePct: null, source: "none" };
     }
-    const price = num(d.close);
+    const meta = d.chart?.result?.[0]?.meta;
+    const price = num(meta?.regularMarketPrice);
+    const prev = num(meta?.chartPreviousClose ?? meta?.previousClose);
     if (price == null) {
+      console.warn(`[quotes:yahoo] ${symbol} no price in meta`);
       return { price: null, change: null, changePct: null, source: "none" };
     }
+    const change = prev != null ? price - prev : null;
+    const changePct = prev != null && prev > 0 ? ((price - prev) / prev) * 100 : null;
+    console.log(`[quotes:yahoo] ${symbol} -> price=${price} prev=${prev} ${meta?.currency ?? ""}`);
     return {
       price,
-      change: num(d.change),
-      changePct: num(d.percent_change),
-      source: "twelvedata",
+      change,
+      changePct,
+      currency: meta?.currency ?? null,
+      source: "yahoo",
     };
   } catch (e) {
-    console.error(`[quotes:twelvedata] ${symbol} fetch error`, e);
+    console.error(`[quotes:yahoo] ${symbol} fetch error`, e);
     return { price: null, change: null, changePct: null, source: "none" };
   }
-}
-
-/** Twelve Data does NOT accept Yahoo-style ".AS" suffixes. Try several formats. */
-async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
-  const { base, exchange } = splitEuTicker(symbol);
-  const candidates: string[] = [];
-  if (exchange) candidates.push(`${base}:${exchange}`); // e.g. MT:Euronext
-  candidates.push(base);                                 // e.g. MT (NYSE fallback for dual-listed)
-  candidates.push(symbol);                               // last resort
-
-  for (const candidate of Array.from(new Set(candidates))) {
-    const q = await twelveDataQuoteRaw(candidate, apiKey);
-    if (q.price != null) {
-      console.log(`[quotes:twelvedata] ${symbol} resolved via "${candidate}"`);
-      return q;
-    }
-  }
-  return { price: null, change: null, changePct: null, source: "none" };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,12 +165,7 @@ async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
 
 export async function fetchQuote(symbol: string, finnhubKey: string): Promise<Quote> {
   if (isEuropeanTicker(symbol)) {
-    const twelveKey = process.env.TWELVE_DATA_API_KEY;
-    if (!twelveKey) {
-      console.warn(`[quotes] TWELVE_DATA_API_KEY missing for EU ticker ${symbol}`);
-      return { price: null, change: null, changePct: null, source: "none" };
-    }
-    return twelveDataQuote(symbol, twelveKey);
+    return yahooQuote(symbol);
   }
   return finnhubQuote(symbol, finnhubKey);
 }
@@ -180,33 +182,41 @@ export async function fetchQuotes(
 }
 
 // ---------------------------------------------------------------------------
-// Logos (Finnhub for US, Twelve Data for EU)
+// Logos (Finnhub for US, Yahoo /quoteSummary for EU)
 // ---------------------------------------------------------------------------
 
-async function twelveDataLogoRaw(symbol: string, apiKey: string): Promise<string | null> {
-  const url = `https://api.twelvedata.com/logo?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
-  console.log(`[logo:twelvedata] GET ${url.replace(apiKey, "***")}`);
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const d = (await res.json()) as { url?: string; status?: string; code?: number };
-  if (d.status === "error" || d.code) return null;
-  return d.url || null;
+type YahooQuoteSummary = {
+  quoteSummary?: {
+    result?: Array<{ assetProfile?: { website?: string } }> | null;
+  };
+};
+
+/**
+ * Yahoo doesn't directly expose a logo URL, but it returns the company website
+ * which we then resolve via Clearbit's logo CDN — same approach Yahoo Finance
+ * itself uses. Free, no API key, returns a clean transparent PNG.
+ */
+async function yahooLogo(symbol: string): Promise<string | null> {
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile`;
+  console.log(`[logo:yahoo] GET ${url}`);
+  try {
+    const res = await fetch(url, { headers: YAHOO_HEADERS });
+    if (!res.ok) return null;
+    const d = (await res.json()) as YahooQuoteSummary;
+    const website = d.quoteSummary?.result?.[0]?.assetProfile?.website;
+    if (!website) return null;
+    const host = new URL(website).hostname.replace(/^www\./, "");
+    return `https://logo.clearbit.com/${host}`;
+  } catch (e) {
+    console.error(`[logo:yahoo] ${symbol} error`, e);
+    return null;
+  }
 }
 
 export async function fetchLogo(symbol: string, finnhubKey: string): Promise<string | null> {
   try {
     if (isEuropeanTicker(symbol)) {
-      const twelveKey = process.env.TWELVE_DATA_API_KEY;
-      if (!twelveKey) return null;
-      const { base, exchange } = splitEuTicker(symbol);
-      const candidates = Array.from(
-        new Set([exchange ? `${base}:${exchange}` : null, base, symbol].filter(Boolean) as string[]),
-      );
-      for (const candidate of candidates) {
-        const logo = await twelveDataLogoRaw(candidate, twelveKey);
-        if (logo) return logo;
-      }
-      return null;
+      return await yahooLogo(symbol);
     }
     const res = await fetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${finnhubKey}`,
