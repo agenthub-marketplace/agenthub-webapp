@@ -101,7 +101,7 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
+async function twelveDataQuoteRaw(symbol: string, apiKey: string): Promise<Quote> {
   const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
   console.log(`[quotes:twelvedata] GET ${url.replace(apiKey, "***")}`);
   try {
@@ -130,6 +130,24 @@ async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
     console.error(`[quotes:twelvedata] ${symbol} fetch error`, e);
     return { price: null, change: null, changePct: null, source: "none" };
   }
+}
+
+/** Twelve Data does NOT accept Yahoo-style ".AS" suffixes. Try several formats. */
+async function twelveDataQuote(symbol: string, apiKey: string): Promise<Quote> {
+  const { base, exchange } = splitEuTicker(symbol);
+  const candidates: string[] = [];
+  if (exchange) candidates.push(`${base}:${exchange}`); // e.g. MT:Euronext
+  candidates.push(base);                                 // e.g. MT (NYSE fallback for dual-listed)
+  candidates.push(symbol);                               // last resort
+
+  for (const candidate of Array.from(new Set(candidates))) {
+    const q = await twelveDataQuoteRaw(candidate, apiKey);
+    if (q.price != null) {
+      console.log(`[quotes:twelvedata] ${symbol} resolved via "${candidate}"`);
+      return q;
+    }
+  }
+  return { price: null, change: null, changePct: null, source: "none" };
 }
 
 // ---------------------------------------------------------------------------
