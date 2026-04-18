@@ -13,7 +13,8 @@ export const Route = createFileRoute("/api/tink/connect-url")({
         if (!clientId) return errorResponse("TINK_CLIENT_ID manquant", 500);
 
         const origin = request.headers.get("origin") ?? new URL(request.url).origin;
-        const redirect = process.env.TINK_REDIRECT_URI ?? `${origin}/portefeuille`;
+        const redirect = process.env.TINK_REDIRECT_URI ?? `${origin}/api/tink/callback`;
+        console.log("[tink/connect-url] redirect_uri =", redirect);
 
         const url =
           `https://link.tink.com/1.0/transactions/connect-accounts/` +
