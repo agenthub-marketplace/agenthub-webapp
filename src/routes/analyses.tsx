@@ -92,6 +92,14 @@ function impactSide(impactShort: string | null): "success" | "danger" | "warning
   return "warning";
 }
 
+function toNum(v: number | string | null | undefined): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const cleaned = String(v).replace(/[%\s+]/g, "").replace(",", ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 function fmtPct(n: number | null | undefined, signed = true): string {
   if (n == null || !Number.isFinite(n)) return "—";
   const sign = signed && n > 0 ? "+" : "";
