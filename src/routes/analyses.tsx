@@ -648,21 +648,30 @@ function SectorBars({ c }: { c: Correlation }) {
   const dir = (c.direction ?? "").toLowerCase();
   const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) > 0);
   const negative = dir.includes("neg") || dir.includes("nég") || (dir === "" && (pct ?? 0) < 0);
-  const neutral = !positive && !negative;
 
-  // Intensity from |pct|: ≥5 = Fort (4 bars), ≥2 = Modéré (2), else Faible (1).
+  // Intensity 1-4 from |pct|: <2 = 1, 2-4 = 2, 4-6 = 3, >6 = 4.
   const abs = Math.abs(pct ?? 0);
-  const filled = abs >= 5 ? 4 : abs >= 2 ? 2 : abs > 0 ? 1 : 0;
-  const intensityLabel = filled === 4 ? "Impact fort" : filled === 2 ? "Impact modéré" : filled === 1 ? "Impact faible" : "Impact neutre";
+  const intensity = abs > 6 ? 4 : abs >= 4 ? 3 : abs >= 2 ? 2 : 1;
+
+  // Color is driven by intensity (not direction).
+  const colorByIntensity: Record<number, string> = {
+    1: "#2E7D32", // green
+    2: "#888888", // grey
+    3: "#F57C00", // orange
+    4: "#E53935", // red
+  };
+  const labelByIntensity: Record<number, string> = {
+    1: "Impact faible",
+    2: "Impact modéré",
+    3: "Impact significatif",
+    4: "Impact fort",
+  };
+  const fullColor = colorByIntensity[intensity];
+  const emptyColor = "#EBEBEB";
   const arrow = positive ? "↑" : negative ? "↓" : "";
 
-  const palette = positive
-    ? { full: "#2E7D32", empty: "#C8E6C9" }
-    : negative
-    ? { full: "#E53935", empty: "#FFCDD2" }
-    : { full: "#F57C00", empty: "#FFE0B2" };
-
-  const sectorName = c.raison ?? c.reason ?? c.company ?? "Secteur";
+  // Sector name: prefer entreprise/company field, fallback to raison.
+  const sectorName = c.company ?? c.raison ?? c.reason ?? "Secteur";
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">
@@ -672,12 +681,12 @@ function SectorBars({ c }: { c: Correlation }) {
           <span
             key={i}
             className="flex-1 rounded-[2px]"
-            style={{ height: 6, background: i < filled ? palette.full : palette.empty }}
+            style={{ height: 6, background: i < intensity ? fullColor : emptyColor }}
           />
         ))}
       </div>
-      <p className="text-[10px] font-medium" style={{ color: palette.full }}>
-        {intensityLabel} {arrow}
+      <p className="text-[10px] font-medium" style={{ color: fullColor }}>
+        {arrow} {labelByIntensity[intensity]}
       </p>
     </div>
   );
