@@ -44,9 +44,13 @@ const SCHEMA = {
     },
     correlations_indirectes: {
       type: "array",
+      description: "Secteurs économiques impactés (PAS d'entreprises). Exemples valides: 'Pétrole & Gaz', 'Aviation', 'Défense', 'Transport maritime', 'Semi-conducteurs', 'Banques européennes'. JAMAIS de noms d'entreprises comme Samsung, Boeing, Apple, etc.",
       items: {
         type: "object",
-        properties: { secteur: { type: "string" }, impact: { type: "string" } },
+        properties: {
+          secteur: { type: "string", description: "Nom du secteur économique uniquement (ex: 'Pétrole & Gaz', 'Aviation')" },
+          impact: { type: "string" },
+        },
         required: ["secteur", "impact"],
         additionalProperties: false,
       },
