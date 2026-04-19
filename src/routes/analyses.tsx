@@ -10,6 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { getAlertColors } from "@/lib/alert-colors";
 
 type Filter = "toutes" | "urgentes" | "non-lues";
 type Reaction = "conserve" | "renforce" | "vend" | "rien";
