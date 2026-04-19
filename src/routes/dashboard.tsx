@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, formatEuro, timeAgo } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getAlertColors } from "@/lib/alert-colors";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — PRISM" }] }),
