@@ -240,11 +240,13 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
   const tickerLabel = pos?.ticker ?? a.isins?.[0] ?? "—";
-  const companyLabel = pos?.company ?? a.title ?? tickerLabel;
+  const companyLabel = pos?.company ?? tickerLabel;
+  const titre = (a.title ?? "").trim();
+  const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
   return (
     <article
-      className="bg-surface rounded-2xl overflow-hidden border border-border"
+      className="bg-surface rounded-2xl overflow-hidden border border-border shadow-sm"
       style={{ borderLeft: `4px solid ${sideColor}` }}
     >
       {/* Collapsed header — always visible, click to expand */}
@@ -252,43 +254,55 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full text-left p-[18px] flex items-start justify-between gap-3 hover:bg-subtle/40 transition"
+        className="w-full text-left p-4 hover:bg-subtle/40 transition"
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">
+        {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-baseline gap-2 min-w-0 flex-1">
+            <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
             <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(a.sent_at)}</p>
-          {a.title && (
-            <p className="text-[13px] text-foreground/90 leading-snug mt-2 line-clamp-2">
-              {a.title}
-            </p>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
+              style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
+            >
+              {badge.label}
+            </span>
+            <span
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onDelete(); } }}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger-soft transition cursor-pointer"
+              aria-label="Supprimer l'alerte"
+            >
+              <Trash2 className="w-4 h-4" />
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+            />
+          </div>
         </div>
-        <div className="flex items-start gap-2 shrink-0">
-          <span
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-            style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
-          >
-            {badge.label}
-          </span>
-          <span
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onDelete(); } }}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger-soft transition cursor-pointer"
-            aria-label="Supprimer l'alerte"
-          >
-            <Trash2 className="w-4 h-4" />
-          </span>
-          <ChevronDown
-            className={`w-4 h-4 text-muted-foreground transition-transform duration-300 mt-1.5 ${open ? "rotate-180" : ""}`}
-          />
-        </div>
+
+        {/* Row 2: timestamp */}
+        <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(a.sent_at)}</p>
+
+        {/* Row 3: titre (French Claude title) */}
+        {titre && (
+          <p className="text-[13px] font-bold text-foreground leading-snug mt-2 line-clamp-2">
+            {titre}
+          </p>
+        )}
+
+        {/* Row 4: content summary */}
+        {summary && (
+          <p className="text-[12px] text-muted-foreground leading-snug mt-1.5 line-clamp-3">
+            {summary}
+          </p>
+        )}
       </button>
 
       {/* Expandable analysis */}
@@ -296,14 +310,7 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
         className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
       >
         <div className="overflow-hidden">
-          <div className="px-[18px] pb-[18px] space-y-4 border-t border-border pt-4">
-
-            {/* Résumé Claude */}
-            {a.resume_fr && (
-              <p className="text-[13px] text-muted-foreground leading-[1.55]">
-                {a.resume_fr}
-              </p>
-            )}
+          <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
 
             {/* Impact court / long terme global */}
             {(a.impact_short_term_pct != null || a.impact_long_term_pct != null) && (
