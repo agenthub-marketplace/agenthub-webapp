@@ -22,8 +22,21 @@ export const Route = createFileRoute("/analyses")({
   component: Analyses,
 });
 
-type Scenario = { description?: string; probabilite?: number; impact_percent?: number } | null;
-type Correlation = { company?: string; reason?: string; impact_percent?: number };
+type Scenario = { description?: string | null; probabilite?: number | null; impact_percent?: number | null } | null;
+type Correlation = { company?: string | null; reason?: string | null; impact_percent?: number | null };
+
+type UserPosition = {
+  company: string;
+  ticker: string;
+  logo_url: string | null;
+  quantity: number;
+  current_price: number;
+  position_value: number;
+  gain_loss_euros: number;
+  gain_loss_percent: number | null;
+  portfolio_value: number;
+  position_weight_percent: number | null;
+};
 
 type Alert = {
   id: string;
@@ -43,6 +56,7 @@ type Alert = {
   scenario_pessimiste: Scenario;
   correlations_directes: Correlation[] | null;
   correlations_indirectes: Correlation[] | null;
+  user_position: UserPosition | null;
 };
 
 type Stats = { counts: Record<Reaction, number>; total: number; my_action: Reaction | null };
@@ -50,15 +64,20 @@ type Stats = { counts: Record<Reaction, number>; total: number; my_action: React
 function badgeFor(urgency: number) {
   if (urgency >= 3) return { label: "URGENT", tone: "danger" as const };
   if (urgency === 2) return { label: "ATTENTION", tone: "warning" as const };
-  return { label: "POSITIF", tone: "success" as const };
+  return { label: "INFO", tone: "success" as const };
 }
 
-// Border color reflects impact on portfolio (short-term)
 function impactSide(impactShort: string | null): "success" | "danger" | "warning" {
   const s = (impactShort ?? "").toLowerCase();
-  if (s.includes("positif")) return "success";
-  if (s.includes("négatif") || s.includes("negatif")) return "danger";
-  return "warning"; // neutre / inconnu
+  if (s.includes("pos")) return "success";
+  if (s.includes("nég") || s.includes("neg")) return "danger";
+  return "warning";
+}
+
+function fmtPct(n: number | null | undefined, signed = true): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  const sign = signed && n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(n % 1 === 0 ? 0 : 1).replace(".", ",")}%`;
 }
 
 function Analyses() {
@@ -134,7 +153,7 @@ function Analyses() {
 
         {loading ? (
           <div className="space-y-3">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-2xl" />)}
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-72 w-full rounded-2xl" />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-8 text-center">
@@ -185,34 +204,49 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+      {children}
+    </p>
+  );
+}
+
 function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
   const side = impactSide(a.impact_short_term);
-  const sideColor = side === "danger" ? "bg-danger" : side === "warning" ? "bg-warning" : "bg-success";
+  const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
-  const ticker = a.isins?.[0] ?? "—";
+  const pos = a.user_position;
+  const tickerLabel = pos?.ticker ?? a.isins?.[0] ?? "—";
+  const companyLabel = pos?.company ?? a.title ?? tickerLabel;
 
   return (
-    <article className="bg-surface border border-border rounded-2xl flex overflow-hidden">
-      <div className={`w-1 ${sideColor}`} />
-      <div className="flex-1 p-[18px] space-y-4">
+    <article
+      className="bg-surface rounded-2xl overflow-hidden border border-border"
+      style={{ borderLeft: `4px solid ${sideColor}` }}
+    >
+      <div className="p-[18px] space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">{ticker}</h3>
-            {a.title && <p className="text-[12px] text-muted-foreground mt-0.5">{a.title}</p>}
+            <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">
+              {companyLabel}
+            </h3>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {tickerLabel}
+              <span className="mx-1.5 opacity-50">·</span>
+              {timeAgo(a.sent_at)}
+            </p>
           </div>
           <div className="flex items-start gap-2 shrink-0">
-            <div className="flex flex-col items-end gap-1">
-              <span
-                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
-                style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
-              >
-                {badge.label}
-              </span>
-              <span className="text-[11px] text-muted-foreground">{timeAgo(a.sent_at)}</span>
-            </div>
+            <span
+              className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
+              style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
+            >
+              {badge.label}
+            </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              onClick={onDelete}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger-soft transition"
               aria-label="Supprimer l'alerte"
             >
@@ -221,129 +255,159 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
           </div>
         </div>
 
-        {a.content && <p className="text-[13px] text-muted-foreground leading-[1.6]">{a.content}</p>}
-
-        {/* Impact on position */}
-        {(a.impact_position_euros != null || a.impact_portfolio_percent != null) && (
-          <div className="grid grid-cols-2 gap-2">
-            {a.impact_position_euros != null && (
-              <ImpactBox label="Impact estimé" value={formatEuro(a.impact_position_euros)} positive={a.impact_position_euros >= 0} />
-            )}
-            {a.impact_portfolio_percent != null && (
-              <ImpactBox
-                label="Sur le portefeuille"
-                value={`${a.impact_portfolio_percent >= 0 ? "+" : ""}${a.impact_portfolio_percent.toFixed(2)}%`}
-                positive={a.impact_portfolio_percent >= 0}
-              />
-            )}
-          </div>
+        {/* News summary */}
+        {a.content && (
+          <p className="text-[13px] text-muted-foreground leading-[1.55] line-clamp-4">
+            {a.content}
+          </p>
         )}
 
-        {/* Short / long term */}
-        {(a.impact_short_term || a.impact_long_term) && (
-          <div className="grid grid-cols-2 gap-2">
-            {a.impact_short_term && <TermBox label="Court terme" value={a.impact_short_term} />}
-            {a.impact_long_term && <TermBox label="Long terme" value={a.impact_long_term} />}
-          </div>
+        {/* 1. IMPACT SUR VOTRE POSITION */}
+        {pos && (
+          <section className="space-y-2">
+            <SectionLabel>Impact sur votre position</SectionLabel>
+            <div className="grid grid-cols-2 gap-2">
+              <div
+                className="rounded-xl p-3 space-y-0.5"
+                style={{ background: "var(--success-soft)" }}
+              >
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Votre position
+                </p>
+                <p className="text-[14px] font-bold text-foreground">
+                  {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Valeur {formatEuro(pos.position_value)}
+                </p>
+                {pos.gain_loss_percent != null && (
+                  <p
+                    className="text-[12px] font-semibold mt-0.5"
+                    style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
+                  >
+                    {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
+                  </p>
+                )}
+              </div>
+              <div className="rounded-xl p-3 bg-subtle space-y-0.5">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Portefeuille
+                </p>
+                <p className="text-[14px] font-bold text-foreground">
+                  {formatEuro(pos.portfolio_value)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
+                </p>
+                {a.impact_portfolio_percent != null && (
+                  <p
+                    className="text-[12px] font-semibold mt-0.5"
+                    style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
+                  >
+                    Impact {fmtPct(a.impact_portfolio_percent)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
         )}
 
-        {/* Scenarios */}
+        {/* 2. SCÉNARIOS COURT TERME 48H */}
         {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
-          <div className="grid grid-cols-3 gap-2">
-            <ScenarioBox tone="success" label="Optimiste" s={a.scenario_optimiste} />
-            <ScenarioBox tone="warning" label="Neutre" s={a.scenario_neutre} />
-            <ScenarioBox tone="danger" label="Pessimiste" s={a.scenario_pessimiste} />
-          </div>
+          <section className="space-y-2">
+            <SectionLabel>Scénarios court terme · 48h</SectionLabel>
+            <div className="grid grid-cols-3 gap-2">
+              <ScenarioBox tone="success" label="Optimiste" s={a.scenario_optimiste} />
+              <ScenarioBox tone="warning" label="Neutre"    s={a.scenario_neutre} />
+              <ScenarioBox tone="danger"  label="Pessimiste" s={a.scenario_pessimiste} />
+            </div>
+          </section>
         )}
 
-        {/* Correlations */}
-        {((a.correlations_directes?.length ?? 0) > 0 || (a.correlations_indirectes?.length ?? 0) > 0) && (
-          <div className="space-y-2">
-            {(a.correlations_directes?.length ?? 0) > 0 && (
-              <CorrelationList title="Corrélations directes" items={a.correlations_directes!} />
-            )}
-            {(a.correlations_indirectes?.length ?? 0) > 0 && (
-              <CorrelationList title="Corrélations indirectes" items={a.correlations_indirectes!} />
-            )}
-          </div>
+        {/* 3. CORRÉLATIONS DIRECTES */}
+        {(a.correlations_directes?.length ?? 0) > 0 && (
+          <section className="space-y-2">
+            <SectionLabel>Corrélations directes</SectionLabel>
+            <CorrelationList items={a.correlations_directes!} />
+          </section>
         )}
 
-        {/* Community reaction */}
-        <CommunityReaction alertId={a.id} />
+        {/* 4. CORRÉLATIONS INDIRECTES */}
+        {(a.correlations_indirectes?.length ?? 0) > 0 && (
+          <section className="space-y-2">
+            <SectionLabel>Corrélations indirectes</SectionLabel>
+            <CorrelationList items={a.correlations_indirectes!} />
+          </section>
+        )}
+
+        {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
+        <CommunityReaction alertId={a.id} ticker={tickerLabel} />
       </div>
     </article>
   );
 }
 
-function ImpactBox({ label, value, positive }: { label: string; value: string; positive: boolean }) {
-  return (
-    <div className="rounded-xl p-3 bg-subtle">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-      <p
-        className="text-[14px] font-bold mt-1"
-        style={{ color: positive ? "var(--success)" : "var(--danger)" }}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function TermBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl p-3 bg-subtle">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-      <p className="text-[12px] text-foreground mt-1 leading-snug">{value}</p>
-    </div>
-  );
-}
-
 function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger"; label: string; s: Scenario }) {
   return (
-    <div className="rounded-xl bg-subtle overflow-hidden border-t-2" style={{ borderColor: `var(--${tone})` }}>
-      <div className="p-2.5 space-y-1">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: `var(--${tone})` }}>{label}</p>
-          {typeof s?.probabilite === "number" && (
-            <span className="text-[10px] font-bold text-foreground">{s.probabilite}%</span>
-          )}
-        </div>
-        {s?.description && <p className="text-[11px] text-foreground leading-snug">{s.description}</p>}
+    <div
+      className="rounded-xl bg-subtle overflow-hidden"
+      style={{ borderTop: `3px solid var(--${tone})` }}
+    >
+      <div className="p-2.5 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: `var(--${tone})` }}>
+          {label}
+        </p>
         {typeof s?.impact_percent === "number" && (
-          <p className="text-[10px] text-muted-foreground">Impact: {s.impact_percent >= 0 ? "+" : ""}{s.impact_percent}%</p>
+          <p className="text-[14px] font-bold text-foreground">
+            {fmtPct(s.impact_percent)}
+          </p>
+        )}
+        {s?.description && (
+          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{s.description}</p>
+        )}
+        {typeof s?.probabilite === "number" && (
+          <p className="text-[10px] text-muted-foreground">
+            Probabilité {fmtPct(s.probabilite, false)}
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-function CorrelationList({ title, items }: { title: string; items: Correlation[] }) {
+function CorrelationList({ items }: { items: Correlation[] }) {
   return (
-    <div className="rounded-xl p-3 bg-subtle space-y-1.5">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{title}</p>
-      <ul className="space-y-1">
-        {items.map((c, i) => (
-          <li key={i} className="flex items-start justify-between gap-2 text-[11px]">
-            <div className="min-w-0">
-              <span className="font-semibold text-foreground">{c.company ?? "—"}</span>
-              {c.reason && <span className="text-muted-foreground"> — {c.reason}</span>}
+    <ul className="rounded-xl bg-subtle divide-y divide-border overflow-hidden">
+      {items.map((c, i) => {
+        const positive = (c.impact_percent ?? 0) >= 0;
+        return (
+          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ background: positive ? "var(--success)" : "var(--danger)" }}
+              />
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold text-foreground truncate">{c.company ?? "—"}</p>
+                {c.reason && <p className="text-[11px] text-muted-foreground truncate">{c.reason}</p>}
+              </div>
             </div>
             {typeof c.impact_percent === "number" && (
               <span
-                className="shrink-0 font-semibold"
-                style={{ color: c.impact_percent >= 0 ? "var(--success)" : "var(--danger)" }}
+                className="shrink-0 text-[12px] font-bold"
+                style={{ color: positive ? "var(--success)" : "var(--danger)" }}
               >
-                {c.impact_percent >= 0 ? "+" : ""}{c.impact_percent}%
+                {fmtPct(c.impact_percent)}
               </span>
             )}
           </li>
-        ))}
-      </ul>
-    </div>
+        );
+      })}
+    </ul>
   );
 }
 
-function CommunityReaction({ alertId }: { alertId: string }) {
+function CommunityReaction({ alertId, ticker }: { alertId: string; ticker: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -356,7 +420,6 @@ function CommunityReaction({ alertId }: { alertId: string }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime: refresh on any change to alert_reactions for this alert.
   useEffect(() => {
     const channel = supabase
       .channel(`reactions-${alertId}`)
@@ -371,6 +434,17 @@ function CommunityReaction({ alertId }: { alertId: string }) {
 
   const send = async (action: Reaction) => {
     if (busy) return;
+    // optimistic update
+    setStats((prev) => {
+      if (!prev) return prev;
+      const counts = { ...prev.counts };
+      if (prev.my_action && prev.my_action !== action) {
+        counts[prev.my_action] = Math.max(0, counts[prev.my_action] - 1);
+      }
+      if (prev.my_action !== action) counts[action] = (counts[action] ?? 0) + 1;
+      const total = counts.conserve + counts.renforce + counts.vend;
+      return { counts, total, my_action: action };
+    });
     setBusy(true);
     try {
       await apiFetch(`/api/alerts/${alertId}/react`, {
@@ -380,6 +454,7 @@ function CommunityReaction({ alertId }: { alertId: string }) {
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Action impossible");
+      await load();
     } finally { setBusy(false); }
   };
 
@@ -387,19 +462,19 @@ function CommunityReaction({ alertId }: { alertId: string }) {
   const pct = (n: number) => total === 0 ? 0 : Math.round((n / total) * 100);
 
   return (
-    <div className="rounded-xl p-3 bg-subtle space-y-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-        Réaction de la communauté
+    <section className="space-y-2 pt-1">
+      <SectionLabel>Réaction de la communauté</SectionLabel>
+      <p className="text-[11px] text-muted-foreground">
+        {total === 0
+          ? `Soyez le premier à réagir parmi les détenteurs de ${ticker}`
+          : `${total} détenteur${total > 1 ? "s" : ""} de cette position ${total > 1 ? "ont" : "a"} réagi`}
       </p>
       <div className="grid grid-cols-3 gap-2">
         <ReactionBtn label="Je conserve" active={stats?.my_action === "conserve"} pct={pct(stats?.counts.conserve ?? 0)} onClick={() => send("conserve")} disabled={busy} />
         <ReactionBtn label="Je renforce" active={stats?.my_action === "renforce"} pct={pct(stats?.counts.renforce ?? 0)} onClick={() => send("renforce")} disabled={busy} />
         <ReactionBtn label="Je vends"    active={stats?.my_action === "vend"}     pct={pct(stats?.counts.vend ?? 0)}     onClick={() => send("vend")}     disabled={busy} />
       </div>
-      <p className="text-[10px] text-muted-foreground">
-        {total === 0 ? "Soyez le premier à réagir parmi les détenteurs." : `${total} détenteur${total > 1 ? "s" : ""} ${total > 1 ? "ont" : "a"} réagi`}
-      </p>
-    </div>
+    </section>
   );
 }
 
@@ -410,16 +485,16 @@ function ReactionBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative overflow-hidden rounded-lg border px-2 py-2 text-[11px] font-semibold transition ${active ? "border-foreground text-foreground" : "border-border text-muted-foreground hover:text-foreground"} disabled:opacity-60`}
+      className={`relative overflow-hidden rounded-lg px-2 py-2.5 text-[11px] font-semibold transition border ${active ? "bg-foreground text-primary-foreground border-foreground" : "bg-surface border-border text-foreground hover:border-foreground/40"} disabled:opacity-60`}
     >
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 bg-foreground/10"
+        className={`absolute inset-y-0 left-0 ${active ? "bg-primary-foreground/15" : "bg-foreground/[0.06]"}`}
         style={{ width: `${pct}%` }}
       />
       <span className="relative flex flex-col items-center gap-0.5">
         <span>{label}</span>
-        <span className="text-[10px] opacity-70">{pct}%</span>
+        <span className={`text-[10px] ${active ? "opacity-80" : "opacity-60"}`}>{pct}%</span>
       </span>
     </button>
   );
