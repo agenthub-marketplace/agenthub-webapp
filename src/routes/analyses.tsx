@@ -207,7 +207,7 @@ function Analyses() {
           </div>
         ) : (
           filtered.map((a) => (
-            <AlertCard key={a.id} a={a} onDelete={() => setToDelete(a.id)} />
+            <AlertCard key={a.id} a={a} onDelete={() => setToDelete(a.id)} onMarkRead={markAsRead} />
           ))
         )}
       </div>
