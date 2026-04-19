@@ -99,25 +99,67 @@ export const Route = createFileRoute("/api/news/fetch")({
             symbol;
           const query = sanitizeQuery(rawCompany);
 
+          // Serve from cache when fresh — avoids GNews free-tier rate limits.
+          const cacheKey = `${query}|fr`;
+          const cached = NEWS_CACHE.get(cacheKey);
+          if (cached && cached.expiresAt > Date.now()) {
+            return json(cached.payload as object, 200, {
+              "Cache-Control": "public, max-age=60",
+              "X-News-Cache": "HIT",
+            });
+          }
+
           const gnewsUrl =
             `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}` +
             `&lang=fr&country=fr&max=5&apikey=${encodeURIComponent(apiKey)}`;
 
           const res = await fetch(gnewsUrl, { headers: { Accept: "application/json" } });
-
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
+          const rawText = await res.text();
+          let data: any = null;
+          try {
+            data = JSON.parse(rawText);
+          } catch {
+            // Non-JSON response — surface as upstream error.
             return json(
-              {
-                error: `GNews error: ${res.status} ${res.statusText}`,
-                detail: text.slice(0, 300),
-                news: [],
-              },
+              { error: "GNews returned non-JSON response", detail: rawText.slice(0, 300), news: [] },
               502,
             );
           }
 
-          const data = (await res.json()) as { articles?: unknown };
+          if (!res.ok) {
+            const upstreamErrors = Array.isArray(data?.errors) ? data.errors : [];
+            const isRateLimit =
+              res.status === 429 ||
+              upstreamErrors.some((m: unknown) => typeof m === "string" && /too many requests/i.test(m));
+            console.warn("[news.fetch] GNews HTTP error", res.status, upstreamErrors);
+            return json(
+              {
+                error: isRateLimit ? "GNEWS_RATE_LIMITED" : `GNews error: ${res.status} ${res.statusText}`,
+                upstream_errors: upstreamErrors,
+                rate_limited: isRateLimit,
+                news: [],
+              },
+              isRateLimit ? 429 : 502,
+            );
+          }
+
+          // GNews returns 200 with `{ errors: [...] }` when throttled — detect this.
+          if (Array.isArray(data?.errors) && data.errors.length > 0) {
+            const isRateLimit = data.errors.some(
+              (m: unknown) => typeof m === "string" && /too many requests/i.test(m),
+            );
+            console.warn("[news.fetch] GNews returned errors payload", data.errors);
+            return json(
+              {
+                error: isRateLimit ? "GNEWS_RATE_LIMITED" : "GNEWS_ERROR",
+                upstream_errors: data.errors,
+                rate_limited: isRateLimit,
+                news: [],
+              },
+              isRateLimit ? 429 : 502,
+            );
+          }
+
           const articles = Array.isArray(data?.articles) ? (data.articles as any[]) : [];
 
           const news = articles.map((a) => ({
@@ -128,7 +170,13 @@ export const Route = createFileRoute("/api/news/fetch")({
             related: symbol,
           }));
 
-          return json({ news, query }, 200, { "Cache-Control": "public, max-age=60" });
+          const payload = { news, query };
+          NEWS_CACHE.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, payload });
+
+          return json(payload, 200, {
+            "Cache-Control": "public, max-age=60",
+            "X-News-Cache": "MISS",
+          });
         } catch (error: any) {
           console.error("[news.fetch] unexpected error", error);
           return json({ error: error?.message ?? "Failed to fetch news", news: [] }, 500);
