@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
 
-const ALLOWED = new Set(["conserve", "renforce", "vend"]);
+const ALLOWED = new Set(["conserve", "renforce", "vend", "rien"]);
 
 export const Route = createFileRoute("/api/alerts/$id/react")({
   server: {
