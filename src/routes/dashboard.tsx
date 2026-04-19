@@ -194,10 +194,10 @@ function Dashboard() {
                 const urg = urgencyTone(a.urgency);
                 const border = impactBorderTone(a.urgency);
                 const filter = urg === "danger" ? "urgentes" : "toutes";
-                const ticker = a.isins?.find((s) => s && s.trim() !== "") ?? null;
+                // `isins` contains ISIN codes (e.g. US0378331005), not tickers — never display as ticker.
                 const titleStr = (a.title ?? "").trim();
                 const companyFromTitle = titleStr.match(/^([^:•\-—|]+?)\s*[:•\-—|]/)?.[1]?.trim();
-                const headline = ticker ?? companyFromTitle ?? "Analyse";
+                const headline = companyFromTitle || "Analyse";
                 const subline = titleStr || "Analyse";
                 return (
                   <Link
