@@ -20,6 +20,7 @@ type Alert = {
   is_read: boolean;
   sent_at: string;
   isins: string[] | null;
+  impact_short_term: string | null;
 };
 
 type RiskLevel = "Faible" | "Modéré" | "Élevé";
@@ -39,10 +40,19 @@ function riskTone(level: RiskLevel): { tone: "success" | "warning" | "danger"; b
   return { tone: "danger", bar: 2 };
 }
 
-function alertTone(urgency: number): "danger" | "warning" | "success" {
+// Urgency drives the badge tone only (used to pick which filter to deep-link to).
+function urgencyTone(urgency: number): "danger" | "warning" | "success" {
   if (urgency >= 3) return "danger";
   if (urgency === 2) return "warning";
   return "success";
+}
+
+// Left-border color comes ONLY from impact_short_term, independently of urgency.
+function impactBorderTone(impactShort: string | null): "success" | "danger" | "warning" {
+  const s = (impactShort ?? "").toLowerCase().trim();
+  if (s.startsWith("pos")) return "success";
+  if (s.startsWith("neg") || s.startsWith("nég")) return "danger";
+  return "warning";
 }
 
 function Dashboard() {
