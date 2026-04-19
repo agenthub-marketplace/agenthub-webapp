@@ -10,6 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { getAlertColors } from "@/lib/alert-colors";
 
 type Filter = "toutes" | "urgentes" | "non-lues";
 type Reaction = "conserve" | "renforce" | "vend" | "rien";
@@ -297,9 +298,9 @@ function AlertCard({
       return next;
     });
   };
-  const side = impactSide(a.impact_short_term);
-  const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
-  const badge = badgeFor(a.urgency);
+  const colors = getAlertColors(a.impact_short_term, a.urgency);
+  const sideColor = colors.border.hex;
+  const badge = colors.badge;
   const pos = a.user_position;
   const titre = (a.title ?? "").trim();
   // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple").
@@ -349,7 +350,7 @@ function AlertCard({
             )}
             <span
               className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-              style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
+              style={{ background: badge.bg, color: badge.fg }}
             >
               {badge.label}
             </span>

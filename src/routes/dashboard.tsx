@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, formatEuro, timeAgo } from "@/lib/api-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { getAlertColors } from "@/lib/alert-colors";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — PRISM" }] }),
@@ -40,22 +41,8 @@ function riskTone(level: RiskLevel): { tone: "success" | "warning" | "danger"; b
   return { tone: "danger", bar: 2 };
 }
 
-// Urgency badge tone — driven ONLY by `urgence` field. Independent from border.
-// 1 = INFO (green), 2 = ATTENTION (orange), 3+ = URGENT (red).
-function urgencyTone(urgency: number): "danger" | "warning" | "success" {
-  if (urgency >= 3) return "danger";
-  if (urgency === 2) return "warning";
-  return "success";
-}
-
-// Left-border color — driven ONLY by `impact_short_term` direction. Independent from urgency.
-// positif → green, négatif → red, neutre/unknown → orange.
-function impactBorderTone(impact: string | null | undefined): "success" | "danger" | "warning" {
-  const v = (impact ?? "").toLowerCase();
-  if (v.includes("pos")) return "success";
-  if (v.includes("neg") || v.includes("nég")) return "danger";
-  return "warning";
-}
+// Color logic lives in `@/lib/alert-colors` — single source of truth.
+// Border = impact_short_term, Badge = urgency. The two are independent.
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -194,9 +181,8 @@ function Dashboard() {
           ) : (
             <div className="space-y-2.5">
               {data!.recentAlerts.map((a) => {
-                const urg = urgencyTone(a.urgency);
-                const border = impactBorderTone(a.impact_short_term);
-                const filter = urg === "danger" ? "urgentes" : "toutes";
+                const colors = getAlertColors(a.impact_short_term, a.urgency);
+                const filter = colors.badge.tone === "danger" ? "urgentes" : "toutes";
                 // `isins` contains ISIN codes (e.g. US0378331005), not tickers — never display as ticker.
                 const titleStr = (a.title ?? "").trim();
                 const companyFromTitle = titleStr.match(/^([^:•\-—|]+?)\s*[:•\-—|]/)?.[1]?.trim();
@@ -209,7 +195,7 @@ function Dashboard() {
                     search={{ filter, alertId: a.id }}
                     className="bg-surface border border-border rounded-[14px] flex overflow-hidden active:scale-[0.99] transition"
                   >
-                    <div className={`w-1 ${border === "danger" ? "bg-danger" : border === "warning" ? "bg-warning" : "bg-success"}`} />
+                    <div className="w-1" style={{ background: colors.border.hex }} />
                     <div className="flex-1 p-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -219,9 +205,9 @@ function Dashboard() {
                         <div className="flex items-center gap-2 shrink-0">
                           <span
                             className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-[0.06em]"
-                            style={{ background: `var(--${urg}-soft)`, color: `var(--${urg})` }}
+                            style={{ background: colors.badge.bg, color: colors.badge.fg }}
                           >
-                            {urg === "danger" ? "URGENT" : urg === "warning" ? "ATTENTION" : "INFO"}
+                            {colors.badge.label}
                           </span>
                           <p className="text-[11px] text-muted-foreground">{timeAgo(a.sent_at)}</p>
                         </div>
