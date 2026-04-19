@@ -68,8 +68,11 @@ export type Database = {
           language: string
           resume_fr: string | null
           scenario_neutre: Json | null
+          scenario_neutre_lt: Json | null
           scenario_optimiste: Json | null
+          scenario_optimiste_lt: Json | null
           scenario_pessimiste: Json | null
+          scenario_pessimiste_lt: Json | null
           sectors: string[] | null
           sent_at: string
           source_url: string | null
@@ -96,8 +99,11 @@ export type Database = {
           language?: string
           resume_fr?: string | null
           scenario_neutre?: Json | null
+          scenario_neutre_lt?: Json | null
           scenario_optimiste?: Json | null
+          scenario_optimiste_lt?: Json | null
           scenario_pessimiste?: Json | null
+          scenario_pessimiste_lt?: Json | null
           sectors?: string[] | null
           sent_at?: string
           source_url?: string | null
@@ -124,8 +130,11 @@ export type Database = {
           language?: string
           resume_fr?: string | null
           scenario_neutre?: Json | null
+          scenario_neutre_lt?: Json | null
           scenario_optimiste?: Json | null
+          scenario_optimiste_lt?: Json | null
           scenario_pessimiste?: Json | null
+          scenario_pessimiste_lt?: Json | null
           sectors?: string[] | null
           sent_at?: string
           source_url?: string | null
