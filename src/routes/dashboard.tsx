@@ -192,7 +192,7 @@ function Dashboard() {
             <div className="space-y-2.5">
               {data!.recentAlerts.map((a) => {
                 const urg = urgencyTone(a.urgency);
-                const border = impactBorderTone(a.impact_short_term);
+                const border = impactBorderTone(a.urgency);
                 const filter = urg === "danger" ? "urgentes" : "toutes";
                 const ticker = a.isins?.[0] ?? "—";
                 return (
