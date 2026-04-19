@@ -22,8 +22,19 @@ export const Route = createFileRoute("/analyses")({
   component: Analyses,
 });
 
-type Scenario = { description?: string | null; probabilite?: number | null; impact_percent?: number | null } | null;
-type Correlation = { company?: string | null; reason?: string | null; impact_percent?: number | null };
+type Scenario = {
+  description?: string | null;
+  probabilite?: number | null;
+  impact_percent?: number | null;
+  base_historique?: string | null;
+} | null;
+type Correlation = {
+  company?: string | null;
+  ticker?: string | null;
+  reason?: string | null;
+  impact_percent?: number | null;
+  direction?: string | null;
+};
 
 type UserPosition = {
   company: string;
@@ -42,6 +53,7 @@ type Alert = {
   id: string;
   title: string | null;
   content: string | null;
+  resume_fr: string | null;
   urgency: number;
   is_read: boolean;
   sent_at: string;
@@ -49,6 +61,8 @@ type Alert = {
   sectors: string[] | null;
   impact_short_term: string | null;
   impact_long_term: string | null;
+  impact_short_term_pct: number | null;
+  impact_long_term_pct: number | null;
   impact_position_euros: number | null;
   impact_portfolio_percent: number | null;
   scenario_optimiste: Scenario;
