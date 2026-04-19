@@ -148,6 +148,17 @@ Deno.serve(async (req) => {
     const scenario_neutre = normScenario(body.scenario_neutre);
     const scenario_pessimiste = normScenario(body.scenario_pessimiste);
 
+    // Long-term (6 months) scenarios. Accept several aliases coming from Claude/Make.
+    const scenario_optimiste_lt = normScenario(
+      body.scenario_optimiste_lt ?? body.scenario_optimiste_long_terme ?? body.scenario_long_terme_optimiste,
+    );
+    const scenario_neutre_lt = normScenario(
+      body.scenario_neutre_lt ?? body.scenario_neutre_long_terme ?? body.scenario_long_terme_neutre,
+    );
+    const scenario_pessimiste_lt = normScenario(
+      body.scenario_pessimiste_lt ?? body.scenario_pessimiste_long_terme ?? body.scenario_long_terme_pessimiste,
+    );
+
     const correlations_directes = normCorrelations(body.correlations_directes);
     const correlations_indirectes = normCorrelations(body.correlations_indirectes);
 
@@ -254,6 +265,9 @@ Deno.serve(async (req) => {
       scenario_optimiste,
       scenario_neutre,
       scenario_pessimiste,
+      scenario_optimiste_lt,
+      scenario_neutre_lt,
+      scenario_pessimiste_lt,
       correlations_directes,
       correlations_indirectes,
       investor_reaction,

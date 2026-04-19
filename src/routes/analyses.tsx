@@ -73,6 +73,9 @@ type Alert = {
   scenario_optimiste: Scenario;
   scenario_neutre: Scenario;
   scenario_pessimiste: Scenario;
+  scenario_optimiste_lt: Scenario;
+  scenario_neutre_lt: Scenario;
+  scenario_pessimiste_lt: Scenario;
   correlations_directes: Correlation[] | null;
   correlations_indirectes: Correlation[] | null;
   user_position: UserPosition | null;
@@ -298,7 +301,8 @@ function AlertCard({
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
-  const tickerLabel = pos?.ticker ?? a.isins?.[0] ?? "—";
+  const firstIsin = (a.isins ?? []).find((s) => s && String(s).trim() !== "") ?? null;
+  const tickerLabel = pos?.ticker ?? firstIsin ?? null;
   const titre = (a.title ?? "").trim();
   // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple") → ticker.
   const companyFromTitle = (() => {
@@ -306,7 +310,7 @@ function AlertCard({
     const m = titre.match(/^([^:•\-—|]+?)\s*[:•\-—|]/);
     return (m?.[1] ?? "").trim();
   })();
-  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel);
+  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel || "Analyse");
   const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
   return (
@@ -328,7 +332,9 @@ function AlertCard({
             <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
-            <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            {tickerLabel && tickerLabel !== companyLabel && (
+              <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {!a.is_read && (
@@ -463,6 +469,18 @@ function AlertCard({
               </section>
             )}
 
+            {/* 2b. SCÉNARIOS LONG TERME 6 MOIS */}
+            {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
+              <section className="space-y-2">
+                <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
+                </div>
+              </section>
+            )}
+
             {/* 3. CORRÉLATIONS DIRECTES */}
             {(a.correlations_directes?.length ?? 0) > 0 && (
               <section className="space-y-2">
@@ -480,7 +498,7 @@ function AlertCard({
             )}
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
-            <CommunityReaction alertId={a.id} ticker={tickerLabel} />
+            <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
 
             {/* 6. SOURCE LINK */}
             {a.source_url && (
