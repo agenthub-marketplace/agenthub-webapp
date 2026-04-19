@@ -24,15 +24,18 @@ export const Route = createFileRoute("/analyses")({
 
 type Scenario = {
   description?: string | null;
-  probabilite?: number | null;
+  probabilite?: number | string | null;
+  pourcentage?: number | string | null;
   impact_percent?: number | null;
   base_historique?: string | null;
 } | null;
 type Correlation = {
   company?: string | null;
   ticker?: string | null;
+  raison?: string | null;
   reason?: string | null;
-  impact_percent?: number | null;
+  impact_percent?: number | string | null;
+  pourcentage?: number | string | null;
   direction?: string | null;
 };
 
@@ -87,6 +90,14 @@ function impactSide(impactShort: string | null): "success" | "danger" | "warning
   if (s.includes("pos")) return "success";
   if (s.includes("nég") || s.includes("neg")) return "danger";
   return "warning";
+}
+
+function toNum(v: number | string | null | undefined): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const cleaned = String(v).replace(/[%\s+]/g, "").replace(",", ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
 }
 
 function fmtPct(n: number | null | undefined, signed = true): string {
@@ -294,8 +305,8 @@ function AlertCard({
               <span
                 aria-label="Non lue"
                 title="Non lue"
-                className="w-2 h-2 rounded-full"
-                style={{ background: "var(--primary, #2563eb)" }}
+                className="rounded-full"
+                style={{ width: 7, height: 7, background: sideColor }}
               />
             )}
             <span
@@ -361,44 +372,50 @@ function AlertCard({
             {pos && (
               <section className="space-y-2">
                 <SectionLabel>Impact sur votre position</SectionLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl p-3 space-y-0.5" style={{ background: "var(--success-soft)" }}>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                      Votre position
-                    </p>
-                    <p className="text-[14px] font-bold text-foreground">
-                      {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Valeur {formatEuro(pos.position_value)}
-                    </p>
-                    {pos.gain_loss_percent != null && (
-                      <p
-                        className="text-[12px] font-semibold mt-0.5"
-                        style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
-                      >
-                        {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
+                <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div className="grid grid-cols-2">
+                    {/* Left: position */}
+                    <div
+                      className="p-3 space-y-1"
+                      style={{ borderLeft: "3px solid var(--success)", borderRight: "1px solid #F0F0F0" }}
+                    >
+                      <p className="text-[10px] text-muted-foreground">Votre position</p>
+                      <p className="text-[18px] font-bold text-foreground leading-none">
+                        {formatEuro(pos.position_value)}
                       </p>
-                    )}
-                  </div>
-                  <div className="rounded-xl p-3 bg-subtle space-y-0.5">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                      Portefeuille
-                    </p>
-                    <p className="text-[14px] font-bold text-foreground">
-                      {formatEuro(pos.portfolio_value)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
-                    </p>
-                    {a.impact_portfolio_percent != null && (
-                      <p
-                        className="text-[12px] font-semibold mt-0.5"
-                        style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
-                      >
-                        Impact {fmtPct(a.impact_portfolio_percent)}
+                      {a.impact_short_term_pct != null && (
+                        <p
+                          className="text-[11px] font-semibold"
+                          style={{ color: a.impact_short_term_pct >= 0 ? "var(--success)" : "var(--danger)" }}
+                        >
+                          {a.impact_short_term_pct >= 0 ? "↑" : "↓"} {fmtPct(a.impact_short_term_pct)}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"} · {formatEuro(pos.current_price)}
                       </p>
-                    )}
+                    </div>
+                    {/* Right: portfolio */}
+                    <div
+                      className="p-3 space-y-1"
+                      style={{ borderLeft: "3px solid var(--border)" }}
+                    >
+                      <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
+                      <p className="text-[18px] font-bold text-foreground leading-none">
+                        {formatEuro(pos.portfolio_value)}
+                      </p>
+                      {a.impact_portfolio_percent != null && (
+                        <p
+                          className="text-[11px]"
+                          style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
+                        >
+                          {a.impact_portfolio_percent >= 0 ? "↑" : "↓"} {fmtPct(a.impact_portfolio_percent)}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -407,11 +424,11 @@ function AlertCard({
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
               <section className="space-y-2">
-                <SectionLabel>Scénarios court terme · 48h</SectionLabel>
+                <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
                 <div className="grid grid-cols-3 gap-2">
-                  <ScenarioBox tone="success" label="Optimiste"  s={a.scenario_optimiste} />
-                  <ScenarioBox tone="warning" label="Neutre"     s={a.scenario_neutre} />
-                  <ScenarioBox tone="danger"  label="Pessimiste" s={a.scenario_pessimiste} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
                 </div>
               </section>
             )}
@@ -470,31 +487,40 @@ function ImpactPctBox({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger"; label: string; s: Scenario }) {
+function ScenarioBox({
+  variant, label, s,
+}: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
+  const styles = {
+    optimiste:  { bg: "#F9FFF9", border: "#C8E6C9", text: "var(--success)", num: "var(--success)" },
+    neutre:     { bg: "#FAFAFA", border: "#E0E0E0", text: "#666",            num: "#555" },
+    pessimiste: { bg: "#FFF9F9", border: "#FFCDD2", text: "var(--danger)",  num: "var(--danger)" },
+  }[variant];
+  const pct = toNum(s?.pourcentage ?? s?.impact_percent);
+  const proba = toNum(s?.probabilite);
   return (
     <div
-      className="rounded-xl bg-subtle overflow-hidden"
-      style={{ borderTop: `3px solid var(--${tone})` }}
+      className="rounded-xl overflow-hidden"
+      style={{ background: styles.bg, border: `1px solid ${styles.border}` }}
     >
-      <div className="p-2.5 space-y-1.5">
-        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: `var(--${tone})` }}>
+      <div className="p-2.5 space-y-1">
+        <p
+          className="text-[9px] uppercase tracking-[0.06em] font-bold"
+          style={{ color: styles.text }}
+        >
           {label}
         </p>
-        {typeof s?.impact_percent === "number" && (
-          <p className="text-[14px] font-bold text-foreground">
-            {fmtPct(s.impact_percent)}
+        {pct != null && (
+          <p className="text-[16px] font-bold leading-tight" style={{ color: styles.num }}>
+            {fmtPct(pct)}
           </p>
         )}
-        {s?.description && (
-          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{s.description}</p>
-        )}
-        {typeof s?.probabilite === "number" && (
-          <p className="text-[10px] text-muted-foreground">
-            Probabilité {fmtPct(s.probabilite, false)}
+        {proba != null && (
+          <p className="text-[10px]" style={{ color: "#AAA" }}>
+            Prob. {fmtPct(proba, false)}
           </p>
         )}
         {s?.base_historique && (
-          <p className="text-[10px] text-muted-foreground italic leading-snug line-clamp-2">
+          <p className="text-[9px] leading-snug line-clamp-2" style={{ color: "#CCC" }}>
             {s.base_historique}
           </p>
         )}
@@ -505,15 +531,23 @@ function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger
 
 function CorrelationList({ items }: { items: Correlation[] }) {
   return (
-    <ul className="rounded-xl bg-subtle divide-y divide-border overflow-hidden">
+    <ul className="rounded-[10px] border border-border overflow-hidden bg-surface">
       {items.map((c, i) => {
-        const positive = (c.impact_percent ?? 0) >= 0;
+        const pct = toNum(c.pourcentage ?? c.impact_percent);
+        const dir = (c.direction ?? "").toLowerCase();
+        const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) >= 0);
+        const dotColor = positive ? "var(--success)" : "var(--danger)";
+        const last = i === items.length - 1;
         return (
-          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
+          <li
+            key={i}
+            className="flex items-center justify-between gap-2 px-3 py-[9px]"
+            style={!last ? { borderBottom: "1px solid #F5F5F5" } : undefined}
+          >
+            <div className="flex items-start gap-2 min-w-0">
               <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: positive ? "var(--success)" : "var(--danger)" }}
+                className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
+                style={{ background: dotColor }}
               />
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-foreground truncate">
@@ -522,15 +556,19 @@ function CorrelationList({ items }: { items: Correlation[] }) {
                     <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">{c.ticker}</span>
                   )}
                 </p>
-                {c.reason && <p className="text-[11px] text-muted-foreground truncate">{c.reason}</p>}
+                {(c.raison ?? c.reason) && (
+                  <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
+                    {c.raison ?? c.reason}
+                  </p>
+                )}
               </div>
             </div>
-            {typeof c.impact_percent === "number" && (
+            {pct != null && (
               <span
                 className="shrink-0 text-[12px] font-bold"
                 style={{ color: positive ? "var(--success)" : "var(--danger)" }}
               >
-                {fmtPct(c.impact_percent)}
+                {fmtPct(pct)}
               </span>
             )}
           </li>
@@ -592,43 +630,64 @@ function CommunityReaction({ alertId, ticker }: { alertId: string; ticker: strin
   };
 
   const total = stats?.total ?? 0;
-  const pct = (n: number) => total === 0 ? 0 : Math.round((n / total) * 100);
+  const pct = (n: number) => (total === 0 ? 0 : Math.round((n / total) * 100));
+  const hasVoted = stats?.my_action != null;
 
   return (
     <section className="space-y-2 pt-1">
-      <SectionLabel>Réaction de la communauté</SectionLabel>
-      <p className="text-[11px] text-muted-foreground">
-        {total === 0
-          ? `Soyez le premier à réagir parmi les détenteurs de ${ticker}`
-          : `${total} détenteur${total > 1 ? "s" : ""} de cette position ${total > 1 ? "ont" : "a"} réagi`}
-      </p>
-      <div className="grid grid-cols-3 gap-2">
-        <ReactionBtn label="Je conserve" active={stats?.my_action === "conserve"} pct={pct(stats?.counts.conserve ?? 0)} onClick={() => send("conserve")} disabled={busy} />
-        <ReactionBtn label="Je renforce" active={stats?.my_action === "renforce"} pct={pct(stats?.counts.renforce ?? 0)} onClick={() => send("renforce")} disabled={busy} />
-        <ReactionBtn label="Je vends"    active={stats?.my_action === "vend"}     pct={pct(stats?.counts.vend ?? 0)}     onClick={() => send("vend")}     disabled={busy} />
-      </div>
+      <SectionLabel>Réaction · {total} profil{total === 1 ? "" : "s"} similaire{total === 1 ? "" : "s"}</SectionLabel>
+
+      {!hasVoted ? (
+        <>
+          <p className="text-[12px] text-muted-foreground">Que faites-vous de cette position ?</p>
+          <div className="grid grid-cols-3 gap-2">
+            <VoteBtn label="Je conserve" onClick={() => send("conserve")} disabled={busy} />
+            <VoteBtn label="Je renforce" onClick={() => send("renforce")} disabled={busy} />
+            <VoteBtn label="Je vends"    onClick={() => send("vend")}     disabled={busy} />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2">
+          <ResultBar label="Ont conservé" pct={pct(stats!.counts.conserve)} barColor="#111111" highlight={stats!.my_action === "conserve"} />
+          <ResultBar label="Ont renforcé" pct={pct(stats!.counts.renforce)} barColor="var(--success)" highlight={stats!.my_action === "renforce"} />
+          <ResultBar label="Ont vendu"    pct={pct(stats!.counts.vend)}     barColor="var(--danger)"  highlight={stats!.my_action === "vend"} />
+        </div>
+      )}
     </section>
   );
 }
 
-function ReactionBtn({
-  label, active, pct, onClick, disabled,
-}: { label: string; active: boolean; pct: number; onClick: () => void; disabled: boolean }) {
+function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative overflow-hidden rounded-lg px-2 py-2.5 text-[11px] font-semibold transition border ${active ? "bg-foreground text-primary-foreground border-foreground" : "bg-surface border-border text-foreground hover:border-foreground/40"} disabled:opacity-60`}
+      className="rounded-[10px] border border-border bg-surface px-2 py-2.5 text-[12px] font-medium text-foreground hover:border-foreground/40 transition disabled:opacity-60"
     >
-      <span
-        aria-hidden
-        className={`absolute inset-y-0 left-0 ${active ? "bg-primary-foreground/15" : "bg-foreground/[0.06]"}`}
-        style={{ width: `${pct}%` }}
-      />
-      <span className="relative flex flex-col items-center gap-0.5">
-        <span>{label}</span>
-        <span className={`text-[10px] ${active ? "opacity-80" : "opacity-60"}`}>{pct}%</span>
-      </span>
+      {label}
     </button>
+  );
+}
+
+function ResultBar({
+  label, pct, barColor, highlight,
+}: { label: string; pct: number; barColor: string; highlight: boolean }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className={`text-[11px] ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          {label}
+        </span>
+        <span className={`text-[11px] tabular-nums ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          {pct}%
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#F0F0F0" }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: barColor, opacity: highlight ? 1 : 0.5 }}
+        />
+      </div>
+    </div>
   );
 }
