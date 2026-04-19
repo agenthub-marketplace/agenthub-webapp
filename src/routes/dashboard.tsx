@@ -194,7 +194,11 @@ function Dashboard() {
                 const urg = urgencyTone(a.urgency);
                 const border = impactBorderTone(a.urgency);
                 const filter = urg === "danger" ? "urgentes" : "toutes";
-                const ticker = a.isins?.[0] ?? "—";
+                const ticker = a.isins?.find((s) => s && s.trim() !== "") ?? null;
+                const titleStr = (a.title ?? "").trim();
+                const companyFromTitle = titleStr.match(/^([^:•\-—|]+?)\s*[:•\-—|]/)?.[1]?.trim();
+                const headline = ticker ?? companyFromTitle ?? "Analyse";
+                const subline = titleStr || "Analyse";
                 return (
                   <Link
                     key={a.id}
@@ -206,8 +210,8 @@ function Dashboard() {
                     <div className="flex-1 p-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[14px] font-bold text-foreground leading-tight">{ticker}</p>
-                          <p className="text-[12px] text-muted-foreground">{a.title ?? "Analyse"}</p>
+                          <p className="text-[14px] font-bold text-foreground leading-tight">{headline}</p>
+                          <p className="text-[12px] text-muted-foreground line-clamp-1">{subline}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span
