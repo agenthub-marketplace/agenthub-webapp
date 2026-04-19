@@ -40,18 +40,21 @@ function riskTone(level: RiskLevel): { tone: "success" | "warning" | "danger"; b
   return { tone: "danger", bar: 2 };
 }
 
-// Urgency drives the badge tone only (used to pick which filter to deep-link to).
+// Urgency badge tone — driven ONLY by `urgence` field. Independent from border.
+// 1 = INFO (green), 2 = ATTENTION (orange), 3+ = URGENT (red).
 function urgencyTone(urgency: number): "danger" | "warning" | "success" {
   if (urgency >= 3) return "danger";
   if (urgency === 2) return "warning";
   return "success";
 }
 
-// Left-border color is driven ONLY by urgency (1=info green, 2=warning orange, 3+=danger red).
-function impactBorderTone(urgency: number): "success" | "danger" | "warning" {
-  if (urgency >= 3) return "danger";
-  if (urgency === 2) return "warning";
-  return "success";
+// Left-border color — driven ONLY by `impact_short_term` direction. Independent from urgency.
+// positif → green, négatif → red, neutre/unknown → orange.
+function impactBorderTone(impact: string | null | undefined): "success" | "danger" | "warning" {
+  const v = (impact ?? "").toLowerCase();
+  if (v.includes("pos")) return "success";
+  if (v.includes("neg") || v.includes("nég")) return "danger";
+  return "warning";
 }
 
 function Dashboard() {
@@ -192,7 +195,7 @@ function Dashboard() {
             <div className="space-y-2.5">
               {data!.recentAlerts.map((a) => {
                 const urg = urgencyTone(a.urgency);
-                const border = impactBorderTone(a.urgency);
+                const border = impactBorderTone(a.impact_short_term);
                 const filter = urg === "danger" ? "urgentes" : "toutes";
                 // `isins` contains ISIN codes (e.g. US0378331005), not tickers — never display as ticker.
                 const titleStr = (a.title ?? "").trim();
