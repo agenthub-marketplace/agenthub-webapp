@@ -84,20 +84,6 @@ type Alert = {
 
 type Stats = { counts: Record<Reaction, number>; total: number; my_action: Reaction | null };
 
-function badgeFor(urgency: number) {
-  if (urgency >= 3) return { label: "URGENT", tone: "danger" as const };
-  if (urgency === 2) return { label: "ATTENTION", tone: "warning" as const };
-  return { label: "INFO", tone: "success" as const };
-}
-
-// Left-border color is driven by impact_short_term direction.
-// positif → green, négatif → red, neutre/unknown → orange.
-function impactSide(impact: string | null | undefined): "success" | "danger" | "warning" {
-  const v = (impact ?? "").toLowerCase();
-  if (v.includes("pos")) return "success";
-  if (v.includes("neg") || v.includes("nég")) return "danger";
-  return "warning";
-}
 
 function toNum(v: number | string | null | undefined): number | null {
   if (v == null) return null;

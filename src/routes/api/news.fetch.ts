@@ -30,18 +30,12 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
  */
 async function resolveCompanyName(symbol: string): Promise<string | null> {
   const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    console.warn("[news.fetch] FINNHUB_API_KEY missing — cannot resolve ticker→name");
-    return null;
-  }
+  if (!apiKey) return null;
   try {
     const res = await fetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
     );
-    if (!res.ok) {
-      console.warn(`[news.fetch] Finnhub profile2 ${symbol} -> HTTP ${res.status}`);
-      return null;
-    }
+    if (!res.ok) return null;
     const d = (await res.json()) as { name?: string };
     const name = d?.name?.trim();
     return name && name.length > 0 ? name : null;
@@ -131,7 +125,7 @@ export const Route = createFileRoute("/api/news/fetch")({
             const isRateLimit =
               res.status === 429 ||
               upstreamErrors.some((m: unknown) => typeof m === "string" && /too many requests/i.test(m));
-            console.warn("[news.fetch] GNews HTTP error", res.status, upstreamErrors);
+            
             return json(
               {
                 error: isRateLimit ? "GNEWS_RATE_LIMITED" : `GNews error: ${res.status} ${res.statusText}`,
@@ -148,7 +142,7 @@ export const Route = createFileRoute("/api/news/fetch")({
             const isRateLimit = data.errors.some(
               (m: unknown) => typeof m === "string" && /too many requests/i.test(m),
             );
-            console.warn("[news.fetch] GNews returned errors payload", data.errors);
+            
             return json(
               {
                 error: isRateLimit ? "GNEWS_RATE_LIMITED" : "GNEWS_ERROR",
