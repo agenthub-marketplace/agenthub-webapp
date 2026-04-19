@@ -313,7 +313,7 @@ function AlertCard({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="w-full text-left p-4 hover:bg-subtle/40 transition relative"
+        className={`w-full text-left px-4 pt-4 hover:bg-subtle/40 transition relative ${open ? "pb-3" : "pb-4"}`}
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
@@ -368,7 +368,7 @@ function AlertCard({
 
         {/* Row 4: content summary */}
         {summary && (
-          <p className="text-[12px] text-muted-foreground leading-snug mt-1.5 line-clamp-3">
+          <p className={`text-[12px] text-muted-foreground leading-snug mt-1.5 ${open ? "" : "line-clamp-3"}`}>
             {summary}
           </p>
         )}
@@ -648,21 +648,30 @@ function SectorBars({ c }: { c: Correlation }) {
   const dir = (c.direction ?? "").toLowerCase();
   const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) > 0);
   const negative = dir.includes("neg") || dir.includes("nég") || (dir === "" && (pct ?? 0) < 0);
-  const neutral = !positive && !negative;
 
-  // Intensity from |pct|: ≥5 = Fort (4 bars), ≥2 = Modéré (2), else Faible (1).
+  // Intensity 1-4 from |pct|: <2 = 1, 2-4 = 2, 4-6 = 3, >6 = 4.
   const abs = Math.abs(pct ?? 0);
-  const filled = abs >= 5 ? 4 : abs >= 2 ? 2 : abs > 0 ? 1 : 0;
-  const intensityLabel = filled === 4 ? "Impact fort" : filled === 2 ? "Impact modéré" : filled === 1 ? "Impact faible" : "Impact neutre";
+  const intensity = abs > 6 ? 4 : abs >= 4 ? 3 : abs >= 2 ? 2 : 1;
+
+  // Color is driven by intensity (not direction).
+  const colorByIntensity: Record<number, string> = {
+    1: "#2E7D32", // green
+    2: "#888888", // grey
+    3: "#F57C00", // orange
+    4: "#E53935", // red
+  };
+  const labelByIntensity: Record<number, string> = {
+    1: "Impact faible",
+    2: "Impact modéré",
+    3: "Impact significatif",
+    4: "Impact fort",
+  };
+  const fullColor = colorByIntensity[intensity];
+  const emptyColor = "#EBEBEB";
   const arrow = positive ? "↑" : negative ? "↓" : "";
 
-  const palette = positive
-    ? { full: "#2E7D32", empty: "#C8E6C9" }
-    : negative
-    ? { full: "#E53935", empty: "#FFCDD2" }
-    : { full: "#F57C00", empty: "#FFE0B2" };
-
-  const sectorName = c.raison ?? c.reason ?? c.company ?? "Secteur";
+  // Sector name: prefer entreprise/company field, fallback to raison.
+  const sectorName = c.company ?? c.raison ?? c.reason ?? "Secteur";
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">
@@ -672,12 +681,12 @@ function SectorBars({ c }: { c: Correlation }) {
           <span
             key={i}
             className="flex-1 rounded-[2px]"
-            style={{ height: 6, background: i < filled ? palette.full : palette.empty }}
+            style={{ height: 6, background: i < intensity ? fullColor : emptyColor }}
           />
         ))}
       </div>
-      <p className="text-[10px] font-medium" style={{ color: palette.full }}>
-        {intensityLabel} {arrow}
+      <p className="text-[10px] font-medium" style={{ color: fullColor }}>
+        {arrow} {labelByIntensity[intensity]}
       </p>
     </div>
   );
@@ -737,41 +746,31 @@ function CorrelationList({ items, portfolioBadge }: { items: Correlation[]; port
         return (
           <li
             key={i}
-            className="flex items-center justify-between gap-2 px-3 py-[9px]"
+            className="flex items-start gap-2 px-3 py-[9px]"
             style={!last ? { borderBottom: "1px solid #F5F5F5" } : undefined}
           >
-            <div className="flex items-start gap-2 min-w-0">
-              <span
-                className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
-                style={{ background: dotColor }}
-              />
-              <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-foreground truncate">
-                  {c.company ?? "—"}
-                  {c.ticker && (
-                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
-                  )}
-                  {portfolioBadge && (
-                    <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
-                      · En portefeuille
-                    </span>
-                  )}
-                </p>
-                {(c.raison ?? c.reason) && (
-                  <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
-                    {c.raison ?? c.reason}
-                  </p>
+            <span
+              className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
+              style={{ background: dotColor }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-semibold text-foreground truncate">
+                {c.company ?? "—"}
+                {c.ticker && (
+                  <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
                 )}
-              </div>
+                {portfolioBadge && (
+                  <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
+                    · En portefeuille
+                  </span>
+                )}
+              </p>
+              {(c.raison ?? c.reason) && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
+                  {c.raison ?? c.reason}
+                </p>
+              )}
             </div>
-            {pct != null && (
-              <span
-                className="shrink-0 text-[12px] font-bold"
-                style={{ color: positive ? "var(--success)" : "var(--danger)" }}
-              >
-                {fmtPct(pct)}
-              </span>
-            )}
           </li>
         );
       })}
