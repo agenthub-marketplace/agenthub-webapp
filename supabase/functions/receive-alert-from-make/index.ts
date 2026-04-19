@@ -84,7 +84,29 @@ Deno.serve(async (req) => {
   try {
     const buf = new Uint8Array(await req.arrayBuffer());
     const text = new TextDecoder("utf-8").decode(buf);
-    const body = JSON.parse(text);
+    let body = JSON.parse(text);
+
+    // If Make.com sends the Claude analysis as a raw JSON string,
+    // parse it server-side and merge it into the body (parsed wins).
+    if (typeof body.raw_claude_json === "string" && body.raw_claude_json.trim()) {
+      try {
+        let raw = body.raw_claude_json.trim();
+        // Strip markdown code fences if present (```json ... ```)
+        raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        // Extract first {...} block in case of leading/trailing prose
+        const first = raw.indexOf("{");
+        const last = raw.lastIndexOf("}");
+        if (first >= 0 && last > first) raw = raw.slice(first, last + 1);
+        const parsed = JSON.parse(raw);
+        body = { ...body, ...parsed };
+      } catch (err) {
+        console.error("Failed to parse raw_claude_json:", err);
+        return new Response(
+          JSON.stringify({ error: "Invalid raw_claude_json", detail: String(err) }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     const title = body.title ?? body.titre;
     const content = body.content ?? body.contenu ?? body.resume_fr;
