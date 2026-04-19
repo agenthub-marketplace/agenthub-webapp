@@ -54,6 +54,7 @@ type Alert = {
   title: string | null;
   content: string | null;
   resume_fr: string | null;
+  source_url: string | null;
   urgency: number;
   is_read: boolean;
   sent_at: string;
