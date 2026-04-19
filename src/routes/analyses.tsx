@@ -374,11 +374,9 @@ function AlertCard({
         )}
       </button>
 
-      {/* Expandable analysis */}
-      <div
-        className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-      >
-        <div className="overflow-hidden">
+      {/* Expandable analysis — display:none when collapsed to avoid mobile white-space bug */}
+      {open && (
+        <div>
           <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
@@ -567,7 +565,7 @@ function AlertCard({
             )}
           </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }
