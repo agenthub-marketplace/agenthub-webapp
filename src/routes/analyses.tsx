@@ -302,14 +302,23 @@ function AlertCard({
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
   const firstIsin = (a.isins ?? []).find((s) => s && String(s).trim() !== "") ?? null;
-  const tickerLabel = pos?.ticker ?? firstIsin ?? null;
   const titre = (a.title ?? "").trim();
-  // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple") → ticker.
+  // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple").
   const companyFromTitle = (() => {
     if (!titre) return "";
     const m = titre.match(/^([^:•\-—|]+?)\s*[:•\-—|]/);
     return (m?.[1] ?? "").trim();
   })();
+  // Derive ticker: position → first isin → first word after ":" in title.
+  const tickerFromTitleAfterColon = (() => {
+    if (!titre) return "";
+    const idx = titre.indexOf(":");
+    if (idx === -1) return "";
+    const after = titre.slice(idx + 1).trim();
+    const w = after.split(/\s+/)[0] ?? "";
+    return w.replace(/[.,;]+$/, "");
+  })();
+  const tickerLabel = pos?.ticker ?? firstIsin ?? tickerFromTitleAfterColon ?? null;
   const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel || "Analyse");
   const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
@@ -332,8 +341,8 @@ function AlertCard({
             <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
-            {tickerLabel && tickerLabel !== companyLabel && (
-              <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            {tickerLabel && (
+              <span className="text-[12px] text-muted-foreground shrink-0 uppercase">{tickerLabel}</span>
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
