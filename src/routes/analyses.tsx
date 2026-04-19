@@ -290,6 +290,14 @@ function AlertCard({
             <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {!a.is_read && (
+              <span
+                aria-label="Non lue"
+                title="Non lue"
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--primary, #2563eb)" }}
+              />
+            )}
             <span
               className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
               style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
