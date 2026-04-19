@@ -54,15 +54,17 @@ export const Route = createFileRoute("/api/news/fetch")({
           const rawNews: any[] = Array.isArray(data?.news) ? data.news : [];
 
           const news = rawNews.map((n) => ({
-            title: n.title ?? "",
+            headline: n.title ?? "",
             summary: n.summary ?? n.title ?? "",
+            datetime:
+              typeof n.providerPublishTime === "number"
+                ? n.providerPublishTime
+                : 0,
+            related: symbol,
             url: n.link ?? n.url ?? "",
-            publishedAt: n.providerPublishTime
-              ? new Date(n.providerPublishTime * 1000).toISOString()
-              : null,
           }));
 
-          return new Response(JSON.stringify({ symbol, news }), {
+          return new Response(JSON.stringify({ news }), {
             status: 200,
             headers: {
               "Content-Type": "application/json",
