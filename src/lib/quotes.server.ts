@@ -40,17 +40,6 @@ export function isEuropeanTicker(symbol: string): boolean {
   return EU_SUFFIXES.some((s) => upper.endsWith(s));
 }
 
-/** Convert "MT.AS" → { base: "MT", exchange: "Euronext" } */
-function splitEuTicker(symbol: string): { base: string; exchange: string | null } {
-  const upper = symbol.toUpperCase();
-  for (const suffix of EU_SUFFIXES) {
-    if (upper.endsWith(suffix)) {
-      return { base: upper.slice(0, -suffix.length), exchange: EU_SUFFIX_TO_EXCHANGE[suffix] };
-    }
-  }
-  return { base: upper, exchange: null };
-}
-
 // ---------------------------------------------------------------------------
 // Finnhub (US)
 // ---------------------------------------------------------------------------
