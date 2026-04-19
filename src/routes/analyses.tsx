@@ -297,9 +297,9 @@ function AlertCard({
       return next;
     });
   };
-  const side = impactSide(a.impact_short_term);
-  const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
-  const badge = badgeFor(a.urgency);
+  const colors = getAlertColors(a.impact_short_term, a.urgency);
+  const sideColor = colors.border.hex;
+  const badge = colors.badge;
   const pos = a.user_position;
   const titre = (a.title ?? "").trim();
   // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple").
