@@ -150,9 +150,6 @@ export const Route = createFileRoute("/api/alerts")({
                 position_weight_percent: portfolioValue > 0 ? (positionValue / portfolioValue) * 100 : null,
               }
             : null;
-          if (debugAppleAlert) {
-            console.error("[api/alerts] Apple alert user_position", userPosition);
-          }
           return {
             ...a,
             user_position: userPosition,
