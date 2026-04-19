@@ -73,6 +73,9 @@ type Alert = {
   scenario_optimiste: Scenario;
   scenario_neutre: Scenario;
   scenario_pessimiste: Scenario;
+  scenario_optimiste_lt: Scenario;
+  scenario_neutre_lt: Scenario;
+  scenario_pessimiste_lt: Scenario;
   correlations_directes: Correlation[] | null;
   correlations_indirectes: Correlation[] | null;
   user_position: UserPosition | null;
@@ -298,7 +301,8 @@ function AlertCard({
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
-  const tickerLabel = pos?.ticker ?? a.isins?.[0] ?? "—";
+  const firstIsin = (a.isins ?? []).find((s) => s && String(s).trim() !== "") ?? null;
+  const tickerLabel = pos?.ticker ?? firstIsin ?? null;
   const titre = (a.title ?? "").trim();
   // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple") → ticker.
   const companyFromTitle = (() => {
