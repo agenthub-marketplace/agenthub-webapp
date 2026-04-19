@@ -1,25 +1,18 @@
 // Supabase Edge Function: receive-alert-from-make
 // Public webhook (secured at network level via secret).
 //
-// Accepts BOTH the legacy English schema and the new French schema from Claude:
+// Accepts the rich Claude JSON (French) from Make.com:
 // {
-//   "titre": "...",                      // -> title
-//   "contenu": "...",                    // -> content (optional)
-//   "isins": ["FR0000120271"],           // ISIN or ticker
-//   "urgence": 1-3,                      // -> urgency
-//   "secteurs": ["Energie"],             // -> sectors
-//   "impact_court_terme": "positif|neutre|negatif",   // -> impact_short_term
-//   "impact_long_terme":  "positif|neutre|negatif",   // -> impact_long_term
-//   "scenario_optimiste":  { description, pourcentage, probabilite },
-//   "scenario_neutre":     { description, pourcentage, probabilite },
-//   "scenario_pessimiste": { description, pourcentage, probabilite },
-//   "correlations_directes":   [{ entreprise, raison, impact }],
-//   "correlations_indirectes": [{ entreprise, raison, impact }]
+//   "titre": "...", "resume_fr": "...",
+//   "isins": ["TICKER_OR_ISIN"], "secteurs": ["..."], "urgence": 1-3,
+//   "impact_court_terme": "positif|neutre|negatif",
+//   "impact_long_terme":  "positif|neutre|negatif",
+//   "impact_court_terme_pct": "+5,2%", "impact_long_terme_pct": "+2,1%",
+//   "scenario_optimiste|neutre|pessimiste":
+//      { description, pourcentage, probabilite, base_historique },
+//   "correlations_directes|indirectes":
+//      [{ entreprise, ticker, raison, impact, direction }]
 // }
-//
-// Scenario / correlation objects are normalized to:
-//   scenario:    { description, probabilite (number %), impact_percent (number %) }
-//   correlation: { company, reason, impact_percent (number %) }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -38,12 +31,9 @@ function fixMojibake(s: unknown): string | null {
     return new TextDecoder("utf-8").decode(
       Uint8Array.from(str, (c) => c.charCodeAt(0) & 0xff),
     );
-  } catch {
-    return str;
-  }
+  } catch { return str; }
 }
 
-// Extract a numeric percent from "+12%", "-3,1%", "35", 35, "35 %"...
 function parsePct(v: unknown): number | null {
   if (v == null) return null;
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -58,6 +48,7 @@ function normScenario(raw: any): any {
     description: fixMojibake(raw.description ?? raw.desc ?? null),
     probabilite: parsePct(raw.probabilite ?? raw.probability ?? null),
     impact_percent: parsePct(raw.impact_percent ?? raw.pourcentage ?? raw.impact ?? null),
+    base_historique: fixMojibake(raw.base_historique ?? raw.historical_basis ?? null),
   };
 }
 
@@ -65,8 +56,10 @@ function normCorrelations(arr: any): any[] | null {
   if (!Array.isArray(arr)) return null;
   return arr.map((c) => ({
     company: fixMojibake(c?.company ?? c?.entreprise ?? null),
+    ticker: typeof c?.ticker === "string" ? c.ticker.toUpperCase() : null,
     reason: fixMojibake(c?.reason ?? c?.raison ?? null),
     impact_percent: parsePct(c?.impact_percent ?? c?.impact ?? c?.pourcentage ?? null),
+    direction: typeof c?.direction === "string" ? c.direction.toLowerCase() : null,
   }));
 }
 
@@ -94,7 +87,8 @@ Deno.serve(async (req) => {
     const body = JSON.parse(text);
 
     const title = body.title ?? body.titre;
-    const content = body.content ?? body.contenu;
+    const content = body.content ?? body.contenu ?? body.resume_fr;
+    const resume_fr = body.resume_fr ?? body.contenu ?? body.content;
     const urgency = body.urgency ?? body.urgence;
     const sectors = body.sectors ?? body.secteurs;
     const language = body.language ?? "fr";
@@ -102,6 +96,8 @@ Deno.serve(async (req) => {
 
     const impact_short_term = normShortLong(body.impact_short_term ?? body.impact_court_terme);
     const impact_long_term = normShortLong(body.impact_long_term ?? body.impact_long_terme);
+    const impact_short_term_pct = parsePct(body.impact_short_term_pct ?? body.impact_court_terme_pct);
+    const impact_long_term_pct = parsePct(body.impact_long_term_pct ?? body.impact_long_terme_pct);
 
     const scenario_optimiste = normScenario(body.scenario_optimiste);
     const scenario_neutre = normScenario(body.scenario_neutre);
@@ -173,12 +169,15 @@ Deno.serve(async (req) => {
       user_id: uid,
       title: fixMojibake(title),
       content: fixMojibake(content),
+      resume_fr: fixMojibake(resume_fr),
       isins: symbols,
       sectors: Array.isArray(sectors) ? sectors : [],
       language: typeof language === "string" ? language : "fr",
       urgency: typeof urgency === "number" ? urgency : 1,
       impact_short_term,
       impact_long_term,
+      impact_short_term_pct,
+      impact_long_term_pct,
       impact_position_euros,
       impact_portfolio_percent,
       scenario_optimiste,
