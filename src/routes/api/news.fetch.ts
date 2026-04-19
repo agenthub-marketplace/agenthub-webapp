@@ -19,12 +19,18 @@ const json = (body: unknown, status = 200, extraHeaders: Record<string, string> 
  */
 async function resolveCompanyName(symbol: string): Promise<string | null> {
   const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn("[news.fetch] FINNHUB_API_KEY missing — cannot resolve ticker→name");
+    return null;
+  }
   try {
     const res = await fetch(
       `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[news.fetch] Finnhub profile2 ${symbol} -> HTTP ${res.status}`);
+      return null;
+    }
     const d = (await res.json()) as { name?: string };
     const name = d?.name?.trim();
     return name && name.length > 0 ? name : null;
@@ -32,6 +38,26 @@ async function resolveCompanyName(symbol: string): Promise<string | null> {
     console.error("[news.fetch] Finnhub profile lookup failed", e);
     return null;
   }
+}
+
+/**
+ * Sanitize a company name for GNews search:
+ *   "Apple Inc."        -> "Apple"
+ *   "TotalEnergies SE"  -> "TotalEnergies"
+ *   "LVMH Moët Hennessy Louis Vuitton SE" -> "LVMH"
+ * GNews's q parameter has a strict mini-syntax — bare words work best.
+ * We strip corporate suffixes, punctuation, and keep at most the first
+ * 3 meaningful words.
+ */
+function sanitizeQuery(raw: string): string {
+  const SUFFIXES = /\b(inc|incorporated|corp|corporation|co|company|ltd|limited|plc|sa|se|nv|ag|spa|llc|holdings?|group|grp)\.?\b/gi;
+  const cleaned = raw
+    .replace(SUFFIXES, "")
+    .replace(/[.,;:()"'`*+\-/\\&|!?]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = cleaned.split(" ").filter((w) => w.length > 1);
+  return words.slice(0, 3).join(" ") || raw;
 }
 
 export const Route = createFileRoute("/api/news/fetch")({
@@ -56,13 +82,14 @@ export const Route = createFileRoute("/api/news/fetch")({
           // matches nothing in French press. Prefer the company name when
           // the caller supplies one; otherwise resolve via Finnhub; final
           // fallback is the symbol itself.
-          const companyName =
+          const rawCompany =
             (companyParam && companyParam.length > 0 ? companyParam : null) ??
             (await resolveCompanyName(symbol)) ??
             symbol;
+          const query = sanitizeQuery(rawCompany);
 
           const gnewsUrl =
-            `https://gnews.io/api/v4/search?q=${encodeURIComponent(companyName)}` +
+            `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}` +
             `&lang=fr&country=fr&max=5&apikey=${encodeURIComponent(apiKey)}`;
 
           const res = await fetch(gnewsUrl, { headers: { Accept: "application/json" } });
