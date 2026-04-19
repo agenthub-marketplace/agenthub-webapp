@@ -87,15 +87,11 @@ function badgeFor(urgency: number) {
 
 // Left-border color is driven ONLY by urgency.
 // 1 = INFO green, 2 = ATTENTION orange, 3+ = URGENT red.
-function impactSide(_impactShort: string | null, urgency?: number): "success" | "danger" | "warning" {
-  if ((urgency ?? 1) >= 3) return "danger";
-  if ((urgency ?? 1) === 2) return "warning";
+function impactSide(urgency: number | null | undefined): "success" | "danger" | "warning" {
+  const u = urgency ?? 1;
+  if (u >= 3) return "danger";
+  if (u === 2) return "warning";
   return "success";
-  // legacy impact-based fallback removed
-  const s = (_impactShort ?? "").toLowerCase().trim();
-  if (s.startsWith("pos")) return "success";
-  if (s.startsWith("neg") || s.startsWith("nég")) return "danger";
-  return "warning";
 }
 
 function toNum(v: number | string | null | undefined): number | null {
