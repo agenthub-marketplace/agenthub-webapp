@@ -567,7 +567,7 @@ function CorrelationsBlock({
   const companyCount = directes.length;
 
   return (
-    <section className="rounded-2xl border border-border bg-surface overflow-hidden">
+    <section className="rounded-2xl bg-surface overflow-hidden" style={{ border: "1.5px solid #222" }}>
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
@@ -629,7 +629,7 @@ function CorrelationsBlock({
             {indirectes.length > 0 && (
               <div className="space-y-2">
                 <SectionLabel>Secteurs impactés</SectionLabel>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {indirectes.slice(0, 6).map((s, i) => (
                     <SectorBars key={i} c={s} />
                   ))}
@@ -665,8 +665,8 @@ function SectorBars({ c }: { c: Correlation }) {
   const sectorName = c.raison ?? c.reason ?? c.company ?? "Secteur";
 
   return (
-    <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2">
-      <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">{sectorName}</p>
+    <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">
+      <p className="text-[11px] font-bold text-foreground leading-tight break-words sm:line-clamp-2">{sectorName}</p>
       <div className="flex gap-[3px]">
         {[0, 1, 2, 3].map((i) => (
           <span
