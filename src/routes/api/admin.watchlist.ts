@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/admin/watchlist")({
         companies.sort((a, b) => a.symbol.localeCompare(b.symbol));
 
         return new Response(
-          JSON.stringify({ tickers, isins, count: tickers.length, rawCount: count, rowsReturned: data?.length ?? 0 }),
+          JSON.stringify({ tickers, companies, isins, count: tickers.length, rawCount: count, rowsReturned: data?.length ?? 0 }),
           { status: 200, headers: CORS },
         );
       },
