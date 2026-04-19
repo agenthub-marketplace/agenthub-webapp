@@ -630,43 +630,64 @@ function CommunityReaction({ alertId, ticker }: { alertId: string; ticker: strin
   };
 
   const total = stats?.total ?? 0;
-  const pct = (n: number) => total === 0 ? 0 : Math.round((n / total) * 100);
+  const pct = (n: number) => (total === 0 ? 0 : Math.round((n / total) * 100));
+  const hasVoted = stats?.my_action != null;
 
   return (
     <section className="space-y-2 pt-1">
-      <SectionLabel>Réaction de la communauté</SectionLabel>
-      <p className="text-[11px] text-muted-foreground">
-        {total === 0
-          ? `Soyez le premier à réagir parmi les détenteurs de ${ticker}`
-          : `${total} détenteur${total > 1 ? "s" : ""} de cette position ${total > 1 ? "ont" : "a"} réagi`}
-      </p>
-      <div className="grid grid-cols-3 gap-2">
-        <ReactionBtn label="Je conserve" active={stats?.my_action === "conserve"} pct={pct(stats?.counts.conserve ?? 0)} onClick={() => send("conserve")} disabled={busy} />
-        <ReactionBtn label="Je renforce" active={stats?.my_action === "renforce"} pct={pct(stats?.counts.renforce ?? 0)} onClick={() => send("renforce")} disabled={busy} />
-        <ReactionBtn label="Je vends"    active={stats?.my_action === "vend"}     pct={pct(stats?.counts.vend ?? 0)}     onClick={() => send("vend")}     disabled={busy} />
-      </div>
+      <SectionLabel>Réaction · {total} profil{total === 1 ? "" : "s"} similaire{total === 1 ? "" : "s"}</SectionLabel>
+
+      {!hasVoted ? (
+        <>
+          <p className="text-[12px] text-muted-foreground">Que faites-vous de cette position ?</p>
+          <div className="grid grid-cols-3 gap-2">
+            <VoteBtn label="Je conserve" onClick={() => send("conserve")} disabled={busy} />
+            <VoteBtn label="Je renforce" onClick={() => send("renforce")} disabled={busy} />
+            <VoteBtn label="Je vends"    onClick={() => send("vend")}     disabled={busy} />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2">
+          <ResultBar label="Ont conservé" pct={pct(stats!.counts.conserve)} barColor="#111111" highlight={stats!.my_action === "conserve"} />
+          <ResultBar label="Ont renforcé" pct={pct(stats!.counts.renforce)} barColor="var(--success)" highlight={stats!.my_action === "renforce"} />
+          <ResultBar label="Ont vendu"    pct={pct(stats!.counts.vend)}     barColor="var(--danger)"  highlight={stats!.my_action === "vend"} />
+        </div>
+      )}
     </section>
   );
 }
 
-function ReactionBtn({
-  label, active, pct, onClick, disabled,
-}: { label: string; active: boolean; pct: number; onClick: () => void; disabled: boolean }) {
+function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative overflow-hidden rounded-lg px-2 py-2.5 text-[11px] font-semibold transition border ${active ? "bg-foreground text-primary-foreground border-foreground" : "bg-surface border-border text-foreground hover:border-foreground/40"} disabled:opacity-60`}
+      className="rounded-[10px] border border-border bg-surface px-2 py-2.5 text-[12px] font-medium text-foreground hover:border-foreground/40 transition disabled:opacity-60"
     >
-      <span
-        aria-hidden
-        className={`absolute inset-y-0 left-0 ${active ? "bg-primary-foreground/15" : "bg-foreground/[0.06]"}`}
-        style={{ width: `${pct}%` }}
-      />
-      <span className="relative flex flex-col items-center gap-0.5">
-        <span>{label}</span>
-        <span className={`text-[10px] ${active ? "opacity-80" : "opacity-60"}`}>{pct}%</span>
-      </span>
+      {label}
     </button>
+  );
+}
+
+function ResultBar({
+  label, pct, barColor, highlight,
+}: { label: string; pct: number; barColor: string; highlight: boolean }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className={`text-[11px] ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          {label}
+        </span>
+        <span className={`text-[11px] tabular-nums ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          {pct}%
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#F0F0F0" }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: barColor, opacity: highlight ? 1 : 0.5 }}
+        />
+      </div>
+    </div>
   );
 }
