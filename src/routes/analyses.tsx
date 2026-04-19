@@ -85,10 +85,12 @@ function badgeFor(urgency: number) {
   return { label: "INFO", tone: "success" as const };
 }
 
+// Left-border color is driven ONLY by impact_short_term, not by urgency.
+// positif = green, negatif = red, neutre (or anything else) = orange.
 function impactSide(impactShort: string | null): "success" | "danger" | "warning" {
-  const s = (impactShort ?? "").toLowerCase();
-  if (s.includes("pos")) return "success";
-  if (s.includes("nég") || s.includes("neg")) return "danger";
+  const s = (impactShort ?? "").toLowerCase().trim();
+  if (s.startsWith("pos")) return "success";
+  if (s.startsWith("neg") || s.startsWith("nég")) return "danger";
   return "warning";
 }
 
