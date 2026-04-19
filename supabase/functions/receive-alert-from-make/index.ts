@@ -1,17 +1,25 @@
 // Supabase Edge Function: receive-alert-from-make
 // Public webhook (secured at network level via secret).
-// Body (rich schema from Claude / Make):
+//
+// Accepts BOTH the legacy English schema and the new French schema from Claude:
 // {
-//   title, content, isins[] (ISIN or ticker), urgency (1-3),
-//   sectors[], language ("fr"),
-//   impact_short_term, impact_long_term,
-//   impact_position_euros, impact_portfolio_percent,
-//   scenario_optimiste / scenario_neutre / scenario_pessimiste:
-//     { description, probabilite, impact_percent },
-//   correlations_directes / correlations_indirectes:
-//     [{ company, reason, impact_percent }],
-//   investor_reaction: { sentiment, recommendation }
+//   "titre": "...",                      // -> title
+//   "contenu": "...",                    // -> content (optional)
+//   "isins": ["FR0000120271"],           // ISIN or ticker
+//   "urgence": 1-3,                      // -> urgency
+//   "secteurs": ["Energie"],             // -> sectors
+//   "impact_court_terme": "positif|neutre|negatif",   // -> impact_short_term
+//   "impact_long_terme":  "positif|neutre|negatif",   // -> impact_long_term
+//   "scenario_optimiste":  { description, pourcentage, probabilite },
+//   "scenario_neutre":     { description, pourcentage, probabilite },
+//   "scenario_pessimiste": { description, pourcentage, probabilite },
+//   "correlations_directes":   [{ entreprise, raison, impact }],
+//   "correlations_indirectes": [{ entreprise, raison, impact }]
 // }
+//
+// Scenario / correlation objects are normalized to:
+//   scenario:    { description, probabilite (number %), impact_percent (number %) }
+//   correlation: { company, reason, impact_percent (number %) }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -22,8 +30,6 @@ const corsHeaders = {
 
 const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}\d$/;
 
-// Repair common UTF-8 mojibake (latin1 misread as utf8) on a string.
-// e.g. "rÃ©vision" -> "révision"
 function fixMojibake(s: unknown): string | null {
   if (s == null) return null;
   const str = String(s);
@@ -37,6 +43,42 @@ function fixMojibake(s: unknown): string | null {
   }
 }
 
+// Extract a numeric percent from "+12%", "-3,1%", "35", 35, "35 %"...
+function parsePct(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const s = String(v).replace("%", "").replace(",", ".").trim();
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normScenario(raw: any): any {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    description: fixMojibake(raw.description ?? raw.desc ?? null),
+    probabilite: parsePct(raw.probabilite ?? raw.probability ?? null),
+    impact_percent: parsePct(raw.impact_percent ?? raw.pourcentage ?? raw.impact ?? null),
+  };
+}
+
+function normCorrelations(arr: any): any[] | null {
+  if (!Array.isArray(arr)) return null;
+  return arr.map((c) => ({
+    company: fixMojibake(c?.company ?? c?.entreprise ?? null),
+    reason: fixMojibake(c?.reason ?? c?.raison ?? null),
+    impact_percent: parsePct(c?.impact_percent ?? c?.impact ?? c?.pourcentage ?? null),
+  }));
+}
+
+function normShortLong(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).toLowerCase().trim();
+  if (s.startsWith("pos")) return "positif";
+  if (s.startsWith("neg") || s.startsWith("nég")) return "negatif";
+  if (s.startsWith("neu")) return "neutre";
+  return fixMojibake(v);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -47,29 +89,32 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Read raw bytes and decode as UTF-8 explicitly to avoid mojibake.
     const buf = new Uint8Array(await req.arrayBuffer());
     const text = new TextDecoder("utf-8").decode(buf);
     const body = JSON.parse(text);
 
-    const {
-      title,
-      content,
-      isins,
-      urgency,
-      sectors,
-      language,
-      impact_short_term,
-      impact_long_term,
-      impact_position_euros,
-      impact_portfolio_percent,
-      scenario_optimiste,
-      scenario_neutre,
-      scenario_pessimiste,
-      correlations_directes,
-      correlations_indirectes,
-      investor_reaction,
-    } = body ?? {};
+    const title = body.title ?? body.titre;
+    const content = body.content ?? body.contenu;
+    const urgency = body.urgency ?? body.urgence;
+    const sectors = body.sectors ?? body.secteurs;
+    const language = body.language ?? "fr";
+    const isins = body.isins;
+
+    const impact_short_term = normShortLong(body.impact_short_term ?? body.impact_court_terme);
+    const impact_long_term = normShortLong(body.impact_long_term ?? body.impact_long_terme);
+
+    const scenario_optimiste = normScenario(body.scenario_optimiste);
+    const scenario_neutre = normScenario(body.scenario_neutre);
+    const scenario_pessimiste = normScenario(body.scenario_pessimiste);
+
+    const correlations_directes = normCorrelations(body.correlations_directes);
+    const correlations_indirectes = normCorrelations(body.correlations_indirectes);
+
+    const impact_position_euros =
+      typeof body.impact_position_euros === "number" ? body.impact_position_euros : null;
+    const impact_portfolio_percent =
+      typeof body.impact_portfolio_percent === "number" ? body.impact_portfolio_percent : null;
+    const investor_reaction = body.investor_reaction ?? null;
 
     if (!Array.isArray(isins) || isins.length === 0) {
       return new Response(JSON.stringify({ error: "isins array required" }), {
@@ -87,7 +132,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Find users holding any of the ISINs OR tickers OR matching sectors.
     const userIdSet = new Set<string>();
     if (isinList.length > 0) {
       const { data, error } = await supabase
@@ -111,7 +155,6 @@ Deno.serve(async (req) => {
     let userIds = Array.from(userIdSet);
     let broadcast = false;
 
-    // Test/broadcast mode: no holders → fan out to every user
     if (userIds.length === 0) {
       const { data: allUsers, error: allErr } = await supabase
         .from("profiles").select("id");
@@ -134,16 +177,16 @@ Deno.serve(async (req) => {
       sectors: Array.isArray(sectors) ? sectors : [],
       language: typeof language === "string" ? language : "fr",
       urgency: typeof urgency === "number" ? urgency : 1,
-      impact_short_term: fixMojibake(impact_short_term),
-      impact_long_term: fixMojibake(impact_long_term),
-      impact_position_euros: typeof impact_position_euros === "number" ? impact_position_euros : null,
-      impact_portfolio_percent: typeof impact_portfolio_percent === "number" ? impact_portfolio_percent : null,
-      scenario_optimiste: scenario_optimiste ?? null,
-      scenario_neutre: scenario_neutre ?? null,
-      scenario_pessimiste: scenario_pessimiste ?? null,
-      correlations_directes: correlations_directes ?? null,
-      correlations_indirectes: correlations_indirectes ?? null,
-      investor_reaction: investor_reaction ?? null,
+      impact_short_term,
+      impact_long_term,
+      impact_position_euros,
+      impact_portfolio_percent,
+      scenario_optimiste,
+      scenario_neutre,
+      scenario_pessimiste,
+      correlations_directes,
+      correlations_indirectes,
+      investor_reaction,
     }));
 
     const { error: insErr } = await supabase.from("alerts").insert(rows);
