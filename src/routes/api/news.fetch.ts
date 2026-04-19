@@ -13,6 +13,17 @@ const json = (body: unknown, status = 200, extraHeaders: Record<string, string> 
   });
 
 /**
+ * In-memory cache keyed by sanitized query. GNews free tier rate-limits
+ * aggressively (a handful of requests/minute) — caching for 10 minutes per
+ * symbol keeps repeated alert-pipeline calls from getting throttled.
+ * Note: serverless workers may evict this between cold starts, which is fine
+ * — it's a best-effort throttle shield, not a correctness requirement.
+ */
+type CacheEntry = { expiresAt: number; payload: unknown };
+const NEWS_CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+/**
  * Resolve a stock ticker (e.g. "AAPL", "TTE.PA") to a human-readable
  * company name via Finnhub. Returns null on any failure — caller falls
  * back to the raw symbol.
