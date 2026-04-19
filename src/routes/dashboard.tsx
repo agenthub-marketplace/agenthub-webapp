@@ -192,8 +192,9 @@ function Dashboard() {
           ) : (
             <div className="space-y-2.5">
               {data!.recentAlerts.map((a) => {
-                const tone = alertTone(a.urgency);
-                const filter = tone === "danger" ? "urgentes" : "toutes";
+                const urg = urgencyTone(a.urgency);
+                const border = impactBorderTone(a.impact_short_term);
+                const filter = urg === "danger" ? "urgentes" : "toutes";
                 const ticker = a.isins?.[0] ?? "—";
                 return (
                   <Link
@@ -202,14 +203,22 @@ function Dashboard() {
                     search={{ filter }}
                     className="bg-surface border border-border rounded-[14px] flex overflow-hidden active:scale-[0.99] transition"
                   >
-                    <div className={`w-1 ${tone === "danger" ? "bg-danger" : tone === "warning" ? "bg-warning" : "bg-success"}`} />
+                    <div className={`w-1 ${border === "danger" ? "bg-danger" : border === "warning" ? "bg-warning" : "bg-success"}`} />
                     <div className="flex-1 p-3.5">
-                      <div className="flex items-start justify-between">
-                        <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
                           <p className="text-[14px] font-bold text-foreground leading-tight">{ticker}</p>
                           <p className="text-[12px] text-muted-foreground">{a.title ?? "Analyse"}</p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">{timeAgo(a.sent_at)}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-[0.06em]"
+                            style={{ background: `var(--${urg}-soft)`, color: `var(--${urg})` }}
+                          >
+                            {urg === "danger" ? "URGENT" : urg === "warning" ? "ATTENTION" : "INFO"}
+                          </span>
+                          <p className="text-[11px] text-muted-foreground">{timeAgo(a.sent_at)}</p>
+                        </div>
                       </div>
                       {a.content && <p className="mt-2 text-[12px] text-foreground leading-[1.5] line-clamp-3">{a.content}</p>}
                     </div>
