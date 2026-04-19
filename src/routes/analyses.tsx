@@ -177,7 +177,9 @@ function Analyses() {
 
       <div className="px-4 space-y-3 pt-3">
         <div className="flex gap-2 pt-1 pb-2">
-          <Pill active={filter === "toutes"} onClick={() => setFilter("toutes")}>Toutes</Pill>
+          <Pill active={filter === "toutes"} onClick={() => setFilter("toutes")}>
+            Toutes<span className="ml-1.5 opacity-70">{totalCount}</span>
+          </Pill>
           <Pill active={filter === "urgentes"} onClick={() => setFilter("urgentes")}>
             Urgentes<span className="ml-1.5 opacity-70">{urgentCount}</span>
           </Pill>
