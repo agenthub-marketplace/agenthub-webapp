@@ -195,7 +195,7 @@ function Dashboard() {
             <div className="space-y-2.5">
               {data!.recentAlerts.map((a) => {
                 const urg = urgencyTone(a.urgency);
-                const border = impactBorderTone(a.urgency);
+                const border = impactBorderTone(a.impact_short_term);
                 const filter = urg === "danger" ? "urgentes" : "toutes";
                 // `isins` contains ISIN codes (e.g. US0378331005), not tickers — never display as ticker.
                 const titleStr = (a.title ?? "").trim();
