@@ -162,13 +162,16 @@ export const Route = createFileRoute("/api/news/fetch")({
 
           const articles = Array.isArray(data?.articles) ? (data.articles as any[]) : [];
 
-          const news = articles.map((a) => ({
-            headline: a.title ?? "",
-            summary: a.description ?? a.content ?? a.title ?? "",
-            url: a.url ?? "",
-            datetime: a.publishedAt ?? "",
-            related: symbol,
-          }));
+          const news = articles
+            .map((a) => ({
+              headline: (a.title ?? "").trim(),
+              summary: (a.description ?? a.content ?? a.title ?? "").trim(),
+              url: a.url ?? "",
+              datetime: a.publishedAt ?? "",
+              related: symbol,
+            }))
+            // Drop items with no usable text — Claude cannot summarize an empty article.
+            .filter((n) => n.headline.length > 0 || n.summary.length > 0);
 
           const payload = { news, query };
           NEWS_CACHE.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, payload });

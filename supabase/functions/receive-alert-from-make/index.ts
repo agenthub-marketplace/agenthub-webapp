@@ -141,6 +141,26 @@ Deno.serve(async (req) => {
           ? body.url.trim()
           : null;
 
+    // Skip empty/placeholder analyses — Claude returns "Aucune information
+    // disponible" when GNews gave it nothing usable. Inserting these would
+    // spam users with empty alerts.
+    const titleStr = typeof title === "string" ? title.trim() : "";
+    const contentStr = typeof content === "string" ? content.trim() : "";
+    const isPlaceholderTitle = /aucune\s+information\s+disponible/i.test(titleStr);
+    if (!contentStr || isPlaceholderTitle) {
+      console.log("[receive-alert-from-make] Skipping empty/placeholder alert", {
+        title: titleStr.slice(0, 80),
+        hasContent: contentStr.length > 0,
+      });
+      return new Response(
+        JSON.stringify({
+          skipped: true,
+          reason: isPlaceholderTitle ? "placeholder_title" : "empty_content",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (!Array.isArray(isins) || isins.length === 0) {
       return new Response(JSON.stringify({ error: "isins array required" }), {
         status: 400,
