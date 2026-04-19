@@ -469,6 +469,18 @@ function AlertCard({
               </section>
             )}
 
+            {/* 2b. SCÉNARIOS LONG TERME 6 MOIS */}
+            {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
+              <section className="space-y-2">
+                <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
+                </div>
+              </section>
+            )}
+
             {/* 3. CORRÉLATIONS DIRECTES */}
             {(a.correlations_directes?.length ?? 0) > 0 && (
               <section className="space-y-2">
@@ -486,7 +498,7 @@ function AlertCard({
             )}
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
-            <CommunityReaction alertId={a.id} ticker={tickerLabel} />
+            <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
 
             {/* 6. SOURCE LINK */}
             {a.source_url && (
