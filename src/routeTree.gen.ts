@@ -27,8 +27,10 @@ import { Route as ApiStocksProfileRouteImport } from './routes/api/stocks.profil
 import { Route as ApiStocksLogoRouteImport } from './routes/api/stocks.logo'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
+import { Route as ApiAlertsIdRouteImport } from './routes/api/alerts.$id'
 import { Route as ApiAdminWatchlistRouteImport } from './routes/api/admin.watchlist'
 import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
+import { Route as ApiAlertsIdReactRouteImport } from './routes/api/alerts.$id.react'
 
 const ReglagesRoute = ReglagesRouteImport.update({
   id: '/reglages',
@@ -120,15 +122,25 @@ const ApiPortfolioIdRoute = ApiPortfolioIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiPortfolioRoute,
 } as any)
+const ApiAlertsIdRoute = ApiAlertsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAlertsRoute,
+} as any)
 const ApiAdminWatchlistRoute = ApiAdminWatchlistRouteImport.update({
   id: '/api/admin/watchlist',
   path: '/api/admin/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
-  id: '/$id/read',
-  path: '/$id/read',
-  getParentRoute: () => ApiAlertsRoute,
+  id: '/read',
+  path: '/read',
+  getParentRoute: () => ApiAlertsIdRoute,
+} as any)
+const ApiAlertsIdReactRoute = ApiAlertsIdReactRouteImport.update({
+  id: '/react',
+  path: '/react',
+  getParentRoute: () => ApiAlertsIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -142,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
+  '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -151,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/react': typeof ApiAlertsIdReactRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRoutesByTo {
@@ -164,6 +178,7 @@ export interface FileRoutesByTo {
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
+  '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -173,6 +188,7 @@ export interface FileRoutesByTo {
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/react': typeof ApiAlertsIdReactRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRoutesById {
@@ -187,6 +203,7 @@ export interface FileRoutesById {
   '/api/portfolio': typeof ApiPortfolioRouteWithChildren
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
+  '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -196,6 +213,7 @@ export interface FileRoutesById {
   '/api/tink/callback': typeof ApiTinkCallbackRoute
   '/api/tink/connect-url': typeof ApiTinkConnectUrlRoute
   '/api/tink/init': typeof ApiTinkInitRoute
+  '/api/alerts/$id/react': typeof ApiAlertsIdReactRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
 }
 export interface FileRouteTypes {
@@ -211,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/portfolio'
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
+    | '/api/alerts/$id'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -220,6 +239,7 @@ export interface FileRouteTypes {
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/react'
     | '/api/alerts/$id/read'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -233,6 +253,7 @@ export interface FileRouteTypes {
     | '/api/portfolio'
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
+    | '/api/alerts/$id'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -242,6 +263,7 @@ export interface FileRouteTypes {
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/react'
     | '/api/alerts/$id/read'
   id:
     | '__root__'
@@ -255,6 +277,7 @@ export interface FileRouteTypes {
     | '/api/portfolio'
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
+    | '/api/alerts/$id'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -264,6 +287,7 @@ export interface FileRouteTypes {
     | '/api/tink/callback'
     | '/api/tink/connect-url'
     | '/api/tink/init'
+    | '/api/alerts/$id/react'
     | '/api/alerts/$id/read'
   fileRoutesById: FileRoutesById
 }
@@ -415,6 +439,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPortfolioIdRouteImport
       parentRoute: typeof ApiPortfolioRoute
     }
+    '/api/alerts/$id': {
+      id: '/api/alerts/$id'
+      path: '/$id'
+      fullPath: '/api/alerts/$id'
+      preLoaderRoute: typeof ApiAlertsIdRouteImport
+      parentRoute: typeof ApiAlertsRoute
+    }
     '/api/admin/watchlist': {
       id: '/api/admin/watchlist'
       path: '/api/admin/watchlist'
@@ -424,20 +455,41 @@ declare module '@tanstack/react-router' {
     }
     '/api/alerts/$id/read': {
       id: '/api/alerts/$id/read'
-      path: '/$id/read'
+      path: '/read'
       fullPath: '/api/alerts/$id/read'
       preLoaderRoute: typeof ApiAlertsIdReadRouteImport
-      parentRoute: typeof ApiAlertsRoute
+      parentRoute: typeof ApiAlertsIdRoute
+    }
+    '/api/alerts/$id/react': {
+      id: '/api/alerts/$id/react'
+      path: '/react'
+      fullPath: '/api/alerts/$id/react'
+      preLoaderRoute: typeof ApiAlertsIdReactRouteImport
+      parentRoute: typeof ApiAlertsIdRoute
     }
   }
 }
 
-interface ApiAlertsRouteChildren {
+interface ApiAlertsIdRouteChildren {
+  ApiAlertsIdReactRoute: typeof ApiAlertsIdReactRoute
   ApiAlertsIdReadRoute: typeof ApiAlertsIdReadRoute
 }
 
-const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
+const ApiAlertsIdRouteChildren: ApiAlertsIdRouteChildren = {
+  ApiAlertsIdReactRoute: ApiAlertsIdReactRoute,
   ApiAlertsIdReadRoute: ApiAlertsIdReadRoute,
+}
+
+const ApiAlertsIdRouteWithChildren = ApiAlertsIdRoute._addFileChildren(
+  ApiAlertsIdRouteChildren,
+)
+
+interface ApiAlertsRouteChildren {
+  ApiAlertsIdRoute: typeof ApiAlertsIdRouteWithChildren
+}
+
+const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
+  ApiAlertsIdRoute: ApiAlertsIdRouteWithChildren,
 }
 
 const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(

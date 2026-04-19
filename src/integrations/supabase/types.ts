@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_reactions: {
+        Row: {
+          action: string
+          alert_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          alert_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          alert_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_reactions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alerts: {
         Row: {
           content: string | null
@@ -22,13 +57,17 @@ export type Database = {
           created_at: string
           id: string
           impact_long_term: string | null
+          impact_portfolio_percent: number | null
+          impact_position_euros: number | null
           impact_short_term: string | null
           investor_reaction: Json | null
           is_read: boolean
           isins: string[] | null
+          language: string
           scenario_neutre: Json | null
           scenario_optimiste: Json | null
           scenario_pessimiste: Json | null
+          sectors: string[] | null
           sent_at: string
           title: string | null
           updated_at: string
@@ -42,13 +81,17 @@ export type Database = {
           created_at?: string
           id?: string
           impact_long_term?: string | null
+          impact_portfolio_percent?: number | null
+          impact_position_euros?: number | null
           impact_short_term?: string | null
           investor_reaction?: Json | null
           is_read?: boolean
           isins?: string[] | null
+          language?: string
           scenario_neutre?: Json | null
           scenario_optimiste?: Json | null
           scenario_pessimiste?: Json | null
+          sectors?: string[] | null
           sent_at?: string
           title?: string | null
           updated_at?: string
@@ -62,13 +105,17 @@ export type Database = {
           created_at?: string
           id?: string
           impact_long_term?: string | null
+          impact_portfolio_percent?: number | null
+          impact_position_euros?: number | null
           impact_short_term?: string | null
           investor_reaction?: Json | null
           is_read?: boolean
           isins?: string[] | null
+          language?: string
           scenario_neutre?: Json | null
           scenario_optimiste?: Json | null
           scenario_pessimiste?: Json | null
+          sectors?: string[] | null
           sent_at?: string
           title?: string | null
           updated_at?: string
@@ -232,7 +279,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_alert_reaction_stats: {
+        Args: { _alert_id: string }
+        Returns: {
+          action: string
+          count: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
