@@ -381,67 +381,90 @@ function AlertCard({
         <div className="overflow-hidden">
           <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
 
-            {/* 1. IMPACT SUR VOTRE POSITION — gain projeté = qty × cur × scenario_neutre% */}
+            {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
-              const neutrePct = toNum(a.scenario_neutre?.pourcentage ?? a.scenario_neutre?.impact_percent);
-              const projectedGain = pos && neutrePct != null
-                ? pos.quantity * pos.current_price * (neutrePct / 100)
+              // Weighted % across the 3 short-term scenarios using their probabilities.
+              const scen = [a.scenario_optimiste, a.scenario_neutre, a.scenario_pessimiste];
+              let weightedPct: number | null = null;
+              let probSum = 0;
+              let acc = 0;
+              for (const s of scen) {
+                const pct = toNum(s?.pourcentage ?? s?.impact_percent);
+                const prob = toNum(s?.probabilite);
+                if (pct != null && prob != null) {
+                  acc += pct * (prob / 100);
+                  probSum += prob;
+                }
+              }
+              if (probSum > 0) weightedPct = acc;
+
+              const gain = pos && weightedPct != null
+                ? pos.quantity * pos.current_price * (weightedPct / 100)
                 : null;
-              const portfolioImpactPct = pos && projectedGain != null && pos.portfolio_value > 0
-                ? (projectedGain / pos.portfolio_value) * 100
+              const portfolioValue = pos?.portfolio_value ?? 0;
+              const adjustedPortfolio = gain != null ? portfolioValue + gain : portfolioValue;
+              const portfolioImpactPct = gain != null && portfolioValue > 0
+                ? (gain / portfolioValue) * 100
                 : null;
+              const gainPositive = (gain ?? 0) >= 0;
+              const gainColor = gainPositive ? "var(--success)" : "var(--danger)";
+
               return (
                 <section className="space-y-2">
-                  <SectionLabel>Impact sur votre position</SectionLabel>
+                  <SectionLabel>Impact</SectionLabel>
                   <div className="rounded-xl border border-border bg-surface overflow-hidden">
                     <div className={pos ? "grid grid-cols-2" : ""}>
                       {pos && (
                         <div
                           className="p-3 space-y-1"
                           style={{
-                            borderLeft: `3px solid ${(projectedGain ?? 0) >= 0 ? "var(--success)" : "var(--danger)"}`,
+                            borderLeft: `3px solid ${gainColor}`,
                             borderRight: "1px solid #F0F0F0",
                           }}
                         >
-                          <p className="text-[10px] text-muted-foreground">Votre position</p>
-                          <p className="text-[18px] font-bold text-foreground leading-none">
-                            {projectedGain != null
-                              ? `${projectedGain >= 0 ? "+" : ""}${formatEuro(projectedGain)}`
-                              : formatEuro(pos.position_value)}
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatEuro(pos.position_value)}
                           </p>
-                          {neutrePct != null && (
-                            <p
-                              className="text-[11px] font-semibold"
-                              style={{ color: (projectedGain ?? 0) >= 0 ? "var(--success)" : "var(--danger)" }}
-                            >
-                              {(projectedGain ?? 0) >= 0 ? "↑" : "↓"} {fmtPct(neutrePct)} estimé (scénario neutre)
+                          <p
+                            className="text-[18px] font-bold leading-none"
+                            style={{ color: gain != null ? gainColor : "var(--foreground)" }}
+                          >
+                            {gain != null
+                              ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
+                              : "—"}
+                          </p>
+                          {weightedPct != null && (
+                            <p className="text-[11px] font-semibold" style={{ color: gainColor }}>
+                              {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)}
                             </p>
                           )}
-                          <p className="text-[11px] text-muted-foreground">
-                            {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
+                          <p className="text-[10px] text-muted-foreground">
+                            Impact pondéré · 3 scénarios
                           </p>
                         </div>
                       )}
                       <div
                         className="p-3 space-y-1"
-                        style={{ borderLeft: "3px solid var(--border)" }}
+                        style={{ borderLeft: "3px solid #EBEBEB" }}
                       >
-                        <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
-                        <p className="text-[18px] font-bold text-foreground leading-none">
-                          {pos
-                            ? (projectedGain != null ? `${projectedGain >= 0 ? "+" : ""}${formatEuro(projectedGain)}` : formatEuro(pos.portfolio_value))
-                            : "—"}
+                        <p className="text-[11px] text-muted-foreground">
+                          {portfolioValue > 0 ? formatEuro(portfolioValue) : "—"}
                         </p>
-                        {portfolioImpactPct != null && (
+                        <p className="text-[18px] font-bold leading-none" style={{ color: "#111111" }}>
+                          {portfolioValue > 0 ? formatEuro(adjustedPortfolio) : "—"}
+                        </p>
+                        {portfolioImpactPct != null ? (
                           <p className="text-[11px] text-muted-foreground">
-                            ↑ {fmtPct(portfolioImpactPct)} du total
+                            {portfolioImpactPct >= 0 ? "↑" : "↓"} {fmtPct(portfolioImpactPct)}
                           </p>
-                        )}
-                        {pos && (
+                        ) : !pos ? (
                           <p className="text-[11px] text-muted-foreground">
-                            {formatEuro(pos.portfolio_value)} au total
+                            Aucune position directe sur ce titre
                           </p>
-                        )}
+                        ) : null}
+                        <p className="text-[10px] text-muted-foreground">
+                          Valeur ajustée estimée
+                        </p>
                       </div>
                     </div>
                   </div>
