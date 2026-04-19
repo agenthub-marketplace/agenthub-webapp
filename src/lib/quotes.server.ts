@@ -40,17 +40,6 @@ export function isEuropeanTicker(symbol: string): boolean {
   return EU_SUFFIXES.some((s) => upper.endsWith(s));
 }
 
-/** Convert "MT.AS" → { base: "MT", exchange: "Euronext" } */
-function splitEuTicker(symbol: string): { base: string; exchange: string | null } {
-  const upper = symbol.toUpperCase();
-  for (const suffix of EU_SUFFIXES) {
-    if (upper.endsWith(suffix)) {
-      return { base: upper.slice(0, -suffix.length), exchange: EU_SUFFIX_TO_EXCHANGE[suffix] };
-    }
-  }
-  return { base: upper, exchange: null };
-}
-
 // ---------------------------------------------------------------------------
 // Finnhub (US)
 // ---------------------------------------------------------------------------
@@ -59,15 +48,12 @@ type FinnhubQuoteResponse = { c?: number; d?: number; dp?: number; pc?: number }
 
 async function finnhubQuote(symbol: string, apiKey: string): Promise<Quote> {
   const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`;
-  console.log(`[quotes:finnhub] GET ${url.replace(apiKey, "***")}`);
   try {
     const res = await fetch(url);
     if (!res.ok) {
-      console.warn(`[quotes:finnhub] ${symbol} -> HTTP ${res.status}`);
       return { price: null, change: null, changePct: null, source: "none" };
     }
     const d = (await res.json()) as FinnhubQuoteResponse;
-    console.log(`[quotes:finnhub] ${symbol} ->`, JSON.stringify(d));
     if (typeof d.c === "number" && d.c > 0) {
       return {
         price: d.c,
@@ -124,17 +110,10 @@ function num(v: unknown): number | null {
 async function yahooQuote(symbol: string): Promise<Quote> {
   for (const host of ["query2.finance.yahoo.com", "query1.finance.yahoo.com"]) {
     const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-    console.log(`[quotes:yahoo] GET ${url}`);
     try {
       const res = await fetch(url, { headers: YAHOO_HEADERS });
-      if (res.status === 429) {
-        console.warn(`[quotes:yahoo] ${symbol} -> 429 on ${host}`);
-        continue;
-      }
-      if (!res.ok) {
-        console.warn(`[quotes:yahoo] ${symbol} -> HTTP ${res.status} on ${host}`);
-        continue;
-      }
+      if (res.status === 429) continue;
+      if (!res.ok) continue;
       const d = (await res.json()) as YahooChartResponse;
       if (d.chart?.error) continue;
       const meta = d.chart?.result?.[0]?.meta;
@@ -143,7 +122,6 @@ async function yahooQuote(symbol: string): Promise<Quote> {
       if (price == null) continue;
       const change = prev != null ? price - prev : null;
       const changePct = prev != null && prev > 0 ? ((price - prev) / prev) * 100 : null;
-      console.log(`[quotes:yahoo] ${symbol} -> price=${price} ${meta?.currency ?? ""}`);
       return { price, change, changePct, currency: meta?.currency ?? null, source: "yahoo" };
     } catch (e) {
       console.error(`[quotes:yahoo] ${symbol} fetch error on ${host}`, e);
@@ -190,11 +168,9 @@ async function stooqQuote(symbol: string): Promise<Quote> {
   const stooqSymbol = toStooqSymbol(symbol);
   if (!stooqSymbol) return { price: null, change: null, changePct: null, source: "none" };
   const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSymbol)}&f=sd2t2ohlcvp&h&e=csv`;
-  console.log(`[quotes:stooq] GET ${url}`);
   try {
     const res = await fetch(url);
     if (!res.ok) {
-      console.warn(`[quotes:stooq] ${symbol} -> HTTP ${res.status}`);
       return { price: null, change: null, changePct: null, source: "none" };
     }
     const csv = await res.text();
@@ -206,14 +182,12 @@ async function stooqQuote(symbol: string): Promise<Quote> {
     const open = num(cols[3]);
     const close = num(cols[6]);
     if (close == null) {
-      console.warn(`[quotes:stooq] ${symbol} no close (csv=${lines[1]})`);
       return { price: null, change: null, changePct: null, source: "none" };
     }
     // Stooq's free CSV doesn't reliably include yesterday's close — use today's
     // open as a rough day-change proxy. Better than nothing while market open.
     const change = open != null ? close - open : null;
     const changePct = open != null && open > 0 ? ((close - open) / open) * 100 : null;
-    console.log(`[quotes:stooq] ${symbol} (${stooqSymbol}) -> close=${close} open=${open}`);
     return { price: close, change, changePct, source: "yahoo" };
   } catch (e) {
     console.error(`[quotes:stooq] ${symbol} fetch error`, e);
@@ -274,7 +248,6 @@ type YahooQuoteSummary = {
 async function yahooLogo(symbol: string): Promise<string | null> {
   for (const host of ["query2.finance.yahoo.com", "query1.finance.yahoo.com"]) {
     const url = `https://${host}/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile`;
-    console.log(`[logo:yahoo] GET ${url}`);
     try {
       const res = await fetch(url, { headers: YAHOO_HEADERS });
       if (!res.ok) continue;

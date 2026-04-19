@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/tink/init")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
-      POST: async ({ request }) => {
+      POST: async () => {
         const clientId = process.env.TINK_CLIENT_ID;
         if (!clientId) {
           return new Response(JSON.stringify({ error: "TINK_CLIENT_ID manquant" }), { status: 500, headers: CORS });
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/api/tink/init")({
           `?client_id=${encodeURIComponent(clientId)}` +
           `&redirect_uri=${encodeURIComponent(redirect)}` +
           `&market=FR&locale=fr_FR&test=true`;
-        console.log("[tink/init] Generated Tink Link URL:", url);
         return new Response(JSON.stringify({ url }), { status: 200, headers: CORS });
       },
     },
