@@ -301,7 +301,6 @@ function AlertCard({
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
-  const firstIsin = (a.isins ?? []).find((s) => s && String(s).trim() !== "") ?? null;
   const titre = (a.title ?? "").trim();
   // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple").
   const companyFromTitle = (() => {
@@ -309,17 +308,11 @@ function AlertCard({
     const m = titre.match(/^([^:•\-—|]+?)\s*[:•\-—|]/);
     return (m?.[1] ?? "").trim();
   })();
-  // Derive ticker: position → first isin → first word after ":" in title.
-  const tickerFromTitleAfterColon = (() => {
-    if (!titre) return "";
-    const idx = titre.indexOf(":");
-    if (idx === -1) return "";
-    const after = titre.slice(idx + 1).trim();
-    const w = after.split(/\s+/)[0] ?? "";
-    return w.replace(/[.,;]+$/, "");
-  })();
-  const tickerLabel = pos?.ticker ?? firstIsin ?? tickerFromTitleAfterColon ?? null;
-  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel || "Analyse");
+  // Ticker MUST come from a real position match. `isins` contains ISIN codes
+  // (e.g. US0378331005), not tickers — never display them as a ticker, and
+  // never invent one from the title (e.g. "CA record" → "CA" was wrong).
+  const tickerLabel = pos?.ticker ?? null;
+  const companyLabel = pos?.company ?? (companyFromTitle || "Analyse");
   const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
   return (
