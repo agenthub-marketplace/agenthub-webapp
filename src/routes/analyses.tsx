@@ -297,7 +297,7 @@ function AlertCard({
       return next;
     });
   };
-  const side = impactSide(a.urgency);
+  const side = impactSide(a.impact_short_term);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
