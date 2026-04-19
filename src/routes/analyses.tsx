@@ -370,34 +370,37 @@ function AlertCard({
               </div>
             )}
 
-            {/* 1. IMPACT SUR VOTRE POSITION */}
+            {/* 1. IMPACT SUR VOTRE POSITION — real values from user portfolio */}
             {pos && (
               <section className="space-y-2">
                 <SectionLabel>Impact sur votre position</SectionLabel>
                 <div className="rounded-xl border border-border bg-surface overflow-hidden">
                   <div className="grid grid-cols-2">
-                    {/* Left: position */}
+                    {/* Left: position — real current value & gain/loss vs purchase */}
                     <div
                       className="p-3 space-y-1"
-                      style={{ borderLeft: "3px solid var(--success)", borderRight: "1px solid #F0F0F0" }}
+                      style={{
+                        borderLeft: `3px solid ${pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)"}`,
+                        borderRight: "1px solid #F0F0F0",
+                      }}
                     >
                       <p className="text-[10px] text-muted-foreground">Votre position</p>
                       <p className="text-[18px] font-bold text-foreground leading-none">
                         {formatEuro(pos.position_value)}
                       </p>
-                      {a.impact_short_term_pct != null && (
+                      {pos.gain_loss_percent != null && (
                         <p
                           className="text-[11px] font-semibold"
-                          style={{ color: a.impact_short_term_pct >= 0 ? "var(--success)" : "var(--danger)" }}
+                          style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
                         >
-                          {a.impact_short_term_pct >= 0 ? "↑" : "↓"} {fmtPct(a.impact_short_term_pct)}
+                          {pos.gain_loss_euros >= 0 ? "↑" : "↓"} {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
                         </p>
                       )}
                       <p className="text-[11px] text-muted-foreground">
                         {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"} · {formatEuro(pos.current_price)}
                       </p>
                     </div>
-                    {/* Right: portfolio */}
+                    {/* Right: real total portfolio value (sum across all positions) */}
                     <div
                       className="p-3 space-y-1"
                       style={{ borderLeft: "3px solid var(--border)" }}
@@ -406,16 +409,13 @@ function AlertCard({
                       <p className="text-[18px] font-bold text-foreground leading-none">
                         {formatEuro(pos.portfolio_value)}
                       </p>
-                      {a.impact_portfolio_percent != null && (
-                        <p
-                          className="text-[11px]"
-                          style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
-                        >
-                          {a.impact_portfolio_percent >= 0 ? "↑" : "↓"} {fmtPct(a.impact_portfolio_percent)}
+                      {pos.position_weight_percent != null && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Poids {fmtPct(pos.position_weight_percent, false)} du total
                         </p>
                       )}
                       <p className="text-[11px] text-muted-foreground">
-                        Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
+                        {formatEuro(pos.portfolio_value)} au total
                       </p>
                     </div>
                   </div>
