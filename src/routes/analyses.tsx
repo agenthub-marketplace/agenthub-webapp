@@ -518,7 +518,7 @@ function AlertCard({
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
               <section className="space-y-2">
                 <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
                   <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
                   <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
@@ -530,7 +530,7 @@ function AlertCard({
             {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
               <section className="space-y-2">
                 <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
                   <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
                   <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
@@ -750,7 +750,7 @@ function ScenarioBox({
           </p>
         )}
         {(s?.description || s?.base_historique) && (
-          <p className="text-[10px] leading-[1.5] line-clamp-3 pt-1" style={{ color: "#888" }}>
+          <p className="text-[10px] leading-[1.5] pt-1" style={{ color: "#888" }}>
             {s?.description || s?.base_historique}
           </p>
         )}
