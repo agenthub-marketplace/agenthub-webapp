@@ -277,9 +277,9 @@ function AlertCard({
       {/* Collapsed header — always visible, click to expand */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
-        className="w-full text-left p-4 hover:bg-subtle/40 transition"
+        className="w-full text-left p-4 hover:bg-subtle/40 transition relative"
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
