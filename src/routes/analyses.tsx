@@ -310,7 +310,7 @@ function AlertCard({
     const m = titre.match(/^([^:•\-—|]+?)\s*[:•\-—|]/);
     return (m?.[1] ?? "").trim();
   })();
-  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel);
+  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel || "Analyse");
   const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
   return (
@@ -332,7 +332,9 @@ function AlertCard({
             <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
-            <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            {tickerLabel && tickerLabel !== companyLabel && (
+              <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {!a.is_read && (
