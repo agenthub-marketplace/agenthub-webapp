@@ -86,10 +86,7 @@ Deno.serve(async (req) => {
     const text = new TextDecoder("utf-8").decode(buf);
     let body = JSON.parse(text);
 
-    // === DEBUG: log raw payload structure ===
-    console.log("[receive-alert-from-make] RAW BODY KEYS:", Object.keys(body));
-    console.log("[receive-alert-from-make] RAW BODY (first 2000 chars):", text.slice(0, 2000));
-    console.log("[receive-alert-from-make] has raw_claude_json?", typeof body.raw_claude_json);
+    // Parse Make.com payload below.
 
     // If Make.com sends the Claude analysis as a raw JSON string,
     // parse it server-side and merge it into the body (parsed wins).
@@ -103,14 +100,6 @@ Deno.serve(async (req) => {
         const last = raw.lastIndexOf("}");
         if (first >= 0 && last > first) raw = raw.slice(first, last + 1);
         const parsed = JSON.parse(raw);
-        console.log("[receive-alert-from-make] PARSED raw_claude_json keys:", Object.keys(parsed));
-        console.log("[receive-alert-from-make] PARSED scenarios?", {
-          opt: !!parsed.scenario_optimiste,
-          neu: !!parsed.scenario_neutre,
-          pes: !!parsed.scenario_pessimiste,
-          cd: Array.isArray(parsed.correlations_directes) ? parsed.correlations_directes.length : null,
-          ci: Array.isArray(parsed.correlations_indirectes) ? parsed.correlations_indirectes.length : null,
-        });
         body = { ...body, ...parsed };
       } catch (err) {
         console.error("Failed to parse raw_claude_json:", err);
@@ -121,14 +110,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === DEBUG: final body structure after merge ===
-    console.log("[receive-alert-from-make] MERGED BODY scenarios/correlations:", {
-      scenario_optimiste: body.scenario_optimiste ? Object.keys(body.scenario_optimiste) : null,
-      scenario_neutre: body.scenario_neutre ? Object.keys(body.scenario_neutre) : null,
-      scenario_pessimiste: body.scenario_pessimiste ? Object.keys(body.scenario_pessimiste) : null,
-      correlations_directes: Array.isArray(body.correlations_directes) ? body.correlations_directes.length : typeof body.correlations_directes,
-      correlations_indirectes: Array.isArray(body.correlations_indirectes) ? body.correlations_indirectes.length : typeof body.correlations_indirectes,
-    });
 
     // Prefer Claude's French "titre" over the raw English "title" headline.
     const title = body.titre ?? body.title;
@@ -181,10 +162,6 @@ Deno.serve(async (req) => {
     const contentStr = typeof content === "string" ? content.trim() : "";
     const isPlaceholderTitle = /aucune\s+information\s+disponible/i.test(titleStr);
     if (!contentStr || isPlaceholderTitle) {
-      console.log("[receive-alert-from-make] Skipping empty/placeholder alert", {
-        title: titleStr.slice(0, 80),
-        hasContent: contentStr.length > 0,
-      });
       return new Response(
         JSON.stringify({
           skipped: true,
