@@ -108,8 +108,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const title = body.title ?? body.titre;
-    const content = body.content ?? body.contenu ?? body.resume_fr;
+    // Prefer Claude's French "titre" over the raw English "title" headline.
+    const title = body.titre ?? body.title;
+    const content = body.resume_fr ?? body.contenu ?? body.content;
     const resume_fr = body.resume_fr ?? body.contenu ?? body.content;
     const urgency = body.urgency ?? body.urgence;
     const sectors = body.sectors ?? body.secteurs;
