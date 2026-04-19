@@ -693,13 +693,13 @@ function ScenarioBox({
           </p>
         )}
         {proba != null && (
-          <p className="text-[10px]" style={{ color: "#AAA" }}>
+          <p className="text-[10px]" style={{ color: "#888" }}>
             Prob. {fmtPct(proba, false)}
           </p>
         )}
-        {s?.base_historique && (
-          <p className="text-[9px] leading-snug line-clamp-2" style={{ color: "#CCC" }}>
-            {s.base_historique}
+        {(s?.description || s?.base_historique) && (
+          <p className="text-[10px] leading-[1.5] line-clamp-3 pt-1" style={{ color: "#888" }}>
+            {s?.description || s?.base_historique}
           </p>
         )}
       </div>
@@ -707,7 +707,7 @@ function ScenarioBox({
   );
 }
 
-function CorrelationList({ items }: { items: Correlation[] }) {
+function CorrelationList({ items, portfolioBadge }: { items: Correlation[]; portfolioBadge?: boolean }) {
   return (
     <ul className="rounded-[10px] border border-border overflow-hidden bg-surface">
       {items.map((c, i) => {
@@ -731,7 +731,12 @@ function CorrelationList({ items }: { items: Correlation[] }) {
                 <p className="text-[12px] font-semibold text-foreground truncate">
                   {c.company ?? "—"}
                   {c.ticker && (
-                    <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">{c.ticker}</span>
+                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
+                  )}
+                  {portfolioBadge && (
+                    <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
+                      · En portefeuille
+                    </span>
                   )}
                 </p>
                 {(c.raison ?? c.reason) && (
