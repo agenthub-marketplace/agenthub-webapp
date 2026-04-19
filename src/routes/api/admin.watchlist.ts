@@ -13,26 +13,7 @@ export const Route = createFileRoute("/api/admin/watchlist")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
       GET: async ({ request }) => {
-        const expected = process.env.ADMIN_SECRET;
-        if (!expected) {
-          console.error("[admin/watchlist] ADMIN_SECRET not configured");
-          return new Response(
-            JSON.stringify({ error: "Server misconfigured" }),
-            { status: 500, headers: CORS },
-          );
-        }
-
-        const url = new URL(request.url);
-        const provided =
-          request.headers.get("x-admin-secret") ??
-          url.searchParams.get("secret");
-        if (provided !== expected) {
-          return new Response(JSON.stringify({ error: "Unauthorized" }), {
-            status: 401,
-            headers: CORS,
-          });
-        }
-
+        console.warn("[admin/watchlist] AUTH DISABLED - endpoint is fully public (temporary)");
         console.log("[admin/watchlist] Querying positions table with service role");
         console.log("[admin/watchlist] SUPABASE_URL:", process.env.SUPABASE_URL);
         console.log("[admin/watchlist] Has SERVICE_ROLE_KEY:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
