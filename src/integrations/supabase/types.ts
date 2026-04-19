@@ -72,6 +72,7 @@ export type Database = {
           scenario_pessimiste: Json | null
           sectors: string[] | null
           sent_at: string
+          source_url: string | null
           title: string | null
           updated_at: string
           urgency: number
@@ -99,6 +100,7 @@ export type Database = {
           scenario_pessimiste?: Json | null
           sectors?: string[] | null
           sent_at?: string
+          source_url?: string | null
           title?: string | null
           updated_at?: string
           urgency?: number
@@ -126,6 +128,7 @@ export type Database = {
           scenario_pessimiste?: Json | null
           sectors?: string[] | null
           sent_at?: string
+          source_url?: string | null
           title?: string | null
           updated_at?: string
           urgency?: number

@@ -54,6 +54,7 @@ type Alert = {
   title: string | null;
   content: string | null;
   resume_fr: string | null;
+  source_url: string | null;
   urgency: number;
   is_read: boolean;
   sent_at: string;
@@ -121,9 +122,15 @@ function Analyses() {
   }, [navigate]);
 
   const filtered = useMemo(() => {
-    if (filter === "urgentes") return alerts.filter((a) => a.urgency >= 3);
-    if (filter === "non-lues") return alerts.filter((a) => !a.is_read);
-    return alerts;
+    // Hide alerts with no usable content (missing French title AND missing body).
+    const nonEmpty = alerts.filter((a) => {
+      const hasTitle = (a.title ?? "").trim().length > 0;
+      const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
+      return hasTitle && hasBody;
+    });
+    if (filter === "urgentes") return nonEmpty.filter((a) => a.urgency >= 3);
+    if (filter === "non-lues") return nonEmpty.filter((a) => !a.is_read);
+    return nonEmpty;
   }, [filter, alerts]);
 
   const filterLabel =
@@ -387,6 +394,20 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
             <CommunityReaction alertId={a.id} ticker={tickerLabel} />
+
+            {/* 6. SOURCE LINK */}
+            {a.source_url && (
+              <div className="flex justify-end pt-1">
+                <a
+                  href={a.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline-offset-2 hover:underline"
+                >
+                  Lire la source →
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>
