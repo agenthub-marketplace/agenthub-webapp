@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 
 type Filter = "toutes" | "urgentes" | "non-lues";
-type Reaction = "conserve" | "renforce" | "vend";
+type Reaction = "conserve" | "renforce" | "vend" | "rien";
 
 export const Route = createFileRoute("/analyses")({
   validateSearch: (s: Record<string, unknown>): { filter?: Filter } => ({
