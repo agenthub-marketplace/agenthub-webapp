@@ -43,11 +43,11 @@ export const Route = createFileRoute("/api/alerts/$id/react")({
           return errorResponse("Stats indisponibles", 500);
         }
 
-        const counts: Record<string, number> = { conserve: 0, renforce: 0, vend: 0 };
+        const counts: Record<string, number> = { conserve: 0, renforce: 0, vend: 0, rien: 0 };
         for (const row of (stats ?? []) as Array<{ action: string; count: number }>) {
           counts[row.action] = Number(row.count) || 0;
         }
-        const total = counts.conserve + counts.renforce + counts.vend;
+        const total = counts.conserve + counts.renforce + counts.vend + counts.rien;
 
         // Fetch the current user's own choice (if any).
         const { data: own } = await auth.userClient
