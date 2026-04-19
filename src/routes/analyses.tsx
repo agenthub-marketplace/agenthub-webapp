@@ -249,8 +249,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
+function AlertCard({
+  a, onDelete, onMarkRead,
+}: { a: Alert; onDelete: () => void; onMarkRead: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      if (next && !a.is_read) onMarkRead(a.id);
+      return next;
+    });
+  };
   const side = impactSide(a.impact_short_term);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
