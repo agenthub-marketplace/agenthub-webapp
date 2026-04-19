@@ -341,8 +341,8 @@ function AlertCard({
             <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
-            {tickerLabel && tickerLabel !== companyLabel && (
-              <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
+            {tickerLabel && (
+              <span className="text-[12px] text-muted-foreground shrink-0 uppercase">{tickerLabel}</span>
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
