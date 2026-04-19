@@ -416,9 +416,6 @@ function AlertCard({
               const portfPositive = (portfolioImpactPct ?? 0) >= 0;
               const portfColor = portfPositive ? "var(--success)" : "var(--danger)";
 
-              const colorForPct = (n: number | null) =>
-                n == null ? "#888888" : n >= 0 ? "var(--success)" : "var(--danger)";
-
               return (
                 <section className="space-y-2">
                   <SectionLabel>Impact</SectionLabel>
