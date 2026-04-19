@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Trash2, ChevronDown } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, timeAgo, formatEuro } from "@/lib/api-client";
@@ -89,13 +89,13 @@ function badgeFor(urgency: number) {
   return { label: "INFO", tone: "success" as const };
 }
 
-// Left-border color is driven ONLY by urgency.
-// 1 = INFO green, 2 = ATTENTION orange, 3+ = URGENT red.
-function impactSide(urgency: number | null | undefined): "success" | "danger" | "warning" {
-  const u = urgency ?? 1;
-  if (u >= 3) return "danger";
-  if (u === 2) return "warning";
-  return "success";
+// Left-border color is driven by impact_short_term direction.
+// positif → green, négatif → red, neutre/unknown → orange.
+function impactSide(impact: string | null | undefined): "success" | "danger" | "warning" {
+  const v = (impact ?? "").toLowerCase();
+  if (v.includes("pos")) return "success";
+  if (v.includes("neg") || v.includes("nég")) return "danger";
+  return "warning";
 }
 
 function toNum(v: number | string | null | undefined): number | null {
