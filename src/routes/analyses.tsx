@@ -368,7 +368,7 @@ function AlertCard({
 
         {/* Row 4: content summary */}
         {summary && (
-          <p className="text-[12px] text-muted-foreground leading-snug mt-1.5 line-clamp-3">
+          <p className={`text-[12px] text-muted-foreground leading-snug mt-1.5 ${open ? "" : "line-clamp-3"}`}>
             {summary}
           </p>
         )}
