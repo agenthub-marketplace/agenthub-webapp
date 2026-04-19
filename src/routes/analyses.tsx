@@ -85,13 +85,13 @@ function badgeFor(urgency: number) {
   return { label: "INFO", tone: "success" as const };
 }
 
-// Left-border color is driven ONLY by impact_short_term, not by urgency.
-// positif = green, negatif = red, neutre (or anything else) = orange.
-function impactSide(impactShort: string | null): "success" | "danger" | "warning" {
-  const s = (impactShort ?? "").toLowerCase().trim();
-  if (s.startsWith("pos")) return "success";
-  if (s.startsWith("neg") || s.startsWith("nég")) return "danger";
-  return "warning";
+// Left-border color is driven ONLY by urgency.
+// 1 = INFO green, 2 = ATTENTION orange, 3+ = URGENT red.
+function impactSide(urgency: number | null | undefined): "success" | "danger" | "warning" {
+  const u = urgency ?? 1;
+  if (u >= 3) return "danger";
+  if (u === 2) return "warning";
+  return "success";
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -273,7 +273,7 @@ function AlertCard({
       return next;
     });
   };
-  const side = impactSide(a.impact_short_term);
+  const side = impactSide(a.urgency);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
