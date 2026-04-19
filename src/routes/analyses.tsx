@@ -350,7 +350,7 @@ function AlertCard({
             )}
             <span
               className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-              style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
+              style={{ background: badge.bg, color: badge.fg }}
             >
               {badge.label}
             </span>
