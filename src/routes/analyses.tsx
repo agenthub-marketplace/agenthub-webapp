@@ -518,16 +518,148 @@ function AlertCard({
   );
 }
 
-function ImpactPctBox({ label, value }: { label: string; value: number }) {
-  const positive = value >= 0;
+function CorrelationsBlock({
+  directes,
+  indirectes,
+}: { directes: Correlation[]; indirectes: Correlation[] }) {
+  const [open, setOpen] = useState(false);
+  const [userTickers, setUserTickers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("positions").select("ticker, isin");
+      if (cancelled) return;
+      const set = new Set<string>();
+      for (const p of data ?? []) {
+        if (p.ticker) set.add(p.ticker.toUpperCase());
+        if (p.isin) set.add(p.isin.toUpperCase());
+      }
+      setUserTickers(set);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const inPortfolio = (c: Correlation) =>
+    !!c.ticker && userTickers.has(c.ticker.toUpperCase());
+
+  const matched = directes.filter(inPortfolio);
+  const top = directes.slice(0, 3);
+  const sectorCount = indirectes.length;
+  const companyCount = directes.length;
+
   return (
-    <div className="rounded-xl p-3 bg-subtle">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-      <p
-        className="text-[16px] font-bold mt-1"
-        style={{ color: positive ? "var(--success)" : "var(--danger)" }}
+    <section className="rounded-2xl border border-border bg-surface overflow-hidden">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="w-full flex items-center justify-between p-3.5"
+        aria-expanded={open}
       >
-        {fmtPct(value)}
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: "var(--success)" }}
+          />
+          <span className="text-[13px] font-bold text-foreground">Corrélations</span>
+          {(companyCount > 0 || sectorCount > 0) && (
+            <span
+              className="ml-1 px-2 py-0.5 rounded-full text-[10px] text-muted-foreground"
+              style={{ background: "#F5F5F5" }}
+            >
+              {companyCount} entreprise{companyCount > 1 ? "s" : ""} · {sectorCount} secteur{sectorCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        {open
+          ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+        }
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-3.5 pb-3.5 space-y-3 border-t border-border pt-3">
+            {/* Sub 1: portfolio matches */}
+            {directes.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Corrélations directes · Votre portefeuille</SectionLabel>
+                {matched.length > 0 ? (
+                  <CorrelationList items={matched} portfolioBadge />
+                ) : (
+                  <div
+                    className="rounded-[10px] py-3 text-center text-[11px] text-muted-foreground"
+                    style={{ background: "#FAFAFA" }}
+                  >
+                    Aucune corrélation directe significative sur votre portefeuille
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub 2: top impacted */}
+            {top.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Corrélations directes · Top entreprises impactées</SectionLabel>
+                <CorrelationList items={top} />
+              </div>
+            )}
+
+            {/* Sub 3: sectors */}
+            {indirectes.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Secteurs impactés</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  {indirectes.slice(0, 6).map((s, i) => (
+                    <SectorBars key={i} c={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SectorBars({ c }: { c: Correlation }) {
+  const pct = toNum(c.pourcentage ?? c.impact_percent);
+  const dir = (c.direction ?? "").toLowerCase();
+  const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) > 0);
+  const negative = dir.includes("neg") || dir.includes("nég") || (dir === "" && (pct ?? 0) < 0);
+  const neutral = !positive && !negative;
+
+  // Intensity from |pct|: ≥5 = Fort (4 bars), ≥2 = Modéré (2), else Faible (1).
+  const abs = Math.abs(pct ?? 0);
+  const filled = abs >= 5 ? 4 : abs >= 2 ? 2 : abs > 0 ? 1 : 0;
+  const intensityLabel = filled === 4 ? "Impact fort" : filled === 2 ? "Impact modéré" : filled === 1 ? "Impact faible" : "Impact neutre";
+  const arrow = positive ? "↑" : negative ? "↓" : "";
+
+  const palette = positive
+    ? { full: "#2E7D32", empty: "#C8E6C9" }
+    : negative
+    ? { full: "#E53935", empty: "#FFCDD2" }
+    : { full: "#F57C00", empty: "#FFE0B2" };
+
+  const sectorName = c.raison ?? c.reason ?? c.company ?? "Secteur";
+
+  return (
+    <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2">
+      <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">{sectorName}</p>
+      <div className="flex gap-[3px]">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className="flex-1 rounded-[2px]"
+            style={{ height: 6, background: i < filled ? palette.full : palette.empty }}
+          />
+        ))}
+      </div>
+      <p className="text-[10px] font-medium" style={{ color: palette.full }}>
+        {intensityLabel} {arrow}
       </p>
     </div>
   );
