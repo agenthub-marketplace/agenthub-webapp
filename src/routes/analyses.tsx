@@ -481,31 +481,40 @@ function ImpactPctBox({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger"; label: string; s: Scenario }) {
+function ScenarioBox({
+  variant, label, s,
+}: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
+  const styles = {
+    optimiste:  { bg: "#F9FFF9", border: "#C8E6C9", text: "var(--success)", num: "var(--success)" },
+    neutre:     { bg: "#FAFAFA", border: "#E0E0E0", text: "#666",            num: "#555" },
+    pessimiste: { bg: "#FFF9F9", border: "#FFCDD2", text: "var(--danger)",  num: "var(--danger)" },
+  }[variant];
+  const pct = toNum(s?.pourcentage ?? s?.impact_percent);
+  const proba = toNum(s?.probabilite);
   return (
     <div
-      className="rounded-xl bg-subtle overflow-hidden"
-      style={{ borderTop: `3px solid var(--${tone})` }}
+      className="rounded-xl overflow-hidden"
+      style={{ background: styles.bg, border: `1px solid ${styles.border}` }}
     >
-      <div className="p-2.5 space-y-1.5">
-        <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: `var(--${tone})` }}>
+      <div className="p-2.5 space-y-1">
+        <p
+          className="text-[9px] uppercase tracking-[0.06em] font-bold"
+          style={{ color: styles.text }}
+        >
           {label}
         </p>
-        {typeof s?.impact_percent === "number" && (
-          <p className="text-[14px] font-bold text-foreground">
-            {fmtPct(s.impact_percent)}
+        {pct != null && (
+          <p className="text-[16px] font-bold leading-tight" style={{ color: styles.num }}>
+            {fmtPct(pct)}
           </p>
         )}
-        {s?.description && (
-          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{s.description}</p>
-        )}
-        {typeof s?.probabilite === "number" && (
-          <p className="text-[10px] text-muted-foreground">
-            Probabilité {fmtPct(s.probabilite, false)}
+        {proba != null && (
+          <p className="text-[10px]" style={{ color: "#AAA" }}>
+            Prob. {fmtPct(proba, false)}
           </p>
         )}
         {s?.base_historique && (
-          <p className="text-[10px] text-muted-foreground italic leading-snug line-clamp-2">
+          <p className="text-[9px] leading-snug line-clamp-2" style={{ color: "#CCC" }}>
             {s.base_historique}
           </p>
         )}
@@ -516,15 +525,23 @@ function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger
 
 function CorrelationList({ items }: { items: Correlation[] }) {
   return (
-    <ul className="rounded-xl bg-subtle divide-y divide-border overflow-hidden">
+    <ul className="rounded-[10px] border border-border overflow-hidden bg-surface">
       {items.map((c, i) => {
-        const positive = (c.impact_percent ?? 0) >= 0;
+        const pct = toNum(c.pourcentage ?? c.impact_percent);
+        const dir = (c.direction ?? "").toLowerCase();
+        const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) >= 0);
+        const dotColor = positive ? "var(--success)" : "var(--danger)";
+        const last = i === items.length - 1;
         return (
-          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2.5">
-            <div className="flex items-center gap-2 min-w-0">
+          <li
+            key={i}
+            className="flex items-center justify-between gap-2 px-3 py-[9px]"
+            style={!last ? { borderBottom: "1px solid #F5F5F5" } : undefined}
+          >
+            <div className="flex items-start gap-2 min-w-0">
               <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: positive ? "var(--success)" : "var(--danger)" }}
+                className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
+                style={{ background: dotColor }}
               />
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-foreground truncate">
@@ -533,15 +550,19 @@ function CorrelationList({ items }: { items: Correlation[] }) {
                     <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">{c.ticker}</span>
                   )}
                 </p>
-                {c.reason && <p className="text-[11px] text-muted-foreground truncate">{c.reason}</p>}
+                {(c.raison ?? c.reason) && (
+                  <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
+                    {c.raison ?? c.reason}
+                  </p>
+                )}
               </div>
             </div>
-            {typeof c.impact_percent === "number" && (
+            {pct != null && (
               <span
                 className="shrink-0 text-[12px] font-bold"
                 style={{ color: positive ? "var(--success)" : "var(--danger)" }}
               >
-                {fmtPct(c.impact_percent)}
+                {fmtPct(pct)}
               </span>
             )}
           </li>
