@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/admin/watchlist")({
       GET: async () => {
         const { data, error, count } = await supabaseAdmin
           .from("positions")
-          .select("ticker, isin", { count: "exact" });
+          .select("ticker, isin, name, company", { count: "exact" });
 
         if (error) {
           console.error("[admin/watchlist] db error", error);
@@ -25,12 +25,23 @@ export const Route = createFileRoute("/api/admin/watchlist")({
           );
         }
 
-        const tickers = Array.from(
-          new Set((data ?? []).map((r) => r.ticker).filter(Boolean)),
-        ).sort();
+        const rows = (data ?? []).filter((r) => r.ticker);
+        const tickers = Array.from(new Set(rows.map((r) => r.ticker))).sort();
         const isins = Array.from(
           new Set((data ?? []).map((r) => r.isin).filter(Boolean)),
         ).sort();
+
+        // One entry per unique ticker. Prefer `name` (cleaner), fall back to
+        // `company`, and finally to the ticker itself if both are blank.
+        const seen = new Set<string>();
+        const companies: Array<{ symbol: string; name: string }> = [];
+        for (const r of rows) {
+          if (seen.has(r.ticker)) continue;
+          seen.add(r.ticker);
+          const name = (r.name?.trim() || r.company?.trim() || r.ticker) as string;
+          companies.push({ symbol: r.ticker, name });
+        }
+        companies.sort((a, b) => a.symbol.localeCompare(b.symbol));
 
         return new Response(
           JSON.stringify({ tickers, isins, count: tickers.length, rawCount: count, rowsReturned: data?.length ?? 0 }),
