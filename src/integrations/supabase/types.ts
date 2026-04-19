@@ -57,13 +57,16 @@ export type Database = {
           created_at: string
           id: string
           impact_long_term: string | null
+          impact_long_term_pct: number | null
           impact_portfolio_percent: number | null
           impact_position_euros: number | null
           impact_short_term: string | null
+          impact_short_term_pct: number | null
           investor_reaction: Json | null
           is_read: boolean
           isins: string[] | null
           language: string
+          resume_fr: string | null
           scenario_neutre: Json | null
           scenario_optimiste: Json | null
           scenario_pessimiste: Json | null
@@ -81,13 +84,16 @@ export type Database = {
           created_at?: string
           id?: string
           impact_long_term?: string | null
+          impact_long_term_pct?: number | null
           impact_portfolio_percent?: number | null
           impact_position_euros?: number | null
           impact_short_term?: string | null
+          impact_short_term_pct?: number | null
           investor_reaction?: Json | null
           is_read?: boolean
           isins?: string[] | null
           language?: string
+          resume_fr?: string | null
           scenario_neutre?: Json | null
           scenario_optimiste?: Json | null
           scenario_pessimiste?: Json | null
@@ -105,13 +111,16 @@ export type Database = {
           created_at?: string
           id?: string
           impact_long_term?: string | null
+          impact_long_term_pct?: number | null
           impact_portfolio_percent?: number | null
           impact_position_euros?: number | null
           impact_short_term?: string | null
+          impact_short_term_pct?: number | null
           investor_reaction?: Json | null
           is_read?: boolean
           isins?: string[] | null
           language?: string
+          resume_fr?: string | null
           scenario_neutre?: Json | null
           scenario_optimiste?: Json | null
           scenario_pessimiste?: Json | null
