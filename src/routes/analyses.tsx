@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Trash2, ChevronDown } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch, timeAgo, formatEuro } from "@/lib/api-client";
@@ -89,13 +89,13 @@ function badgeFor(urgency: number) {
   return { label: "INFO", tone: "success" as const };
 }
 
-// Left-border color is driven ONLY by urgency.
-// 1 = INFO green, 2 = ATTENTION orange, 3+ = URGENT red.
-function impactSide(urgency: number | null | undefined): "success" | "danger" | "warning" {
-  const u = urgency ?? 1;
-  if (u >= 3) return "danger";
-  if (u === 2) return "warning";
-  return "success";
+// Left-border color is driven by impact_short_term direction.
+// positif → green, négatif → red, neutre/unknown → orange.
+function impactSide(impact: string | null | undefined): "success" | "danger" | "warning" {
+  const v = (impact ?? "").toLowerCase();
+  if (v.includes("pos")) return "success";
+  if (v.includes("neg") || v.includes("nég")) return "danger";
+  return "warning";
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -297,7 +297,7 @@ function AlertCard({
       return next;
     });
   };
-  const side = impactSide(a.urgency);
+  const side = impactSide(a.impact_short_term);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
@@ -394,70 +394,73 @@ function AlertCard({
         <div className="overflow-hidden">
           <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">
 
-            {/* Impact court / long terme global */}
-            {(a.impact_short_term_pct != null || a.impact_long_term_pct != null) && (
-              <div className="grid grid-cols-2 gap-2">
-                {a.impact_short_term_pct != null && (
-                  <ImpactPctBox label="Court terme · 48h" value={a.impact_short_term_pct} />
-                )}
-                {a.impact_long_term_pct != null && (
-                  <ImpactPctBox label="Long terme" value={a.impact_long_term_pct} />
-                )}
-              </div>
-            )}
-
-            {/* 1. IMPACT SUR VOTRE POSITION — real values from user portfolio */}
-            {pos && (
-              <section className="space-y-2">
-                <SectionLabel>Impact sur votre position</SectionLabel>
-                <div className="rounded-xl border border-border bg-surface overflow-hidden">
-                  <div className="grid grid-cols-2">
-                    {/* Left: position — real current value & gain/loss vs purchase */}
-                    <div
-                      className="p-3 space-y-1"
-                      style={{
-                        borderLeft: `3px solid ${pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)"}`,
-                        borderRight: "1px solid #F0F0F0",
-                      }}
-                    >
-                      <p className="text-[10px] text-muted-foreground">Votre position</p>
-                      <p className="text-[18px] font-bold text-foreground leading-none">
-                        {formatEuro(pos.position_value)}
-                      </p>
-                      {pos.gain_loss_percent != null && (
-                        <p
-                          className="text-[11px] font-semibold"
-                          style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
+            {/* 1. IMPACT SUR VOTRE POSITION — gain projeté = qty × cur × scenario_neutre% */}
+            {(() => {
+              const neutrePct = toNum(a.scenario_neutre?.pourcentage ?? a.scenario_neutre?.impact_percent);
+              const projectedGain = pos && neutrePct != null
+                ? pos.quantity * pos.current_price * (neutrePct / 100)
+                : null;
+              const portfolioImpactPct = pos && projectedGain != null && pos.portfolio_value > 0
+                ? (projectedGain / pos.portfolio_value) * 100
+                : null;
+              return (
+                <section className="space-y-2">
+                  <SectionLabel>Impact sur votre position</SectionLabel>
+                  <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                    <div className={pos ? "grid grid-cols-2" : ""}>
+                      {pos && (
+                        <div
+                          className="p-3 space-y-1"
+                          style={{
+                            borderLeft: `3px solid ${(projectedGain ?? 0) >= 0 ? "var(--success)" : "var(--danger)"}`,
+                            borderRight: "1px solid #F0F0F0",
+                          }}
                         >
-                          {pos.gain_loss_euros >= 0 ? "↑" : "↓"} {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
-                        </p>
+                          <p className="text-[10px] text-muted-foreground">Votre position</p>
+                          <p className="text-[18px] font-bold text-foreground leading-none">
+                            {projectedGain != null
+                              ? `${projectedGain >= 0 ? "+" : ""}${formatEuro(projectedGain)}`
+                              : formatEuro(pos.position_value)}
+                          </p>
+                          {neutrePct != null && (
+                            <p
+                              className="text-[11px] font-semibold"
+                              style={{ color: (projectedGain ?? 0) >= 0 ? "var(--success)" : "var(--danger)" }}
+                            >
+                              {(projectedGain ?? 0) >= 0 ? "↑" : "↓"} {fmtPct(neutrePct)} estimé (scénario neutre)
+                            </p>
+                          )}
+                          <p className="text-[11px] text-muted-foreground">
+                            {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
+                          </p>
+                        </div>
                       )}
-                      <p className="text-[11px] text-muted-foreground">
-                        {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"} · {formatEuro(pos.current_price)}
-                      </p>
-                    </div>
-                    {/* Right: real total portfolio value (sum across all positions) */}
-                    <div
-                      className="p-3 space-y-1"
-                      style={{ borderLeft: "3px solid var(--border)" }}
-                    >
-                      <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
-                      <p className="text-[18px] font-bold text-foreground leading-none">
-                        {formatEuro(pos.portfolio_value)}
-                      </p>
-                      {pos.position_weight_percent != null && (
-                        <p className="text-[11px] text-muted-foreground">
-                          Poids {fmtPct(pos.position_weight_percent, false)} du total
+                      <div
+                        className="p-3 space-y-1"
+                        style={{ borderLeft: "3px solid var(--border)" }}
+                      >
+                        <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
+                        <p className="text-[18px] font-bold text-foreground leading-none">
+                          {pos
+                            ? (projectedGain != null ? `${projectedGain >= 0 ? "+" : ""}${formatEuro(projectedGain)}` : formatEuro(pos.portfolio_value))
+                            : "—"}
                         </p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatEuro(pos.portfolio_value)} au total
-                      </p>
+                        {portfolioImpactPct != null && (
+                          <p className="text-[11px] text-muted-foreground">
+                            ↑ {fmtPct(portfolioImpactPct)} du total
+                          </p>
+                        )}
+                        {pos && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatEuro(pos.portfolio_value)} au total
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </section>
-            )}
+                </section>
+              );
+            })()}
 
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
@@ -483,20 +486,13 @@ function AlertCard({
               </section>
             )}
 
-            {/* 3. CORRÉLATIONS DIRECTES */}
-            {(a.correlations_directes?.length ?? 0) > 0 && (
-              <section className="space-y-2">
-                <SectionLabel>Corrélations directes</SectionLabel>
-                <CorrelationList items={a.correlations_directes!} />
-              </section>
-            )}
-
-            {/* 4. CORRÉLATIONS INDIRECTES */}
-            {(a.correlations_indirectes?.length ?? 0) > 0 && (
-              <section className="space-y-2">
-                <SectionLabel>Corrélations indirectes</SectionLabel>
-                <CorrelationList items={a.correlations_indirectes!} />
-              </section>
+            {/* 3. CORRÉLATIONS — collapsible single card */}
+            {((a.correlations_directes?.length ?? 0) > 0 ||
+              (a.correlations_indirectes?.length ?? 0) > 0) && (
+              <CorrelationsBlock
+                directes={a.correlations_directes ?? []}
+                indirectes={a.correlations_indirectes ?? []}
+              />
             )}
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
@@ -509,7 +505,7 @@ function AlertCard({
                   href={a.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline-offset-2 hover:underline"
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
                 >
                   Lire la source →
                 </a>
@@ -522,16 +518,148 @@ function AlertCard({
   );
 }
 
-function ImpactPctBox({ label, value }: { label: string; value: number }) {
-  const positive = value >= 0;
+function CorrelationsBlock({
+  directes,
+  indirectes,
+}: { directes: Correlation[]; indirectes: Correlation[] }) {
+  const [open, setOpen] = useState(false);
+  const [userTickers, setUserTickers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("positions").select("ticker, isin");
+      if (cancelled) return;
+      const set = new Set<string>();
+      for (const p of data ?? []) {
+        if (p.ticker) set.add(p.ticker.toUpperCase());
+        if (p.isin) set.add(p.isin.toUpperCase());
+      }
+      setUserTickers(set);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const inPortfolio = (c: Correlation) =>
+    !!c.ticker && userTickers.has(c.ticker.toUpperCase());
+
+  const matched = directes.filter(inPortfolio);
+  const top = directes.slice(0, 3);
+  const sectorCount = indirectes.length;
+  const companyCount = directes.length;
+
   return (
-    <div className="rounded-xl p-3 bg-subtle">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
-      <p
-        className="text-[16px] font-bold mt-1"
-        style={{ color: positive ? "var(--success)" : "var(--danger)" }}
+    <section className="rounded-2xl border border-border bg-surface overflow-hidden">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="w-full flex items-center justify-between p-3.5"
+        aria-expanded={open}
       >
-        {fmtPct(value)}
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: "var(--success)" }}
+          />
+          <span className="text-[13px] font-bold text-foreground">Corrélations</span>
+          {(companyCount > 0 || sectorCount > 0) && (
+            <span
+              className="ml-1 px-2 py-0.5 rounded-full text-[10px] text-muted-foreground"
+              style={{ background: "#F5F5F5" }}
+            >
+              {companyCount} entreprise{companyCount > 1 ? "s" : ""} · {sectorCount} secteur{sectorCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        {open
+          ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+        }
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-3.5 pb-3.5 space-y-3 border-t border-border pt-3">
+            {/* Sub 1: portfolio matches */}
+            {directes.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Corrélations directes · Votre portefeuille</SectionLabel>
+                {matched.length > 0 ? (
+                  <CorrelationList items={matched} portfolioBadge />
+                ) : (
+                  <div
+                    className="rounded-[10px] py-3 text-center text-[11px] text-muted-foreground"
+                    style={{ background: "#FAFAFA" }}
+                  >
+                    Aucune corrélation directe significative sur votre portefeuille
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub 2: top impacted */}
+            {top.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Corrélations directes · Top entreprises impactées</SectionLabel>
+                <CorrelationList items={top} />
+              </div>
+            )}
+
+            {/* Sub 3: sectors */}
+            {indirectes.length > 0 && (
+              <div className="space-y-2">
+                <SectionLabel>Secteurs impactés</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  {indirectes.slice(0, 6).map((s, i) => (
+                    <SectorBars key={i} c={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SectorBars({ c }: { c: Correlation }) {
+  const pct = toNum(c.pourcentage ?? c.impact_percent);
+  const dir = (c.direction ?? "").toLowerCase();
+  const positive = dir.includes("pos") || (dir === "" && (pct ?? 0) > 0);
+  const negative = dir.includes("neg") || dir.includes("nég") || (dir === "" && (pct ?? 0) < 0);
+  const neutral = !positive && !negative;
+
+  // Intensity from |pct|: ≥5 = Fort (4 bars), ≥2 = Modéré (2), else Faible (1).
+  const abs = Math.abs(pct ?? 0);
+  const filled = abs >= 5 ? 4 : abs >= 2 ? 2 : abs > 0 ? 1 : 0;
+  const intensityLabel = filled === 4 ? "Impact fort" : filled === 2 ? "Impact modéré" : filled === 1 ? "Impact faible" : "Impact neutre";
+  const arrow = positive ? "↑" : negative ? "↓" : "";
+
+  const palette = positive
+    ? { full: "#2E7D32", empty: "#C8E6C9" }
+    : negative
+    ? { full: "#E53935", empty: "#FFCDD2" }
+    : { full: "#F57C00", empty: "#FFE0B2" };
+
+  const sectorName = c.raison ?? c.reason ?? c.company ?? "Secteur";
+
+  return (
+    <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2">
+      <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-tight">{sectorName}</p>
+      <div className="flex gap-[3px]">
+        {[0, 1, 2, 3].map((i) => (
+          <span
+            key={i}
+            className="flex-1 rounded-[2px]"
+            style={{ height: 6, background: i < filled ? palette.full : palette.empty }}
+          />
+        ))}
+      </div>
+      <p className="text-[10px] font-medium" style={{ color: palette.full }}>
+        {intensityLabel} {arrow}
       </p>
     </div>
   );
@@ -565,13 +693,13 @@ function ScenarioBox({
           </p>
         )}
         {proba != null && (
-          <p className="text-[10px]" style={{ color: "#AAA" }}>
+          <p className="text-[10px]" style={{ color: "#888" }}>
             Prob. {fmtPct(proba, false)}
           </p>
         )}
-        {s?.base_historique && (
-          <p className="text-[9px] leading-snug line-clamp-2" style={{ color: "#CCC" }}>
-            {s.base_historique}
+        {(s?.description || s?.base_historique) && (
+          <p className="text-[10px] leading-[1.5] line-clamp-3 pt-1" style={{ color: "#888" }}>
+            {s?.description || s?.base_historique}
           </p>
         )}
       </div>
@@ -579,7 +707,7 @@ function ScenarioBox({
   );
 }
 
-function CorrelationList({ items }: { items: Correlation[] }) {
+function CorrelationList({ items, portfolioBadge }: { items: Correlation[]; portfolioBadge?: boolean }) {
   return (
     <ul className="rounded-[10px] border border-border overflow-hidden bg-surface">
       {items.map((c, i) => {
@@ -603,7 +731,12 @@ function CorrelationList({ items }: { items: Correlation[] }) {
                 <p className="text-[12px] font-semibold text-foreground truncate">
                   {c.company ?? "—"}
                   {c.ticker && (
-                    <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">{c.ticker}</span>
+                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
+                  )}
+                  {portfolioBadge && (
+                    <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
+                      · En portefeuille
+                    </span>
                   )}
                 </p>
                 {(c.raison ?? c.reason) && (
