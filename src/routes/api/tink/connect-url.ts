@@ -22,7 +22,6 @@ export const Route = createFileRoute("/api/tink/connect-url")({
           `&redirect_uri=${encodeURIComponent(redirect)}` +
           `&market=FR&locale=fr_FR&test=true` +
           `&state=${encodeURIComponent(auth.userId)}`;
-        console.log("[tink/connect-url] Generated Tink Link URL:", url);
         return jsonResponse({ url });
       },
     },

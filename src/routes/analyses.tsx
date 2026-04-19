@@ -580,7 +580,7 @@ function CorrelationList({ items }: { items: Correlation[] }) {
   );
 }
 
-function CommunityReaction({ alertId, ticker }: { alertId: string; ticker: string }) {
+function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [busy, setBusy] = useState(false);
 
