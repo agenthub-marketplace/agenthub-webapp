@@ -32,10 +32,12 @@ type Scenario = {
   base_historique?: string | null;
 } | null;
 type Correlation = {
+  secteur?: string | null;
   company?: string | null;
   ticker?: string | null;
   raison?: string | null;
   reason?: string | null;
+  impact?: string | null;
   impact_percent?: number | string | null;
   pourcentage?: number | string | null;
   direction?: string | null;
