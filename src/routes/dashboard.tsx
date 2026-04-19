@@ -47,12 +47,11 @@ function urgencyTone(urgency: number): "danger" | "warning" | "success" {
   return "success";
 }
 
-// Left-border color comes ONLY from impact_short_term, independently of urgency.
-function impactBorderTone(impactShort: string | null): "success" | "danger" | "warning" {
-  const s = (impactShort ?? "").toLowerCase().trim();
-  if (s.startsWith("pos")) return "success";
-  if (s.startsWith("neg") || s.startsWith("nég")) return "danger";
-  return "warning";
+// Left-border color is driven ONLY by urgency (1=info green, 2=warning orange, 3+=danger red).
+function impactBorderTone(urgency: number): "success" | "danger" | "warning" {
+  if (urgency >= 3) return "danger";
+  if (urgency === 2) return "warning";
+  return "success";
 }
 
 function Dashboard() {
