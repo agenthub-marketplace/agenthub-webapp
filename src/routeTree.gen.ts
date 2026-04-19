@@ -27,6 +27,7 @@ import { Route as ApiStocksProfileRouteImport } from './routes/api/stocks.profil
 import { Route as ApiStocksLogoRouteImport } from './routes/api/stocks.logo'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
+import { Route as ApiNewsFetchRouteImport } from './routes/api/news.fetch'
 import { Route as ApiAlertsIdRouteImport } from './routes/api/alerts.$id'
 import { Route as ApiAdminWatchlistRouteImport } from './routes/api/admin.watchlist'
 import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
@@ -122,6 +123,11 @@ const ApiPortfolioIdRoute = ApiPortfolioIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiPortfolioRoute,
 } as any)
+const ApiNewsFetchRoute = ApiNewsFetchRouteImport.update({
+  id: '/api/news/fetch',
+  path: '/api/news/fetch',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAlertsIdRoute = ApiAlertsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
   '/api/stocks/logo': typeof ApiStocksLogoRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
     | '/api/stocks/logo'
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   ApiPortfolioRoute: typeof ApiPortfolioRouteWithChildren
   HooksRefreshPricesRoute: typeof HooksRefreshPricesRoute
   ApiAdminWatchlistRoute: typeof ApiAdminWatchlistRoute
+  ApiNewsFetchRoute: typeof ApiNewsFetchRoute
   ApiStocksLogoRoute: typeof ApiStocksLogoRoute
   ApiStocksProfileRoute: typeof ApiStocksProfileRoute
   ApiStocksQuoteRoute: typeof ApiStocksQuoteRoute
@@ -439,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPortfolioIdRouteImport
       parentRoute: typeof ApiPortfolioRoute
     }
+    '/api/news/fetch': {
+      id: '/api/news/fetch'
+      path: '/api/news/fetch'
+      fullPath: '/api/news/fetch'
+      preLoaderRoute: typeof ApiNewsFetchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/alerts/$id': {
       id: '/api/alerts/$id'
       path: '/$id'
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPortfolioRoute: ApiPortfolioRouteWithChildren,
   HooksRefreshPricesRoute: HooksRefreshPricesRoute,
   ApiAdminWatchlistRoute: ApiAdminWatchlistRoute,
+  ApiNewsFetchRoute: ApiNewsFetchRoute,
   ApiStocksLogoRoute: ApiStocksLogoRoute,
   ApiStocksProfileRoute: ApiStocksProfileRoute,
   ApiStocksQuoteRoute: ApiStocksQuoteRoute,
