@@ -416,9 +416,6 @@ function AlertCard({
               const portfPositive = (portfolioImpactPct ?? 0) >= 0;
               const portfColor = portfPositive ? "var(--success)" : "var(--danger)";
 
-              const colorForPct = (n: number | null) =>
-                n == null ? "#888888" : n >= 0 ? "var(--success)" : "var(--danger)";
-
               return (
                 <section className="space-y-2">
                   <SectionLabel>Impact</SectionLabel>
@@ -449,35 +446,6 @@ function AlertCard({
                               <p className="text-[12px] font-semibold" style={{ color: gainColor }}>
                                 {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
                               </p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground">Impact pondéré · 3 scénarios</p>
-
-                            {weightedPct != null && (
-                              <div
-                                className="mt-1.5 rounded-md px-2 py-1.5 space-y-0.5"
-                                style={{ background: "#F5F5F5" }}
-                              >
-                                <p className="text-[10px] text-muted-foreground">Détail pondération</p>
-                                {rows.map((r) => {
-                                  const contrib = r.pct != null && r.prob != null
-                                    ? r.pct * (r.prob / 100)
-                                    : null;
-                                  return (
-                                    <div key={r.key} className="flex items-baseline justify-between gap-2 text-[10px]">
-                                      <span>
-                                        <span className="text-foreground">{r.label} </span>
-                                        <span style={{ color: colorForPct(r.pct) }} className="font-semibold">
-                                          {fmtPct(r.pct)}
-                                        </span>
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        {r.prob != null ? `× ${Math.round(r.prob)}%` : "× —"}
-                                        {contrib != null ? ` = ${fmtPct(contrib)}` : ""}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
                             )}
                           </>
                         ) : (
