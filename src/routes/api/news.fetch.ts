@@ -117,7 +117,7 @@ export const Route = createFileRoute("/api/news/fetch")({
             related: symbol,
           }));
 
-          return json({ news, query: companyName }, 200, { "Cache-Control": "public, max-age=60" });
+          return json({ news, query }, 200, { "Cache-Control": "public, max-age=60" });
         } catch (error: any) {
           console.error("[news.fetch] unexpected error", error);
           return json({ error: error?.message ?? "Failed to fetch news", news: [] }, 500);
