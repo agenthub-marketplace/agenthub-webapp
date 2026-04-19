@@ -199,7 +199,7 @@ function Dashboard() {
                   <Link
                     key={a.id}
                     to="/analyses"
-                    search={{ filter }}
+                    search={{ filter, alertId: a.id }}
                     className="bg-surface border border-border rounded-[14px] flex overflow-hidden active:scale-[0.99] transition"
                   >
                     <div className={`w-1 ${border === "danger" ? "bg-danger" : border === "warning" ? "bg-warning" : "bg-success"}`} />

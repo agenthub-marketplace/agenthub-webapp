@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Trash2, ChevronDown } from "lucide-react";
 import { AppShellWithNav } from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +15,9 @@ type Filter = "toutes" | "urgentes" | "non-lues";
 type Reaction = "conserve" | "renforce" | "vend" | "rien";
 
 export const Route = createFileRoute("/analyses")({
-  validateSearch: (s: Record<string, unknown>): { filter?: Filter } => ({
+  validateSearch: (s: Record<string, unknown>): { filter?: Filter; alertId?: string } => ({
     filter: (s.filter as Filter) || undefined,
+    alertId: typeof s.alertId === "string" ? s.alertId : undefined,
   }),
   head: () => ({ meta: [{ title: "Analyses — PRISM" }] }),
   component: Analyses,
@@ -220,7 +221,13 @@ function Analyses() {
           </div>
         ) : (
           filtered.map((a) => (
-            <AlertCard key={a.id} a={a} onDelete={() => setToDelete(a.id)} onMarkRead={markAsRead} />
+            <AlertCard
+              key={a.id}
+              a={a}
+              onDelete={() => setToDelete(a.id)}
+              onMarkRead={markAsRead}
+              autoOpen={search.alertId === a.id}
+            />
           ))
         )}
       </div>
@@ -263,9 +270,23 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function AlertCard({
-  a, onDelete, onMarkRead,
-}: { a: Alert; onDelete: () => void; onMarkRead: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
+  a, onDelete, onMarkRead, autoOpen,
+}: { a: Alert; onDelete: () => void; onMarkRead: (id: string) => void; autoOpen?: boolean }) {
+  const [open, setOpen] = useState(!!autoOpen);
+  const cardRef = useRef<HTMLElement | null>(null);
+
+  // When deep-linked via ?alertId=..., expand and scroll into view once.
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+      if (!a.is_read) onMarkRead(a.id);
+      requestAnimationFrame(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
+
   const toggle = () => {
     setOpen((v) => {
       const next = !v;
@@ -278,12 +299,19 @@ function AlertCard({
   const badge = badgeFor(a.urgency);
   const pos = a.user_position;
   const tickerLabel = pos?.ticker ?? a.isins?.[0] ?? "—";
-  const companyLabel = pos?.company ?? tickerLabel;
   const titre = (a.title ?? "").trim();
+  // Derive company name: position → parse from title (e.g. "Apple : CA record..." → "Apple") → ticker.
+  const companyFromTitle = (() => {
+    if (!titre) return "";
+    const m = titre.match(/^([^:•\-—|]+?)\s*[:•\-—|]/);
+    return (m?.[1] ?? "").trim();
+  })();
+  const companyLabel = pos?.company ?? (companyFromTitle || tickerLabel);
   const summary = ((a.resume_fr ?? a.content) ?? "").trim();
 
   return (
     <article
+      ref={cardRef}
       className="bg-surface rounded-2xl overflow-hidden border border-border shadow-sm"
       style={{ borderLeft: `4px solid ${sideColor}` }}
     >
