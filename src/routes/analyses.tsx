@@ -121,25 +121,39 @@ function Analyses() {
     })();
   }, [navigate]);
 
+  const nonEmpty = useMemo(
+    () =>
+      alerts.filter((a) => {
+        const hasTitle = (a.title ?? "").trim().length > 0;
+        const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
+        return hasTitle && hasBody;
+      }),
+    [alerts],
+  );
+
   const filtered = useMemo(() => {
-    // Hide alerts with no usable content (missing French title AND missing body).
-    const nonEmpty = alerts.filter((a) => {
-      const hasTitle = (a.title ?? "").trim().length > 0;
-      const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
-      return hasTitle && hasBody;
-    });
     if (filter === "urgentes") return nonEmpty.filter((a) => a.urgency >= 3);
     if (filter === "non-lues") return nonEmpty.filter((a) => !a.is_read);
     return nonEmpty;
-  }, [filter, alerts]);
+  }, [filter, nonEmpty]);
 
   const filterLabel =
     filter === "urgentes" ? "Alertes urgentes nécessitant votre attention"
     : filter === "non-lues" ? "Nouvelles analyses non consultées"
     : "Toutes les analyses récentes";
 
-  const urgentCount = alerts.filter((a) => a.urgency >= 3).length;
-  const unreadCount = alerts.filter((a) => !a.is_read).length;
+  const urgentCount = nonEmpty.filter((a) => a.urgency >= 3 && !a.is_read).length;
+  const unreadCount = nonEmpty.filter((a) => !a.is_read).length;
+  const totalCount = nonEmpty.length;
+
+  const markAsRead = useCallback(async (id: string) => {
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, is_read: true } : a)));
+    try {
+      await apiFetch(`/api/alerts/${id}/read`, { method: "PATCH" });
+    } catch {
+      // Silent: optimistic state stays; next refresh will reconcile.
+    }
+  }, []);
 
   const confirmDelete = useCallback(async () => {
     if (!toDelete) return;
