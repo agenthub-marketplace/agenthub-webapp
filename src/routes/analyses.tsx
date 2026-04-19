@@ -383,17 +383,24 @@ function AlertCard({
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
-              // Weighted % across the 3 short-term scenarios using their probabilities.
-              const scen = [a.scenario_optimiste, a.scenario_neutre, a.scenario_pessimiste];
+              const scen = [
+                { key: "opt", label: "Optimiste", s: a.scenario_optimiste },
+                { key: "neu", label: "Neutre", s: a.scenario_neutre },
+                { key: "pes", label: "Pessimiste", s: a.scenario_pessimiste },
+              ];
+              const rows = scen.map(({ key, label, s }) => ({
+                key,
+                label,
+                pct: toNum(s?.pourcentage ?? s?.impact_percent),
+                prob: toNum(s?.probabilite),
+              }));
               let weightedPct: number | null = null;
               let probSum = 0;
               let acc = 0;
-              for (const s of scen) {
-                const pct = toNum(s?.pourcentage ?? s?.impact_percent);
-                const prob = toNum(s?.probabilite);
-                if (pct != null && prob != null) {
-                  acc += pct * (prob / 100);
-                  probSum += prob;
+              for (const r of rows) {
+                if (r.pct != null && r.prob != null) {
+                  acc += r.pct * (r.prob / 100);
+                  probSum += r.prob;
                 }
               }
               if (probSum > 0) weightedPct = acc;
@@ -408,6 +415,11 @@ function AlertCard({
                 : null;
               const gainPositive = (gain ?? 0) >= 0;
               const gainColor = gainPositive ? "var(--success)" : "var(--danger)";
+              const portfPositive = (portfolioImpactPct ?? 0) >= 0;
+              const portfColor = portfPositive ? "var(--success)" : "var(--danger)";
+
+              const colorForPct = (n: number | null) =>
+                n == null ? "#888888" : n >= 0 ? "var(--success)" : "var(--danger)";
 
               return (
                 <section className="space-y-2">
@@ -416,55 +428,85 @@ function AlertCard({
                     <div className={pos ? "grid grid-cols-2" : ""}>
                       {pos && (
                         <div
-                          className="p-3 space-y-1"
+                          className="p-3 space-y-1.5"
                           style={{
                             borderLeft: `3px solid ${gainColor}`,
                             borderRight: "1px solid #F0F0F0",
                           }}
                         >
+                          <p className="text-[10px] text-muted-foreground">Impact sur votre position</p>
                           <p className="text-[11px] text-muted-foreground">
-                            {formatEuro(pos.position_value)}
+                            {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
                           </p>
                           <p
-                            className="text-[18px] font-bold leading-none"
-                            style={{ color: gain != null ? gainColor : "var(--foreground)" }}
+                            className="text-[20px] font-bold leading-none"
+                            style={{ color: gain != null ? gainColor : "#111111" }}
                           >
                             {gain != null
                               ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
                               : "—"}
                           </p>
                           {weightedPct != null && (
-                            <p className="text-[11px] font-semibold" style={{ color: gainColor }}>
-                              {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)}
+                            <p className="text-[12px] font-semibold" style={{ color: gainColor }}>
+                              {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
                             </p>
                           )}
-                          <p className="text-[10px] text-muted-foreground">
-                            Impact pondéré · 3 scénarios
-                          </p>
+                          <p className="text-[10px] text-muted-foreground">Impact pondéré · 3 scénarios</p>
+
+                          {weightedPct != null && (
+                            <div
+                              className="mt-1.5 rounded-md px-2 py-1.5 space-y-0.5"
+                              style={{ background: "#F5F5F5" }}
+                            >
+                              <p className="text-[10px] text-muted-foreground">Détail pondération</p>
+                              {rows.map((r) => {
+                                const contrib = r.pct != null && r.prob != null
+                                  ? r.pct * (r.prob / 100)
+                                  : null;
+                                return (
+                                  <div key={r.key} className="flex items-baseline justify-between gap-2 text-[10px]">
+                                    <span>
+                                      <span className="text-foreground">{r.label} </span>
+                                      <span style={{ color: colorForPct(r.pct) }} className="font-semibold">
+                                        {fmtPct(r.pct)}
+                                      </span>
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {r.prob != null ? `× ${Math.round(r.prob)}%` : "× —"}
+                                      {contrib != null ? ` = ${fmtPct(contrib)}` : ""}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                       <div
-                        className="p-3 space-y-1"
+                        className="p-3 space-y-1.5"
                         style={{ borderLeft: "3px solid #EBEBEB" }}
                       >
-                        <p className="text-[11px] text-muted-foreground">
-                          {portfolioValue > 0 ? formatEuro(portfolioValue) : "—"}
-                        </p>
-                        <p className="text-[18px] font-bold leading-none" style={{ color: "#111111" }}>
-                          {portfolioValue > 0 ? formatEuro(adjustedPortfolio) : "—"}
-                        </p>
-                        {portfolioImpactPct != null ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            {portfolioImpactPct >= 0 ? "↑" : "↓"} {fmtPct(portfolioImpactPct)}
-                          </p>
-                        ) : !pos ? (
+                        <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
+                        {portfolioValue > 0 ? (
+                          <>
+                            <p className="text-[11px] text-muted-foreground">
+                              Valeur actuelle {formatEuro(portfolioValue)}
+                            </p>
+                            <p className="text-[20px] font-bold leading-none" style={{ color: "#111111" }}>
+                              {formatEuro(adjustedPortfolio)}
+                            </p>
+                            {portfolioImpactPct != null && (
+                              <p className="text-[12px] font-semibold" style={{ color: portfColor }}>
+                                {portfPositive ? "↑" : "↓"} {fmtPct(portfolioImpactPct)} du portefeuille
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">Valeur ajustée estimée</p>
+                          </>
+                        ) : (
                           <p className="text-[11px] text-muted-foreground">
                             Aucune position directe sur ce titre
                           </p>
-                        ) : null}
-                        <p className="text-[10px] text-muted-foreground">
-                          Valeur ajustée estimée
-                        </p>
+                        )}
                       </div>
                     </div>
                   </div>
