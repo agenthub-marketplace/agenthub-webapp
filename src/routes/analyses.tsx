@@ -394,6 +394,20 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
             <CommunityReaction alertId={a.id} ticker={tickerLabel} />
+
+            {/* 6. SOURCE LINK */}
+            {a.source_url && (
+              <div className="flex justify-end pt-1">
+                <a
+                  href={a.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline-offset-2 hover:underline"
+                >
+                  Lire la source →
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>
