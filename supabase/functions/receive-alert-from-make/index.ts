@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
       correlations_directes,
       correlations_indirectes,
       investor_reaction,
+      source_url,
     }));
 
     const { error: insErr } = await supabase.from("alerts").insert(rows);
