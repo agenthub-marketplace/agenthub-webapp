@@ -50,14 +50,18 @@ export const Route = createFileRoute("/api/alerts")({
 
         // 3. Filter: keep alerts matching at least one ISIN/ticker OR sector.
         // If user has no positions yet, show everything (onboarding).
+        // Also keep alerts with NO tags at all (broadcast alerts) so they're not silently dropped.
         const filtered = userSymbols.size === 0 && userSectors.size === 0
           ? (data ?? [])
           : (data ?? []).filter((a) => {
-              const symHit = (a.isins ?? []).some((s) =>
-                userSymbols.has(String(s).toUpperCase()),
+              const isins = (a.isins ?? []).filter((s) => s && String(s).trim() !== "");
+              const sectors = (((a as any).sectors as string[] | null) ?? []).filter(
+                (s) => s && String(s).trim() !== "",
               );
-              const sectors = (a as any).sectors as string[] | null;
-              const secHit = (sectors ?? []).some((s) => userSectors.has(s));
+              // Broadcast alert (no tags) → keep it.
+              if (isins.length === 0 && sectors.length === 0) return true;
+              const symHit = isins.some((s) => userSymbols.has(String(s).toUpperCase()));
+              const secHit = sectors.some((s) => userSectors.has(s));
               return symHit || secHit;
             });
 
