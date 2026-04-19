@@ -746,41 +746,31 @@ function CorrelationList({ items, portfolioBadge }: { items: Correlation[]; port
         return (
           <li
             key={i}
-            className="flex items-center justify-between gap-2 px-3 py-[9px]"
+            className="flex items-start gap-2 px-3 py-[9px]"
             style={!last ? { borderBottom: "1px solid #F5F5F5" } : undefined}
           >
-            <div className="flex items-start gap-2 min-w-0">
-              <span
-                className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
-                style={{ background: dotColor }}
-              />
-              <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-foreground truncate">
-                  {c.company ?? "—"}
-                  {c.ticker && (
-                    <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
-                  )}
-                  {portfolioBadge && (
-                    <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
-                      · En portefeuille
-                    </span>
-                  )}
-                </p>
-                {(c.raison ?? c.reason) && (
-                  <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
-                    {c.raison ?? c.reason}
-                  </p>
+            <span
+              className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5"
+              style={{ background: dotColor }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-semibold text-foreground truncate">
+                {c.company ?? "—"}
+                {c.ticker && (
+                  <span className="ml-1.5 text-[11px] font-medium text-muted-foreground">· {c.ticker}</span>
                 )}
-              </div>
+                {portfolioBadge && (
+                  <span className="ml-1.5 text-[10px]" style={{ color: "var(--success)" }}>
+                    · En portefeuille
+                  </span>
+                )}
+              </p>
+              {(c.raison ?? c.reason) && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2 leading-snug">
+                  {c.raison ?? c.reason}
+                </p>
+              )}
             </div>
-            {pct != null && (
-              <span
-                className="shrink-0 text-[12px] font-bold"
-                style={{ color: positive ? "var(--success)" : "var(--danger)" }}
-              >
-                {fmtPct(pct)}
-              </span>
-            )}
           </li>
         );
       })}
