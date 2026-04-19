@@ -672,8 +672,8 @@ function SectorBars({ c }: { c: Correlation }) {
   const emptyColor = "#EBEBEB";
   const arrow = positive ? "↑" : negative ? "↓" : "";
 
-  // Sector name: prefer entreprise/company field, fallback to raison.
-  const sectorName = c.company ?? c.raison ?? c.reason ?? "Secteur";
+  // Sector name: prefer dedicated 'secteur' field, never use 'company' (entreprise).
+  const sectorName = c.secteur ?? c.raison ?? c.reason ?? "Secteur";
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">
