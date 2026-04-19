@@ -6,62 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-async function fetchArticleSummary(url: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    const html = await res.text();
-
-    // Try meta description first
-    const metaDesc =
-      html.match(
-        /<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)["']/i,
-      )?.[1] ||
-      html.match(
-        /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:description|description)["']/i,
-      )?.[1];
-
-    // Strip scripts/styles, then extract paragraph text
-    const cleaned = html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
-    const paragraphs = Array.from(cleaned.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
-      .map((m) =>
-        m[1]
-          .replace(/<[^>]+>/g, " ")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/\s+/g, " ")
-          .trim(),
-      )
-      .filter((t) => t.length > 40)
-      .join(" ");
-
-    const body = (paragraphs || metaDesc || "").trim();
-    if (!body) return null;
-    return body.slice(0, 500);
-  } catch {
-    return null;
-  }
-}
-
 export const Route = createFileRoute("/api/news/fetch")({
   server: {
     handlers: {
@@ -81,21 +25,34 @@ export const Route = createFileRoute("/api/news/fetch")({
             );
           }
 
-          const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
-            symbol,
-          )}&newsCount=5&enableFuzzyQuery=false&enableCb=true&enableNavLinks=false&enableEnhancedTrivialQuery=true`;
+          const apiKey = process.env.GNEWS_API_KEY;
+          if (!apiKey) {
+            return new Response(
+              JSON.stringify({
+                error: "GNEWS_API_KEY is not configured",
+                news: [],
+              }),
+              {
+                status: 500,
+                headers: { "Content-Type": "application/json", ...corsHeaders },
+              },
+            );
+          }
 
-          const res = await fetch(yahooUrl, {
-            headers: {
-              "User-Agent": UA,
-              Accept: "application/json",
-            },
+          const gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(
+            symbol,
+          )}&lang=fr&country=fr&max=5&apikey=${encodeURIComponent(apiKey)}`;
+
+          const res = await fetch(gnewsUrl, {
+            headers: { Accept: "application/json" },
           });
 
           if (!res.ok) {
+            const text = await res.text().catch(() => "");
             return new Response(
               JSON.stringify({
-                error: `Yahoo Finance error: ${res.status} ${res.statusText}`,
+                error: `GNews error: ${res.status} ${res.statusText}`,
+                detail: text.slice(0, 300),
                 news: [],
               }),
               {
@@ -106,34 +63,17 @@ export const Route = createFileRoute("/api/news/fetch")({
           }
 
           const data: any = await res.json();
-          const rawNews: any[] = Array.isArray(data?.news) ? data.news : [];
+          const articles: any[] = Array.isArray(data?.articles)
+            ? data.articles
+            : [];
 
-          const news = await Promise.all(
-            rawNews.map(async (n) => {
-              const headline: string = n.title ?? "";
-              const link: string = n.link ?? n.url ?? "";
-              let summary = "";
-              if (link) {
-                const fetched = await fetchArticleSummary(link);
-                if (fetched && fetched.length > 60) {
-                  summary = fetched;
-                }
-              }
-              if (!summary) {
-                summary = `${headline} - Analyse basée sur le titre uniquement`;
-              }
-              return {
-                headline,
-                summary,
-                datetime:
-                  typeof n.providerPublishTime === "number"
-                    ? n.providerPublishTime
-                    : 0,
-                related: symbol,
-                url: link,
-              };
-            }),
-          );
+          const news = articles.map((a) => ({
+            headline: a.title ?? "",
+            summary: a.description ?? a.content ?? a.title ?? "",
+            url: a.url ?? "",
+            datetime: a.publishedAt ?? "",
+            related: symbol,
+          }));
 
           return new Response(JSON.stringify({ news }), {
             status: 200,
