@@ -432,6 +432,11 @@ function ScenarioBox({ tone, label, s }: { tone: "success" | "warning" | "danger
             Probabilité {fmtPct(s.probabilite, false)}
           </p>
         )}
+        {s?.base_historique && (
+          <p className="text-[10px] text-muted-foreground italic leading-snug line-clamp-2">
+            {s.base_historique}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -450,7 +455,12 @@ function CorrelationList({ items }: { items: Correlation[] }) {
                 style={{ background: positive ? "var(--success)" : "var(--danger)" }}
               />
               <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-foreground truncate">{c.company ?? "—"}</p>
+                <p className="text-[12px] font-semibold text-foreground truncate">
+                  {c.company ?? "—"}
+                  {c.ticker && (
+                    <span className="ml-1.5 text-[10px] font-medium text-muted-foreground">{c.ticker}</span>
+                  )}
+                </p>
                 {c.reason && <p className="text-[11px] text-muted-foreground truncate">{c.reason}</p>}
               </div>
             </div>
