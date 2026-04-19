@@ -24,15 +24,18 @@ export const Route = createFileRoute("/analyses")({
 
 type Scenario = {
   description?: string | null;
-  probabilite?: number | null;
+  probabilite?: number | string | null;
+  pourcentage?: number | string | null;
   impact_percent?: number | null;
   base_historique?: string | null;
 } | null;
 type Correlation = {
   company?: string | null;
   ticker?: string | null;
+  raison?: string | null;
   reason?: string | null;
-  impact_percent?: number | null;
+  impact_percent?: number | string | null;
+  pourcentage?: number | string | null;
   direction?: string | null;
 };
 
