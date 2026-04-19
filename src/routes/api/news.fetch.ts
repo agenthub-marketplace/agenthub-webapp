@@ -6,6 +6,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+async function fetchArticleSummary(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    // Try meta description first
+    const metaDesc =
+      html.match(
+        /<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)["']/i,
+      )?.[1] ||
+      html.match(
+        /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:description|description)["']/i,
+      )?.[1];
+
+    // Strip scripts/styles, then extract paragraph text
+    const cleaned = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
+    const paragraphs = Array.from(cleaned.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+      .map((m) =>
+        m[1]
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter((t) => t.length > 40)
+      .join(" ");
+
+    const body = (paragraphs || metaDesc || "").trim();
+    if (!body) return null;
+    return body.slice(0, 500);
+  } catch {
+    return null;
+  }
+}
+
 export const Route = createFileRoute("/api/news/fetch")({
   server: {
     handlers: {
@@ -25,14 +81,13 @@ export const Route = createFileRoute("/api/news/fetch")({
             );
           }
 
-          const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
+          const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
             symbol,
-          )}&newsCount=5&enableFuzzyQuery=false`;
+          )}&newsCount=5&enableFuzzyQuery=false&enableCb=true&enableNavLinks=false&enableEnhancedTrivialQuery=true`;
 
           const res = await fetch(yahooUrl, {
             headers: {
-              "User-Agent":
-                "Mozilla/5.0 (compatible; PrismBot/1.0; +https://prism.app)",
+              "User-Agent": UA,
               Accept: "application/json",
             },
           });
@@ -53,16 +108,32 @@ export const Route = createFileRoute("/api/news/fetch")({
           const data: any = await res.json();
           const rawNews: any[] = Array.isArray(data?.news) ? data.news : [];
 
-          const news = rawNews.map((n) => ({
-            headline: n.title ?? "",
-            summary: n.summary ?? n.title ?? "",
-            datetime:
-              typeof n.providerPublishTime === "number"
-                ? n.providerPublishTime
-                : 0,
-            related: symbol,
-            url: n.link ?? n.url ?? "",
-          }));
+          const news = await Promise.all(
+            rawNews.map(async (n) => {
+              const headline: string = n.title ?? "";
+              const link: string = n.link ?? n.url ?? "";
+              let summary = "";
+              if (link) {
+                const fetched = await fetchArticleSummary(link);
+                if (fetched && fetched.length > 60) {
+                  summary = fetched;
+                }
+              }
+              if (!summary) {
+                summary = `${headline} - Analyse basée sur le titre uniquement`;
+              }
+              return {
+                headline,
+                summary,
+                datetime:
+                  typeof n.providerPublishTime === "number"
+                    ? n.providerPublishTime
+                    : 0,
+                related: symbol,
+                url: link,
+              };
+            }),
+          );
 
           return new Response(JSON.stringify({ news }), {
             status: 200,
