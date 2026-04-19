@@ -41,22 +41,8 @@ function riskTone(level: RiskLevel): { tone: "success" | "warning" | "danger"; b
   return { tone: "danger", bar: 2 };
 }
 
-// Urgency badge tone — driven ONLY by `urgence` field. Independent from border.
-// 1 = INFO (green), 2 = ATTENTION (orange), 3+ = URGENT (red).
-function urgencyTone(urgency: number): "danger" | "warning" | "success" {
-  if (urgency >= 3) return "danger";
-  if (urgency === 2) return "warning";
-  return "success";
-}
-
-// Left-border color — driven ONLY by `impact_short_term` direction. Independent from urgency.
-// positif → green, négatif → red, neutre/unknown → orange.
-function impactBorderTone(impact: string | null | undefined): "success" | "danger" | "warning" {
-  const v = (impact ?? "").toLowerCase();
-  if (v.includes("pos")) return "success";
-  if (v.includes("neg") || v.includes("nég")) return "danger";
-  return "warning";
-}
+// Color logic lives in `@/lib/alert-colors` — single source of truth.
+// Border = impact_short_term, Badge = urgency. The two are independent.
 
 function Dashboard() {
   const navigate = useNavigate();
