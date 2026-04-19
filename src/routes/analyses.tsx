@@ -32,10 +32,12 @@ type Scenario = {
   base_historique?: string | null;
 } | null;
 type Correlation = {
+  secteur?: string | null;
   company?: string | null;
   ticker?: string | null;
   raison?: string | null;
   reason?: string | null;
+  impact?: string | null;
   impact_percent?: number | string | null;
   pourcentage?: number | string | null;
   direction?: string | null;
@@ -670,8 +672,8 @@ function SectorBars({ c }: { c: Correlation }) {
   const emptyColor = "#EBEBEB";
   const arrow = positive ? "↑" : negative ? "↓" : "";
 
-  // Sector name: prefer entreprise/company field, fallback to raison.
-  const sectorName = c.company ?? c.raison ?? c.reason ?? "Secteur";
+  // Sector name: prefer dedicated 'secteur' field, never use 'company' (entreprise).
+  const sectorName = c.secteur ?? c.raison ?? c.reason ?? "Secteur";
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">

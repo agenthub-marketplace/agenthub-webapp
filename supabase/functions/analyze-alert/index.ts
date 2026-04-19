@@ -44,9 +44,13 @@ const SCHEMA = {
     },
     correlations_indirectes: {
       type: "array",
+      description: "Secteurs économiques impactés (PAS d'entreprises). Exemples valides: 'Pétrole & Gaz', 'Aviation', 'Défense', 'Transport maritime', 'Semi-conducteurs', 'Banques européennes'. JAMAIS de noms d'entreprises comme Samsung, Boeing, Apple, etc.",
       items: {
         type: "object",
-        properties: { secteur: { type: "string" }, impact: { type: "string" } },
+        properties: {
+          secteur: { type: "string", description: "Nom du secteur économique uniquement (ex: 'Pétrole & Gaz', 'Aviation')" },
+          impact: { type: "string" },
+        },
         required: ["secteur", "impact"],
         additionalProperties: false,
       },
@@ -137,7 +141,7 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Tu es analyste financier. Analyse cette alerte et produis impacts, 3 scénarios (optimiste/neutre/pessimiste avec probabilités sommant à 100), corrélations directes (autres tickers affectés) et indirectes (secteurs), et une réaction investisseur. Réponds en français.",
+              "Tu es analyste financier. Analyse cette alerte et produis: impacts, 3 scénarios (optimiste/neutre/pessimiste avec probabilités sommant à 100), corrélations directes (autres ENTREPRISES/tickers affectés — concurrents, fournisseurs, clients) et corrélations INDIRECTES qui sont uniquement des SECTEURS économiques impactés (jamais d'entreprises). Exemples de secteurs valides: 'Pétrole & Gaz', 'Aviation', 'Défense', 'Transport maritime', 'Semi-conducteurs', 'Automobile', 'Banques européennes'. Pour 'guerre en Iran' → secteurs = Pétrole & Gaz, Aviation, Défense, Transport maritime. Et une réaction investisseur. Réponds en français.",
           },
           {
             role: "user",
