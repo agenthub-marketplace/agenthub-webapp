@@ -615,7 +615,7 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
         counts[prev.my_action] = Math.max(0, counts[prev.my_action] - 1);
       }
       if (prev.my_action !== action) counts[action] = (counts[action] ?? 0) + 1;
-      const total = counts.conserve + counts.renforce + counts.vend;
+      const total = counts.conserve + counts.renforce + counts.vend + counts.rien;
       return { counts, total, my_action: action };
     });
     setBusy(true);
@@ -642,10 +642,11 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
       {!hasVoted ? (
         <>
           <p className="text-[12px] text-muted-foreground">Que faites-vous de cette position ?</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <VoteBtn label="Je conserve" onClick={() => send("conserve")} disabled={busy} />
             <VoteBtn label="Je renforce" onClick={() => send("renforce")} disabled={busy} />
             <VoteBtn label="Je vends"    onClick={() => send("vend")}     disabled={busy} />
+            <VoteBtn label="Je ne fais rien" onClick={() => send("rien")} disabled={busy} />
           </div>
         </>
       ) : (
@@ -653,6 +654,7 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
           <ResultBar label="Ont conservé" pct={pct(stats!.counts.conserve)} barColor="#111111" highlight={stats!.my_action === "conserve"} />
           <ResultBar label="Ont renforcé" pct={pct(stats!.counts.renforce)} barColor="var(--success)" highlight={stats!.my_action === "renforce"} />
           <ResultBar label="Ont vendu"    pct={pct(stats!.counts.vend)}     barColor="var(--danger)"  highlight={stats!.my_action === "vend"} />
+          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}  barColor="var(--muted-foreground)" highlight={stats!.my_action === "rien"} />
         </div>
       )}
     </section>
