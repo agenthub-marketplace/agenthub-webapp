@@ -122,9 +122,15 @@ function Analyses() {
   }, [navigate]);
 
   const filtered = useMemo(() => {
-    if (filter === "urgentes") return alerts.filter((a) => a.urgency >= 3);
-    if (filter === "non-lues") return alerts.filter((a) => !a.is_read);
-    return alerts;
+    // Hide alerts with no usable content (missing French title AND missing body).
+    const nonEmpty = alerts.filter((a) => {
+      const hasTitle = (a.title ?? "").trim().length > 0;
+      const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
+      return hasTitle && hasBody;
+    });
+    if (filter === "urgentes") return nonEmpty.filter((a) => a.urgency >= 3);
+    if (filter === "non-lues") return nonEmpty.filter((a) => !a.is_read);
+    return nonEmpty;
   }, [filter, alerts]);
 
   const filterLabel =
