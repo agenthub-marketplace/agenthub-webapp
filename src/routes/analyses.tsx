@@ -530,7 +530,6 @@ function AlertCard({
                 </a>
               </div>
             )}
-          </div>
         </div>
       )}
     </article>
