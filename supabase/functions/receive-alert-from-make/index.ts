@@ -134,6 +134,12 @@ Deno.serve(async (req) => {
     const impact_portfolio_percent =
       typeof body.impact_portfolio_percent === "number" ? body.impact_portfolio_percent : null;
     const investor_reaction = body.investor_reaction ?? null;
+    const source_url =
+      typeof body.source_url === "string" && body.source_url.trim()
+        ? body.source_url.trim()
+        : typeof body.url === "string" && body.url.trim()
+          ? body.url.trim()
+          : null;
 
     if (!Array.isArray(isins) || isins.length === 0) {
       return new Response(JSON.stringify({ error: "isins array required" }), {
