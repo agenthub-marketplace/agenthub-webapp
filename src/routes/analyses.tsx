@@ -311,6 +311,7 @@ function AlertCard({
 
   return (
     <article
+      ref={cardRef}
       className="bg-surface rounded-2xl overflow-hidden border border-border shadow-sm"
       style={{ borderLeft: `4px solid ${sideColor}` }}
     >
