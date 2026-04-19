@@ -93,11 +93,8 @@ export const Route = createFileRoute("/api/alerts")({
           };
         });
 
-        // 5. Mark unread ones as read.
-        const unreadIds = enriched.filter((a) => !a.is_read).map((a) => a.id);
-        if (unreadIds.length > 0) {
-          await auth.userClient.from("alerts").update({ is_read: true }).in("id", unreadIds);
-        }
+        // Note: alerts are NOT marked as read here. They are marked as read
+        // explicitly when the user expands a card (PATCH /api/alerts/:id/read).
 
         return jsonResponse({ alerts: enriched });
       },

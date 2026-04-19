@@ -121,25 +121,39 @@ function Analyses() {
     })();
   }, [navigate]);
 
+  const nonEmpty = useMemo(
+    () =>
+      alerts.filter((a) => {
+        const hasTitle = (a.title ?? "").trim().length > 0;
+        const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
+        return hasTitle && hasBody;
+      }),
+    [alerts],
+  );
+
   const filtered = useMemo(() => {
-    // Hide alerts with no usable content (missing French title AND missing body).
-    const nonEmpty = alerts.filter((a) => {
-      const hasTitle = (a.title ?? "").trim().length > 0;
-      const hasBody = ((a.resume_fr ?? a.content) ?? "").trim().length > 0;
-      return hasTitle && hasBody;
-    });
     if (filter === "urgentes") return nonEmpty.filter((a) => a.urgency >= 3);
     if (filter === "non-lues") return nonEmpty.filter((a) => !a.is_read);
     return nonEmpty;
-  }, [filter, alerts]);
+  }, [filter, nonEmpty]);
 
   const filterLabel =
     filter === "urgentes" ? "Alertes urgentes nécessitant votre attention"
     : filter === "non-lues" ? "Nouvelles analyses non consultées"
     : "Toutes les analyses récentes";
 
-  const urgentCount = alerts.filter((a) => a.urgency >= 3).length;
-  const unreadCount = alerts.filter((a) => !a.is_read).length;
+  const urgentCount = nonEmpty.filter((a) => a.urgency >= 3 && !a.is_read).length;
+  const unreadCount = nonEmpty.filter((a) => !a.is_read).length;
+  const totalCount = nonEmpty.length;
+
+  const markAsRead = useCallback(async (id: string) => {
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, is_read: true } : a)));
+    try {
+      await apiFetch(`/api/alerts/${id}/read`, { method: "PATCH" });
+    } catch {
+      // Silent: optimistic state stays; next refresh will reconcile.
+    }
+  }, []);
 
   const confirmDelete = useCallback(async () => {
     if (!toDelete) return;
@@ -163,7 +177,9 @@ function Analyses() {
 
       <div className="px-4 space-y-3 pt-3">
         <div className="flex gap-2 pt-1 pb-2">
-          <Pill active={filter === "toutes"} onClick={() => setFilter("toutes")}>Toutes</Pill>
+          <Pill active={filter === "toutes"} onClick={() => setFilter("toutes")}>
+            Toutes<span className="ml-1.5 opacity-70">{totalCount}</span>
+          </Pill>
           <Pill active={filter === "urgentes"} onClick={() => setFilter("urgentes")}>
             Urgentes<span className="ml-1.5 opacity-70">{urgentCount}</span>
           </Pill>
@@ -191,7 +207,7 @@ function Analyses() {
           </div>
         ) : (
           filtered.map((a) => (
-            <AlertCard key={a.id} a={a} onDelete={() => setToDelete(a.id)} />
+            <AlertCard key={a.id} a={a} onDelete={() => setToDelete(a.id)} onMarkRead={markAsRead} />
           ))
         )}
       </div>
@@ -233,8 +249,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
+function AlertCard({
+  a, onDelete, onMarkRead,
+}: { a: Alert; onDelete: () => void; onMarkRead: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      if (next && !a.is_read) onMarkRead(a.id);
+      return next;
+    });
+  };
   const side = impactSide(a.impact_short_term);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
@@ -252,9 +277,9 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
       {/* Collapsed header — always visible, click to expand */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
-        className="w-full text-left p-4 hover:bg-subtle/40 transition"
+        className="w-full text-left p-4 hover:bg-subtle/40 transition relative"
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
@@ -265,6 +290,14 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
             <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {!a.is_read && (
+              <span
+                aria-label="Non lue"
+                title="Non lue"
+                className="w-2 h-2 rounded-full"
+                style={{ background: "var(--primary, #2563eb)" }}
+              />
+            )}
             <span
               className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
               style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
