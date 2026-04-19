@@ -96,10 +96,6 @@ export const Route = createFileRoute("/api/alerts")({
             .split(" ")
             .some((word) => word.length >= 3 && !ignoredWords.has(word) && leadHint.includes(word));
         };
-        const shouldDebugTitle = (title: string | null) => {
-          const normalizedTitle = normalizeText(title);
-          return normalizedTitle.includes("apple") || normalizedTitle.split(" ").includes("aapl");
-        };
         const findPositionFromTitle = (title: string | null) => {
           const normalizedTitle = normalizeText(title);
           const leadHint = normalizeText((title ?? "").split(/[:•\-|—]/)[0]);
@@ -119,47 +115,11 @@ export const Route = createFileRoute("/api/alerts")({
             .filter((candidate) => candidate.score > 0)
             .sort((a, b) => b.score - a.score || b.positionValue - a.positionValue);
 
-          const match = candidates[0]?.position;
-          if (shouldDebugTitle(title)) {
-            console.error("[api/alerts] Apple alert findPositionFromTitle", {
-              title,
-              leadHint,
-              candidates: candidates.map(({ position, score, positionValue }) => ({
-                ticker: position.ticker,
-                company: position.company,
-                name: position.name,
-                quantity: position.quantity,
-                current_price: position.current_price,
-                score,
-                positionValue,
-              })),
-              match: match
-                ? {
-                    ticker: match.ticker,
-                    company: match.company,
-                    name: match.name,
-                    quantity: match.quantity,
-                    current_price: match.current_price,
-                  }
-                : null,
-            });
-          }
-          return match;
+          return candidates[0]?.position;
         };
 
         const enriched = filtered.map((a) => {
           let pos: typeof positionsList[number] | undefined;
-          const debugAppleAlert = shouldDebugTitle(a.title);
-          if (debugAppleAlert) {
-            console.error("[api/alerts] Apple alert positionsList", positionsList.map((p) => ({
-              ticker: p.ticker,
-              company: p.company,
-              name: p.name,
-              isin: p.isin,
-              quantity: p.quantity,
-              current_price: p.current_price,
-            })));
-          }
           const cleanIsins = (a.isins ?? []).filter(
             (s) => s && String(s).trim() !== "",
           );
