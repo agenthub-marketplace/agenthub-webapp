@@ -43,16 +43,21 @@ export const Route = createFileRoute("/api/news/fetch")({
             symbol,
           )}&lang=fr&country=fr&max=5&apikey=${encodeURIComponent(apiKey)}`;
 
+          console.log("[news.fetch] GNEWS_API_KEY present:", !!apiKey, "len:", apiKey.length);
+          console.log("[news.fetch] Calling URL:", gnewsUrl.replace(apiKey, "***"));
+
           const res = await fetch(gnewsUrl, {
             headers: { Accept: "application/json" },
           });
 
+          const rawText = await res.text();
+          console.log("[news.fetch] HTTP", res.status, "body:", rawText.slice(0, 500));
+
           if (!res.ok) {
-            const text = await res.text().catch(() => "");
             return new Response(
               JSON.stringify({
                 error: `GNews error: ${res.status} ${res.statusText}`,
-                detail: text.slice(0, 300),
+                detail: rawText.slice(0, 300),
                 news: [],
               }),
               {
@@ -62,10 +67,13 @@ export const Route = createFileRoute("/api/news/fetch")({
             );
           }
 
-          const data: any = await res.json();
+          let data: any = {};
+          try { data = JSON.parse(rawText); } catch {}
           const articles: any[] = Array.isArray(data?.articles)
             ? data.articles
             : [];
+
+          console.log("[news.fetch] articles count:", articles.length, "totalArticles:", data?.totalArticles);
 
           const news = articles.map((a) => ({
             headline: a.title ?? "",
