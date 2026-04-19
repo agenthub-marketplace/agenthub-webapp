@@ -227,6 +227,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
   const side = impactSide(a.impact_short_term);
   const sideColor = side === "danger" ? "var(--danger)" : side === "warning" ? "var(--warning)" : "var(--success)";
   const badge = badgeFor(a.urgency);
@@ -239,125 +240,172 @@ function AlertCard({ a, onDelete }: { a: Alert; onDelete: () => void }) {
       className="bg-surface rounded-2xl overflow-hidden border border-border"
       style={{ borderLeft: `4px solid ${sideColor}` }}
     >
-      <div className="p-[18px] space-y-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+      {/* Collapsed header — always visible, click to expand */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full text-left p-[18px] flex items-start justify-between gap-3 hover:bg-subtle/40 transition"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
             <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">
               {companyLabel}
             </h3>
-            <p className="text-[12px] text-muted-foreground mt-0.5">
-              {tickerLabel}
-              <span className="mx-1.5 opacity-50">·</span>
-              {timeAgo(a.sent_at)}
-            </p>
+            <span className="text-[12px] text-muted-foreground shrink-0">{tickerLabel}</span>
           </div>
-          <div className="flex items-start gap-2 shrink-0">
-            <span
-              className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-              style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
-            >
-              {badge.label}
-            </span>
-            <button
-              onClick={onDelete}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger-soft transition"
-              aria-label="Supprimer l'alerte"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(a.sent_at)}</p>
+          {a.title && (
+            <p className="text-[13px] text-foreground/90 leading-snug mt-2 line-clamp-2">
+              {a.title}
+            </p>
+          )}
+        </div>
+        <div className="flex items-start gap-2 shrink-0">
+          <span
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
+            style={{ background: `var(--${badge.tone}-soft)`, color: `var(--${badge.tone})` }}
+          >
+            {badge.label}
+          </span>
+          <span
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onDelete(); } }}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger-soft transition cursor-pointer"
+            aria-label="Supprimer l'alerte"
+          >
+            <Trash2 className="w-4 h-4" />
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-300 mt-1.5 ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {/* Expandable analysis */}
+      <div
+        className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-[18px] pb-[18px] space-y-4 border-t border-border pt-4">
+
+            {/* Résumé Claude */}
+            {a.resume_fr && (
+              <p className="text-[13px] text-muted-foreground leading-[1.55]">
+                {a.resume_fr}
+              </p>
+            )}
+
+            {/* Impact court / long terme global */}
+            {(a.impact_short_term_pct != null || a.impact_long_term_pct != null) && (
+              <div className="grid grid-cols-2 gap-2">
+                {a.impact_short_term_pct != null && (
+                  <ImpactPctBox label="Court terme · 48h" value={a.impact_short_term_pct} />
+                )}
+                {a.impact_long_term_pct != null && (
+                  <ImpactPctBox label="Long terme" value={a.impact_long_term_pct} />
+                )}
+              </div>
+            )}
+
+            {/* 1. IMPACT SUR VOTRE POSITION */}
+            {pos && (
+              <section className="space-y-2">
+                <SectionLabel>Impact sur votre position</SectionLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl p-3 space-y-0.5" style={{ background: "var(--success-soft)" }}>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      Votre position
+                    </p>
+                    <p className="text-[14px] font-bold text-foreground">
+                      {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Valeur {formatEuro(pos.position_value)}
+                    </p>
+                    {pos.gain_loss_percent != null && (
+                      <p
+                        className="text-[12px] font-semibold mt-0.5"
+                        style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
+                      >
+                        {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-xl p-3 bg-subtle space-y-0.5">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      Portefeuille
+                    </p>
+                    <p className="text-[14px] font-bold text-foreground">
+                      {formatEuro(pos.portfolio_value)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
+                    </p>
+                    {a.impact_portfolio_percent != null && (
+                      <p
+                        className="text-[12px] font-semibold mt-0.5"
+                        style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
+                      >
+                        Impact {fmtPct(a.impact_portfolio_percent)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* 2. SCÉNARIOS COURT TERME 48H */}
+            {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
+              <section className="space-y-2">
+                <SectionLabel>Scénarios court terme · 48h</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  <ScenarioBox tone="success" label="Optimiste"  s={a.scenario_optimiste} />
+                  <ScenarioBox tone="warning" label="Neutre"     s={a.scenario_neutre} />
+                  <ScenarioBox tone="danger"  label="Pessimiste" s={a.scenario_pessimiste} />
+                </div>
+              </section>
+            )}
+
+            {/* 3. CORRÉLATIONS DIRECTES */}
+            {(a.correlations_directes?.length ?? 0) > 0 && (
+              <section className="space-y-2">
+                <SectionLabel>Corrélations directes</SectionLabel>
+                <CorrelationList items={a.correlations_directes!} />
+              </section>
+            )}
+
+            {/* 4. CORRÉLATIONS INDIRECTES */}
+            {(a.correlations_indirectes?.length ?? 0) > 0 && (
+              <section className="space-y-2">
+                <SectionLabel>Corrélations indirectes</SectionLabel>
+                <CorrelationList items={a.correlations_indirectes!} />
+              </section>
+            )}
+
+            {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
+            <CommunityReaction alertId={a.id} ticker={tickerLabel} />
           </div>
         </div>
-
-        {/* News summary */}
-        {a.content && (
-          <p className="text-[13px] text-muted-foreground leading-[1.55] line-clamp-4">
-            {a.content}
-          </p>
-        )}
-
-        {/* 1. IMPACT SUR VOTRE POSITION */}
-        {pos && (
-          <section className="space-y-2">
-            <SectionLabel>Impact sur votre position</SectionLabel>
-            <div className="grid grid-cols-2 gap-2">
-              <div
-                className="rounded-xl p-3 space-y-0.5"
-                style={{ background: "var(--success-soft)" }}
-              >
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  Votre position
-                </p>
-                <p className="text-[14px] font-bold text-foreground">
-                  {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Valeur {formatEuro(pos.position_value)}
-                </p>
-                {pos.gain_loss_percent != null && (
-                  <p
-                    className="text-[12px] font-semibold mt-0.5"
-                    style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
-                  >
-                    {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
-                  </p>
-                )}
-              </div>
-              <div className="rounded-xl p-3 bg-subtle space-y-0.5">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  Portefeuille
-                </p>
-                <p className="text-[14px] font-bold text-foreground">
-                  {formatEuro(pos.portfolio_value)}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
-                </p>
-                {a.impact_portfolio_percent != null && (
-                  <p
-                    className="text-[12px] font-semibold mt-0.5"
-                    style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
-                  >
-                    Impact {fmtPct(a.impact_portfolio_percent)}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* 2. SCÉNARIOS COURT TERME 48H */}
-        {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
-          <section className="space-y-2">
-            <SectionLabel>Scénarios court terme · 48h</SectionLabel>
-            <div className="grid grid-cols-3 gap-2">
-              <ScenarioBox tone="success" label="Optimiste" s={a.scenario_optimiste} />
-              <ScenarioBox tone="warning" label="Neutre"    s={a.scenario_neutre} />
-              <ScenarioBox tone="danger"  label="Pessimiste" s={a.scenario_pessimiste} />
-            </div>
-          </section>
-        )}
-
-        {/* 3. CORRÉLATIONS DIRECTES */}
-        {(a.correlations_directes?.length ?? 0) > 0 && (
-          <section className="space-y-2">
-            <SectionLabel>Corrélations directes</SectionLabel>
-            <CorrelationList items={a.correlations_directes!} />
-          </section>
-        )}
-
-        {/* 4. CORRÉLATIONS INDIRECTES */}
-        {(a.correlations_indirectes?.length ?? 0) > 0 && (
-          <section className="space-y-2">
-            <SectionLabel>Corrélations indirectes</SectionLabel>
-            <CorrelationList items={a.correlations_indirectes!} />
-          </section>
-        )}
-
-        {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
-        <CommunityReaction alertId={a.id} ticker={tickerLabel} />
       </div>
     </article>
+  );
+}
+
+function ImpactPctBox({ label, value }: { label: string; value: number }) {
+  const positive = value >= 0;
+  return (
+    <div className="rounded-xl p-3 bg-subtle">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">{label}</p>
+      <p
+        className="text-[16px] font-bold mt-1"
+        style={{ color: positive ? "var(--success)" : "var(--danger)" }}
+      >
+        {fmtPct(value)}
+      </p>
+    </div>
   );
 }
 
