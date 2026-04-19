@@ -305,8 +305,8 @@ function AlertCard({
               <span
                 aria-label="Non lue"
                 title="Non lue"
-                className="w-2 h-2 rounded-full"
-                style={{ background: "var(--primary, #2563eb)" }}
+                className="rounded-full"
+                style={{ width: 7, height: 7, background: sideColor }}
               />
             )}
             <span
@@ -372,44 +372,50 @@ function AlertCard({
             {pos && (
               <section className="space-y-2">
                 <SectionLabel>Impact sur votre position</SectionLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl p-3 space-y-0.5" style={{ background: "var(--success-soft)" }}>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                      Votre position
-                    </p>
-                    <p className="text-[14px] font-bold text-foreground">
-                      {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Valeur {formatEuro(pos.position_value)}
-                    </p>
-                    {pos.gain_loss_percent != null && (
-                      <p
-                        className="text-[12px] font-semibold mt-0.5"
-                        style={{ color: pos.gain_loss_euros >= 0 ? "var(--success)" : "var(--danger)" }}
-                      >
-                        {pos.gain_loss_euros >= 0 ? "+" : ""}{formatEuro(pos.gain_loss_euros)} ({fmtPct(pos.gain_loss_percent)})
+                <div className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div className="grid grid-cols-2">
+                    {/* Left: position */}
+                    <div
+                      className="p-3 space-y-1"
+                      style={{ borderLeft: "3px solid var(--success)", borderRight: "1px solid #F0F0F0" }}
+                    >
+                      <p className="text-[10px] text-muted-foreground">Votre position</p>
+                      <p className="text-[18px] font-bold text-foreground leading-none">
+                        {formatEuro(pos.position_value)}
                       </p>
-                    )}
-                  </div>
-                  <div className="rounded-xl p-3 bg-subtle space-y-0.5">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                      Portefeuille
-                    </p>
-                    <p className="text-[14px] font-bold text-foreground">
-                      {formatEuro(pos.portfolio_value)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
-                    </p>
-                    {a.impact_portfolio_percent != null && (
-                      <p
-                        className="text-[12px] font-semibold mt-0.5"
-                        style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
-                      >
-                        Impact {fmtPct(a.impact_portfolio_percent)}
+                      {a.impact_short_term_pct != null && (
+                        <p
+                          className="text-[11px] font-semibold"
+                          style={{ color: a.impact_short_term_pct >= 0 ? "var(--success)" : "var(--danger)" }}
+                        >
+                          {a.impact_short_term_pct >= 0 ? "↑" : "↓"} {fmtPct(a.impact_short_term_pct)}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "titres" : "titre"} · {formatEuro(pos.current_price)}
                       </p>
-                    )}
+                    </div>
+                    {/* Right: portfolio */}
+                    <div
+                      className="p-3 space-y-1"
+                      style={{ borderLeft: "3px solid var(--border)" }}
+                    >
+                      <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
+                      <p className="text-[18px] font-bold text-foreground leading-none">
+                        {formatEuro(pos.portfolio_value)}
+                      </p>
+                      {a.impact_portfolio_percent != null && (
+                        <p
+                          className="text-[11px]"
+                          style={{ color: a.impact_portfolio_percent >= 0 ? "var(--success)" : "var(--danger)" }}
+                        >
+                          {a.impact_portfolio_percent >= 0 ? "↑" : "↓"} {fmtPct(a.impact_portfolio_percent)}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Poids {pos.position_weight_percent != null ? fmtPct(pos.position_weight_percent, false) : "—"}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -418,11 +424,11 @@ function AlertCard({
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
               <section className="space-y-2">
-                <SectionLabel>Scénarios court terme · 48h</SectionLabel>
+                <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
                 <div className="grid grid-cols-3 gap-2">
-                  <ScenarioBox tone="success" label="Optimiste"  s={a.scenario_optimiste} />
-                  <ScenarioBox tone="warning" label="Neutre"     s={a.scenario_neutre} />
-                  <ScenarioBox tone="danger"  label="Pessimiste" s={a.scenario_pessimiste} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
                 </div>
               </section>
             )}
