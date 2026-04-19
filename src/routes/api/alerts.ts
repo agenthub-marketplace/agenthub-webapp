@@ -65,12 +65,43 @@ export const Route = createFileRoute("/api/alerts")({
               return symHit || secHit;
             });
 
-        // 4. Attach per-alert user position context (first matching ISIN/ticker).
+        // 4. Attach per-alert user position context.
+        // Primary match: any of alert.isins matches a known ISIN/ticker.
+        // Fallback: alert.isins is empty/blank → try to find a position whose
+        // ticker or company name appears in the alert title (case-insensitive).
+        const positionsList = positions ?? [];
+        const findPositionFromTitle = (title: string | null) => {
+          const t = (title ?? "").toLowerCase();
+          if (!t) return undefined;
+          // Prefer ticker match (whole-word) then company-name substring match.
+          let best: typeof positionsList[number] | undefined;
+          for (const p of positionsList) {
+            const ticker = (p.ticker ?? "").toLowerCase();
+            if (ticker && new RegExp(`\\b${ticker}\\b`, "i").test(t)) {
+              return p;
+            }
+          }
+          for (const p of positionsList) {
+            const company = (p.company ?? "").toLowerCase();
+            if (company && company.length >= 3 && t.includes(company)) {
+              best = p;
+              break;
+            }
+          }
+          return best;
+        };
+
         const enriched = filtered.map((a) => {
-          let pos: typeof positions[number] | undefined;
-          for (const sym of a.isins ?? []) {
+          let pos: typeof positionsList[number] | undefined;
+          const cleanIsins = (a.isins ?? []).filter(
+            (s) => s && String(s).trim() !== "",
+          );
+          for (const sym of cleanIsins) {
             const p = positionBySymbol.get(String(sym).toUpperCase());
             if (p) { pos = p; break; }
+          }
+          if (!pos) {
+            pos = findPositionFromTitle(a.title);
           }
           const qty = Number(pos?.quantity ?? 0);
           const cur = Number(pos?.current_price ?? pos?.purchase_price ?? 0);
