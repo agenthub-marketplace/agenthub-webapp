@@ -256,8 +256,31 @@ Deno.serve(async (req) => {
       source_url,
     }));
 
+    // [DEBUG] Log mapping diagnostic + first row before insert
+    console.log("=".repeat(80));
+    console.log("[receive-alert-from-make] FIELD MAPPING DIAGNOSTIC:");
+    console.log("  title (titre|title):", title);
+    console.log("  content (resume_fr|contenu|content):", typeof content === "string" ? content.slice(0, 120) + "..." : content);
+    console.log("  urgency (urgency|urgence):", urgency);
+    console.log("  sectors (sectors|secteurs):", sectors);
+    console.log("  isins:", isins);
+    console.log("  impact_short_term:", impact_short_term, "pct:", impact_short_term_pct);
+    console.log("  impact_long_term:", impact_long_term, "pct:", impact_long_term_pct);
+    console.log("  scenario_optimiste:", scenario_optimiste);
+    console.log("  scenario_neutre:", scenario_neutre);
+    console.log("  scenario_pessimiste:", scenario_pessimiste);
+    console.log("  correlations_directes:", correlations_directes);
+    console.log("  correlations_indirectes:", correlations_indirectes);
+    console.log("[receive-alert-from-make] INSERTING", rows.length, "ROW(S). First row:");
+    console.log(JSON.stringify(rows[0], null, 2));
+    console.log("=".repeat(80));
+
     const { error: insErr } = await supabase.from("alerts").insert(rows);
-    if (insErr) throw insErr;
+    if (insErr) {
+      console.error("[receive-alert-from-make] INSERT ERROR:", JSON.stringify(insErr, null, 2));
+      throw insErr;
+    }
+    console.log("[receive-alert-from-make] INSERT OK — inserted", rows.length, "row(s) for users:", userIds);
 
     return new Response(
       JSON.stringify({
