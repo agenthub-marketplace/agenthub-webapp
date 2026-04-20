@@ -60,24 +60,41 @@ export const Route = createFileRoute("/api/assets/search")({
           return errorResponse("Service de recherche indisponible", 500);
         }
 
-        try {
-          const figiRes = await fetch("https://api.openfigi.com/v3/search", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-OPENFIGI-APIKEY": apiKey,
-            },
-            body: JSON.stringify({ query }),
-          });
+        const ALLOWED_TYPES = ["Common Stock", "ETF", "Mutual Fund"] as const;
 
-          if (!figiRes.ok) {
-            const txt = await figiRes.text().catch(() => "");
-            console.error("[api/assets/search] OpenFIGI error", figiRes.status, txt);
-            return errorResponse("Erreur du service de recherche", 502);
+        try {
+          // OpenFIGI /v3/search supports a single securityType2 filter per
+          // request — fan out one call per allowed type and merge.
+          const responses = await Promise.all(
+            ALLOWED_TYPES.map((securityType2) =>
+              fetch("https://api.openfigi.com/v3/search", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-OPENFIGI-APIKEY": apiKey,
+                },
+                body: JSON.stringify({ query, securityType2 }),
+              }),
+            ),
+          );
+
+          const allRaw: FigiResult[] = [];
+          for (const r of responses) {
+            if (!r.ok) {
+              const txt = await r.text().catch(() => "");
+              console.error("[api/assets/search] OpenFIGI error", r.status, txt);
+              continue;
+            }
+            const json = (await r.json()) as { data?: FigiResult[] };
+            if (json.data?.length) allRaw.push(...json.data);
           }
 
-          const data = (await figiRes.json()) as { data?: FigiResult[] };
-          const raw = data.data ?? [];
+          // Defensive allowlist filter — exclude futures, options, warrants,
+          // rights and any derivative instruments.
+          const allowed = new Set<string>(ALLOWED_TYPES);
+          const filtered = allRaw.filter(
+            (r) => r.securityType2 && allowed.has(r.securityType2),
+          );
 
           // Dedupe by ticker+exchange, keep first 6 with a name + ticker.
           const seen = new Set<string>();
@@ -88,7 +105,7 @@ export const Route = createFileRoute("/api/assets/search")({
             asset_type: string;
             security_type: string;
           }>;
-          for (const r of raw) {
+          for (const r of filtered) {
             if (!r.name || !r.ticker || !r.exchCode) continue;
             const key = `${r.ticker}|${r.exchCode}`;
             if (seen.has(key)) continue;
