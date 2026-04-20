@@ -831,8 +831,13 @@ function SectorBars({ c }: { c: Correlation }) {
 }
 
 function ScenarioBox({
-  variant, label, s,
-}: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
+  variant, label, s, positionValue,
+}: {
+  variant: "optimiste" | "neutre" | "pessimiste";
+  label: string;
+  s: Scenario;
+  positionValue?: number | null;
+}) {
   const accent = {
     optimiste:  "#16A34A",
     neutre:     "#94A3B8",
@@ -840,6 +845,11 @@ function ScenarioBox({
   }[variant];
   const pct = toNum(s?.pourcentage ?? s?.impact_percent);
   const proba = toNum(s?.probabilite);
+  const euroImpact =
+    pct != null && positionValue != null && positionValue > 0
+      ? positionValue * (pct / 100)
+      : null;
+  const euroPositive = (euroImpact ?? 0) >= 0;
   return (
     <div
       className="overflow-hidden"
@@ -869,6 +879,11 @@ function ScenarioBox({
             style={{ fontSize: 22, fontWeight: 500, color: accent, marginTop: 6 }}
           >
             {fmtPct(pct)}
+          </p>
+        )}
+        {euroImpact != null && (
+          <p style={{ fontSize: 13, color: "#111111", fontWeight: 500, marginTop: 4 }}>
+            ≈ {euroPositive ? "+" : "-"}{formatEuro(Math.abs(euroImpact))} sur ta position
           </p>
         )}
         {proba != null && (
