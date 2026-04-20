@@ -697,7 +697,7 @@ function CorrelationsBlock({
     !!c.ticker && userTickers.has(c.ticker.toUpperCase());
 
   const matched = directes.filter(inPortfolio);
-  const top = directes.slice(0, 3);
+  const top = directes.filter((c) => !inPortfolio(c));
   const sectorCount = indirectes.length;
   const companyCount = directes.length;
 
