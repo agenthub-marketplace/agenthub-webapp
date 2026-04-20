@@ -28,6 +28,7 @@ import { Route as ApiStocksLogoRouteImport } from './routes/api/stocks.logo'
 import { Route as ApiPortfolioTickersRouteImport } from './routes/api/portfolio.tickers'
 import { Route as ApiPortfolioIdRouteImport } from './routes/api/portfolio.$id'
 import { Route as ApiNewsFetchRouteImport } from './routes/api/news.fetch'
+import { Route as ApiAssetsSearchRouteImport } from './routes/api/assets.search'
 import { Route as ApiAlertsIdRouteImport } from './routes/api/alerts.$id'
 import { Route as ApiAdminWatchlistRouteImport } from './routes/api/admin.watchlist'
 import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
@@ -128,6 +129,11 @@ const ApiNewsFetchRoute = ApiNewsFetchRouteImport.update({
   path: '/api/news/fetch',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAssetsSearchRoute = ApiAssetsSearchRouteImport.update({
+  id: '/api/assets/search',
+  path: '/api/assets/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAlertsIdRoute = ApiAlertsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/assets/search': typeof ApiAssetsSearchRoute
   '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/assets/search': typeof ApiAssetsSearchRoute
   '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/hooks/refresh-prices': typeof HooksRefreshPricesRoute
   '/api/admin/watchlist': typeof ApiAdminWatchlistRoute
   '/api/alerts/$id': typeof ApiAlertsIdRouteWithChildren
+  '/api/assets/search': typeof ApiAssetsSearchRoute
   '/api/news/fetch': typeof ApiNewsFetchRoute
   '/api/portfolio/$id': typeof ApiPortfolioIdRoute
   '/api/portfolio/tickers': typeof ApiPortfolioTickersRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/assets/search'
     | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/assets/search'
     | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/hooks/refresh-prices'
     | '/api/admin/watchlist'
     | '/api/alerts/$id'
+    | '/api/assets/search'
     | '/api/news/fetch'
     | '/api/portfolio/$id'
     | '/api/portfolio/tickers'
@@ -314,6 +326,7 @@ export interface RootRouteChildren {
   ApiPortfolioRoute: typeof ApiPortfolioRouteWithChildren
   HooksRefreshPricesRoute: typeof HooksRefreshPricesRoute
   ApiAdminWatchlistRoute: typeof ApiAdminWatchlistRoute
+  ApiAssetsSearchRoute: typeof ApiAssetsSearchRoute
   ApiNewsFetchRoute: typeof ApiNewsFetchRoute
   ApiStocksLogoRoute: typeof ApiStocksLogoRoute
   ApiStocksProfileRoute: typeof ApiStocksProfileRoute
@@ -459,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNewsFetchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/assets/search': {
+      id: '/api/assets/search'
+      path: '/api/assets/search'
+      fullPath: '/api/assets/search'
+      preLoaderRoute: typeof ApiAssetsSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/alerts/$id': {
       id: '/api/alerts/$id'
       path: '/$id'
@@ -541,6 +561,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPortfolioRoute: ApiPortfolioRouteWithChildren,
   HooksRefreshPricesRoute: HooksRefreshPricesRoute,
   ApiAdminWatchlistRoute: ApiAdminWatchlistRoute,
+  ApiAssetsSearchRoute: ApiAssetsSearchRoute,
   ApiNewsFetchRoute: ApiNewsFetchRoute,
   ApiStocksLogoRoute: ApiStocksLogoRoute,
   ApiStocksProfileRoute: ApiStocksProfileRoute,
