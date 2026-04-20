@@ -315,8 +315,13 @@ function AlertCard({
   return (
     <article
       ref={cardRef}
-      className="bg-surface rounded-2xl overflow-hidden border border-border shadow-sm"
-      style={{ borderLeft: `4px solid ${sideColor}` }}
+      className="overflow-hidden"
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid #EBEBEB",
+        borderLeft: `3px solid ${sideColor}`,
+        borderRadius: 16,
+      }}
     >
       {/* Collapsed header — always visible, click to expand */}
       <button
@@ -327,12 +332,20 @@ function AlertCard({
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-baseline gap-2 min-w-0 flex-1">
-            <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
+          <div className="flex items-baseline min-w-0 flex-1">
+            <h3
+              className="leading-tight truncate"
+              style={{ fontSize: 17, fontWeight: 500, color: "#111111" }}
+            >
               {companyLabel}
             </h3>
             {tickerLabel && (
-              <span className="text-[12px] text-muted-foreground shrink-0 uppercase">{tickerLabel}</span>
+              <span
+                className="shrink-0 uppercase"
+                style={{ fontSize: 13, color: "#888888", marginLeft: 6 }}
+              >
+                {tickerLabel}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -345,8 +358,15 @@ function AlertCard({
               />
             )}
             <span
-              className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-              style={{ background: badge.bg, color: badge.fg }}
+              style={{
+                background: badge.bg,
+                color: badge.fg,
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                padding: "3px 10px",
+                borderRadius: 4,
+              }}
             >
               {badge.label}
             </span>
@@ -361,24 +381,31 @@ function AlertCard({
               <Trash2 className="w-4 h-4" />
             </span>
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              className={`w-4 h-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              style={{ color: "#BBBBBB" }}
             />
           </div>
         </div>
 
         {/* Row 2: timestamp */}
-        <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(a.sent_at)}</p>
+        <p style={{ fontSize: 12, color: "#BBBBBB", marginTop: 4 }}>{timeAgo(a.sent_at)}</p>
 
         {/* Row 3: titre (French Claude title) */}
         {titre && (
-          <p className="text-[13px] font-bold text-foreground leading-snug mt-2 line-clamp-2">
+          <p
+            className="leading-snug line-clamp-2"
+            style={{ fontSize: 15, fontWeight: 500, color: "#111111", marginTop: 8 }}
+          >
             {titre}
           </p>
         )}
 
         {/* Row 4: content summary */}
         {summary && (
-          <p className={`text-[12px] text-muted-foreground leading-snug mt-1.5 ${open ? "" : "line-clamp-3"}`}>
+          <p
+            className={open ? "" : "line-clamp-3"}
+            style={{ fontSize: 13, color: "#888888", lineHeight: 1.6, marginTop: 6 }}
+          >
             {summary}
           </p>
         )}
