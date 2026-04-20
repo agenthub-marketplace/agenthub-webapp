@@ -79,19 +79,23 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("ticker, name, quantity requis", 400);
         }
 
-        // Fetch the current price + logo right away so the new position
-        // shows up immediately with correct totals AND avatar.
+        // Normalise the ticker with the Yahoo suffix so EU stocks resolve via
+        // Yahoo/Stooq instead of falling through to Finnhub (US-only).
+        const storedTicker = buildYahooSymbol(String(ticker), exchange ?? null);
+
+        // Fetch current price + logo right away so the new position shows up
+        // immediately with correct totals AND avatar.
         const apiKey = process.env.FINNHUB_API_KEY;
         const [quote, logo] = await Promise.all([
-          apiKey ? fetchQuote(String(ticker), apiKey) : Promise.resolve(null),
-          apiKey ? fetchLogo(String(ticker), apiKey) : Promise.resolve(null),
+          apiKey ? fetchQuote(storedTicker, apiKey) : Promise.resolve(null),
+          apiKey ? fetchLogo(storedTicker, apiKey) : Promise.resolve(null),
         ]);
 
         const { data, error } = await auth.userClient
           .from("positions")
           .insert({
             user_id: auth.userId,
-            ticker,
+            ticker: storedTicker,
             name,
             company: name,
             quantity: Number(quantity),
