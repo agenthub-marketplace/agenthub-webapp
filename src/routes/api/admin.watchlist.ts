@@ -2,11 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const CORS = {
-  "Content-Type": "application/json",
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "no-store",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, x-admin-secret",
 };
+
+function respond(body: unknown, status = 200) {
+  const payload = JSON.stringify(body);
+  return new Response(payload, {
+    status,
+    headers: {
+      ...CORS,
+      "Content-Length": String(new TextEncoder().encode(payload).length),
+    },
+  });
+}
 
 export const Route = createFileRoute("/api/admin/watchlist")({
   server: {
@@ -15,13 +27,13 @@ export const Route = createFileRoute("/api/admin/watchlist")({
       GET: async () => {
         const { data, error, count } = await supabaseAdmin
           .from("positions")
-          .select("ticker, isin, name, company", { count: "exact" });
+          .select("ticker, isin, name, company, quantity", { count: "exact" });
 
         if (error) {
           console.error("[admin/watchlist] db error", error);
-          return new Response(
-            JSON.stringify({ error: "Une erreur interne est survenue", details: error.message }),
-            { status: 500, headers: CORS },
+          return respond(
+            { ok: false, error: "Une erreur interne est survenue", details: error.message },
+            500,
           );
         }
 
@@ -31,22 +43,34 @@ export const Route = createFileRoute("/api/admin/watchlist")({
           new Set((data ?? []).map((r) => r.isin).filter(Boolean)),
         ).sort();
 
-        // One entry per unique ticker. Prefer `name` (cleaner), fall back to
-        // `company`, and finally to the ticker itself if both are blank.
-        const seen = new Set<string>();
-        const companies: Array<{ symbol: string; name: string }> = [];
+        // Aggregate quantity per unique ticker (sum across all users/positions).
+        const agg = new Map<string, { name: string; quantity: number }>();
         for (const r of rows) {
-          if (seen.has(r.ticker)) continue;
-          seen.add(r.ticker);
           const name = (r.name?.trim() || r.company?.trim() || r.ticker) as string;
-          companies.push({ symbol: r.ticker, name });
+          const qty = Number(r.quantity ?? 0) || 0;
+          const existing = agg.get(r.ticker);
+          if (existing) {
+            existing.quantity += qty;
+          } else {
+            agg.set(r.ticker, { name, quantity: qty });
+          }
         }
-        companies.sort((a, b) => a.symbol.localeCompare(b.symbol));
 
-        return new Response(
-          JSON.stringify({ tickers, companies, isins, count: tickers.length, rawCount: count, rowsReturned: data?.length ?? 0 }),
-          { status: 200, headers: CORS },
-        );
+        const companies: Array<{ symbol: string; name: string; quantity: number }> = Array.from(
+          agg.entries(),
+        )
+          .map(([symbol, v]) => ({ symbol, name: v.name, quantity: v.quantity }))
+          .sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+        return respond({
+          ok: true,
+          tickers,
+          companies,
+          isins,
+          count: tickers.length,
+          rawCount: count,
+          rowsReturned: data?.length ?? 0,
+        });
       },
     },
   },
