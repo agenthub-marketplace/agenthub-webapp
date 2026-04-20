@@ -1027,10 +1027,10 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
         </>
       ) : (
         <div className="space-y-2">
-          <ResultBar label="Ont conservé"    pct={pct(stats!.counts.conserve)} highlight={stats!.my_action === "conserve"} />
-          <ResultBar label="Ont renforcé"    pct={pct(stats!.counts.renforce)} highlight={stats!.my_action === "renforce"} />
-          <ResultBar label="Ont vendu"       pct={pct(stats!.counts.vend)}     highlight={stats!.my_action === "vend"} />
-          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}     highlight={stats!.my_action === "rien"} />
+          <ResultBar label="Ont conservé"    pct={pct(stats!.counts.conserve)} color="#16A34A" highlight={stats!.my_action === "conserve"} />
+          <ResultBar label="Ont renforcé"    pct={pct(stats!.counts.renforce)} color="#111111" highlight={stats!.my_action === "renforce"} />
+          <ResultBar label="Ont vendu"       pct={pct(stats!.counts.vend)}     color="#DC2626" highlight={stats!.my_action === "vend"} />
+          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}     color="#F57C00" highlight={stats!.my_action === "rien"} />
         </div>
       )}
     </section>
