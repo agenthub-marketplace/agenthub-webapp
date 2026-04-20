@@ -738,16 +738,6 @@ function CorrelationsBlock({
       >
         <div className="overflow-hidden">
           <div className="px-3.5 pb-3.5 space-y-3 border-t border-border pt-3">
-            <p
-              style={{
-                fontSize: 12,
-                color: "#888888",
-                fontStyle: "italic",
-                marginBottom: 12,
-              }}
-            >
-              Ces entreprises que tu ne détiens pas sont aussi affectées — à surveiller.
-            </p>
             {/* Sub 1: portfolio matches */}
             {directes.length > 0 && (
               <div className="space-y-2">
@@ -765,10 +755,21 @@ function CorrelationsBlock({
               </div>
             )}
 
-            {/* Sub 2: top impacted */}
+            {/* Sub 2: impacted */}
             {top.length > 0 && (
               <div className="space-y-2">
-                <SectionLabel>Corrélations directes · Top entreprises impactées</SectionLabel>
+                <SectionLabel>Corrélations directes · Entreprises impactées</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#888888",
+                    fontStyle: "italic",
+                    marginTop: -2,
+                    marginBottom: 4,
+                  }}
+                >
+                  Ces entreprises que tu ne détiens pas sont aussi affectées — à surveiller.
+                </p>
                 <CorrelationList items={top} />
               </div>
             )}
