@@ -655,7 +655,10 @@ function CorrelationsBlock({
   const companyCount = directes.length;
 
   return (
-    <section className="rounded-2xl bg-surface overflow-hidden" style={{ border: "1.5px solid #222" }}>
+    <section
+      className="overflow-hidden"
+      style={{ border: "1px solid #EBEBEB", borderRadius: 16, background: "#FFFFFF" }}
+    >
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
