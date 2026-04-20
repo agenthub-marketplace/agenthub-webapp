@@ -456,65 +456,102 @@ function AlertCard({
               const portfColor = portfPositive ? "var(--success)" : "var(--danger)";
 
               return (
-                <section className="space-y-2">
+                <section className="space-y-3">
                   <SectionLabel>Impact</SectionLabel>
-                  <div className="rounded-xl border border-border bg-surface overflow-hidden">
-                    <div className="grid grid-cols-2">
-                      <div
-                        className="p-3 space-y-1.5"
-                        style={{
-                          borderLeft: `3px solid ${pos ? gainColor : "#EBEBEB"}`,
-                          borderRight: "1px solid #F0F0F0",
-                        }}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Votre position */}
+                    <div
+                      style={{
+                        background: "#F7F7F7",
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <p
+                        className="uppercase"
+                        style={{ fontSize: 10, color: "#AAAAAA", letterSpacing: "0.1em", fontWeight: 500 }}
                       >
-                        <p className="text-[10px] text-muted-foreground">Impact sur votre position</p>
-                        {pos ? (
-                          <>
-                            <p className="text-[11px] text-muted-foreground">
-                              {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
-                            </p>
-                            <p
-                              className="text-[20px] font-bold leading-none"
-                              style={{ color: gain != null ? gainColor : "#111111" }}
-                            >
-                              {gain != null
-                                ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
-                                : "—"}
-                            </p>
-                            {weightedPct != null && (
-                              <p className="text-[12px] font-semibold" style={{ color: gainColor }}>
-                                {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">
-                            Aucune position directe sur ce titre
+                        Votre position
+                      </p>
+                      {pos ? (
+                        <>
+                          <p style={{ fontSize: 11, color: "#888888", marginTop: 6 }}>
+                            {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
                           </p>
-                        )}
-                      </div>
-                      <div
-                        className="p-3 space-y-1.5"
-                        style={{ borderLeft: "3px solid #EBEBEB" }}
+                          <p
+                            className="leading-none"
+                            style={{
+                              fontSize: 28,
+                              fontWeight: 500,
+                              color: gain != null ? (gainPositive ? "#16A34A" : "#DC2626") : "#111111",
+                              marginTop: 8,
+                            }}
+                          >
+                            {gain != null
+                              ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
+                              : "—"}
+                          </p>
+                          {weightedPct != null && (
+                            <p
+                              style={{
+                                fontSize: 13,
+                                color: gainPositive ? "#16A34A" : "#DC2626",
+                                marginTop: 6,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: 12, color: "#888888", marginTop: 8 }}>
+                          Aucune position directe sur ce titre
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Portefeuille global */}
+                    <div
+                      style={{
+                        background: "#F7F7F7",
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <p
+                        className="uppercase"
+                        style={{ fontSize: 10, color: "#AAAAAA", letterSpacing: "0.1em", fontWeight: 500 }}
                       >
-                        <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
-                        {portfolioValue > 0 ? (
-                          <>
-                            <p className="text-[11px] text-muted-foreground">
-                              Valeur actuelle {formatEuro(portfolioValue)}
+                        Portefeuille global
+                      </p>
+                      {portfolioValue > 0 ? (
+                        <>
+                          <p style={{ fontSize: 11, color: "#888888", marginTop: 6 }}>
+                            Valeur actuelle {formatEuro(portfolioValue)}
+                          </p>
+                          <p
+                            className="leading-none"
+                            style={{ fontSize: 28, fontWeight: 500, color: "#111111", marginTop: 8 }}
+                          >
+                            {formatEuro(adjustedPortfolio)}
+                          </p>
+                          {portfolioImpactPct != null && (
+                            <p
+                              style={{
+                                fontSize: 13,
+                                color: portfPositive ? "#16A34A" : "#DC2626",
+                                marginTop: 6,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {portfPositive ? "↑" : "↓"} {fmtPct(portfolioImpactPct)} du portefeuille
                             </p>
-                            <p className="text-[20px] font-bold leading-none" style={{ color: "#111111" }}>
-                              {formatEuro(adjustedPortfolio)}
-                            </p>
-                            {portfolioImpactPct != null && (
-                              <p className="text-[12px] font-semibold" style={{ color: portfColor }}>
-                                {portfPositive ? "↑" : "↓"} {fmtPct(portfolioImpactPct)} du portefeuille
-                              </p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground">Valeur ajustée estimée</p>
-                          </>
-                        ) : <p className="text-[11px] text-muted-foreground">Valeur actuelle indisponible</p>}
-                      </div>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: 12, color: "#888888", marginTop: 8 }}>Valeur actuelle indisponible</p>
+                      )}
                     </div>
                   </div>
                 </section>
