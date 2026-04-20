@@ -450,6 +450,7 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     lastQueryRef.current = q;
     const t = setTimeout(async () => {
       setSearching(true);
+      console.log("[asset-search] → sending query:", q);
       try {
         const d = await apiFetch<{ results: StockSuggestion[] }>(
           "/api/assets/search",
@@ -458,11 +459,12 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
             body: JSON.stringify({ query: q }),
           },
         );
+        console.log("[asset-search] ← response for", q, "results:", d.results?.length ?? 0, d);
         if (lastQueryRef.current !== q) return;
         setSuggestions(d.results ?? []);
         setShowSug(true);
-      } catch {
-        // Silent — autocomplete is best-effort
+      } catch (err) {
+        console.error("[asset-search] error for", q, err);
       } finally {
         setSearching(false);
       }
