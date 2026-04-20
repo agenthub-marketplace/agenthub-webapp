@@ -520,25 +520,36 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
             <input
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setSearchQuery(e.target.value);
+              }}
               onFocus={() => suggestions.length > 0 && setShowSug(true)}
               placeholder="Nom de l'entreprise (ex: TotalEnergies)"
               className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
               autoComplete="off"
             />
             {showSug && suggestions.length > 0 && (
-              <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg max-h-72 overflow-auto">
                 {suggestions.map((s) => (
                   <button
                     type="button"
-                    key={`${s.symbol}-${s.displaySymbol}`}
+                    key={`${s.ticker}-${s.exchange}`}
                     onClick={() => pickSuggestion(s)}
                     className="w-full text-left px-4 py-2.5 hover:bg-subtle border-b border-border last:border-0"
                   >
-                    <p className="text-[13px] font-bold text-foreground truncate">{s.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {s.displaySymbol}{s.geography ? ` · ${s.geography}` : ""}
-                    </p>
+                    <p className="text-[14px] font-bold text-foreground truncate">{s.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[12px] text-muted-foreground">{s.ticker}</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-subtle text-foreground">
+                        {s.exchange}
+                      </span>
+                      {s.asset_type && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
+                          {s.asset_type}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -547,7 +558,18 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
               <p className="absolute right-3 top-3.5 text-[11px] text-muted-foreground">…</p>
             )}
           </div>
-          <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (ex: TTE.PA)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <input
+            required
+            value={ticker}
+            onChange={(e) => {
+              const v = e.target.value;
+              setTicker(v);
+              setSearchQuery(v);
+            }}
+            placeholder="Ticker (ex: TTE.PA)"
+            className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+            autoComplete="off"
+          />
           <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
             <option value="">Géographie (optionnel)</option>
