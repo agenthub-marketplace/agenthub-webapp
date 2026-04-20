@@ -819,12 +819,19 @@ function SectorBars({ c }: { c: Correlation }) {
   const emptyColor = "#EBEBEB";
   const arrow = positive ? "↑" : negative ? "↓" : "";
 
-  // Sector name: prefer dedicated 'secteur' field, never use 'company' (entreprise).
-  const sectorName = c.secteur ?? c.raison ?? c.reason ?? "Secteur";
+  // Sector name: ONLY the 'secteur' field (short title like "Technologie", "Automobile").
+  const sectorName = c.secteur ?? "Secteur";
+  // Reason/explanation goes below in small grey text.
+  const reason = c.raison ?? c.reason ?? null;
 
   return (
     <div className="rounded-[10px] border border-border bg-surface p-3 space-y-2 min-w-0">
-      <p className="text-[11px] font-bold text-foreground leading-tight break-words sm:line-clamp-2">{sectorName}</p>
+      <p className="text-[13px] font-bold text-foreground leading-tight break-words">{sectorName}</p>
+      {reason && (
+        <p className="text-[12px] font-normal leading-snug break-words" style={{ color: "#888888" }}>
+          {reason}
+        </p>
+      )}
       <div className="flex gap-[3px]">
         {[0, 1, 2, 3].map((i) => (
           <span
