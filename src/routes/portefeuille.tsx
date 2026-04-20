@@ -414,10 +414,11 @@ function AllocCard({ title, items }: { title: string; items: { name: string; pct
 }
 
 type StockSuggestion = {
-  symbol: string;
-  displaySymbol: string;
   name: string;
-  geography: string | null;
+  ticker: string;
+  exchange: string;
+  asset_type: string;
+  security_type: string;
 };
 
 function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (payload: AddedPositionPayload) => Promise<void> | void }) {
