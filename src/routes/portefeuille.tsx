@@ -419,6 +419,8 @@ type StockSuggestion = {
   exchange: string;
   asset_type: string;
   security_type: string;
+  sector: string;
+  geography: string;
 };
 
 function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (payload: AddedPositionPayload) => Promise<void> | void }) {
@@ -473,6 +475,8 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setTicker(s.ticker);
     setExchange(s.exchange);
     setAssetType(s.asset_type);
+    if (s.sector) setSector(s.sector);
+    if (s.geography) setGeography(s.geography);
     setShowSug(false);
   };
 
