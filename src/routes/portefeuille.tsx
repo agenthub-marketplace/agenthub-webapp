@@ -414,10 +414,11 @@ function AllocCard({ title, items }: { title: string; items: { name: string; pct
 }
 
 type StockSuggestion = {
-  symbol: string;
-  displaySymbol: string;
   name: string;
-  geography: string | null;
+  ticker: string;
+  exchange: string;
+  asset_type: string;
+  security_type: string;
 };
 
 function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: (payload: AddedPositionPayload) => Promise<void> | void }) {
@@ -425,18 +426,21 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
   const [geography, setGeography] = useState("");
+  const [exchange, setExchange] = useState("");
+  const [assetType, setAssetType] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Autocomplete state
+  // Autocomplete state — driven by name OR ticker input
   const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
   const [showSug, setShowSug] = useState(false);
   const [searching, setSearching] = useState(false);
   const lastQueryRef = useRef("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    const q = name.trim();
+    const q = searchQuery.trim();
     if (q.length < 2) {
       setSuggestions([]);
       return;
@@ -446,9 +450,12 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
       setSearching(true);
       try {
         const d = await apiFetch<{ results: StockSuggestion[] }>(
-          `/api/stocks/search?q=${encodeURIComponent(q)}`,
+          "/api/assets/search",
+          {
+            method: "POST",
+            body: JSON.stringify({ query: q }),
+          },
         );
-        // Ignore if user kept typing
         if (lastQueryRef.current !== q) return;
         setSuggestions(d.results ?? []);
         setShowSug(true);
@@ -459,32 +466,14 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [name]);
+  }, [searchQuery]);
 
-  const pickSuggestion = async (s: StockSuggestion) => {
+  const pickSuggestion = (s: StockSuggestion) => {
     setName(s.name);
-    // CRITICAL: use Finnhub's full `symbol` (e.g. "GLE.PA", "MT.AS") — NOT
-    // `displaySymbol` which strips the market suffix and breaks /quote calls
-    // for European stocks.
-    const fullSymbol = s.symbol || s.displaySymbol;
-    setTicker(fullSymbol);
-    if (s.geography) setGeography(s.geography);
+    setTicker(s.ticker);
+    setExchange(s.exchange);
+    setAssetType(s.asset_type);
     setShowSug(false);
-    // Enrich with sector via profile endpoint — but DO NOT overwrite the
-    // ticker with the profile's bare symbol (Finnhub returns "MT" for MT.AS).
-    try {
-      const d = await apiFetch<{
-        profile: { sector: string | null; geography: string | null; ticker: string };
-      }>(`/api/stocks/profile?symbol=${encodeURIComponent(s.symbol)}`);
-      if (d.profile?.sector) setSector(d.profile.sector);
-      if (d.profile?.geography) setGeography(d.profile.geography);
-      // Only adopt the profile ticker if it preserves the market suffix
-      if (d.profile?.ticker && d.profile.ticker.includes(".")) {
-        setTicker(d.profile.ticker);
-      }
-    } catch {
-      // best-effort
-    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -498,6 +487,8 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           name,
           sector: sector || null,
           geography: geography || null,
+          exchange: exchange || null,
+          asset_type: assetType || null,
           quantity: Number(quantity),
           buy_price: price ? Number(price) : null,
         }),
@@ -529,25 +520,36 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
             <input
               required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setSearchQuery(e.target.value);
+              }}
               onFocus={() => suggestions.length > 0 && setShowSug(true)}
               placeholder="Nom de l'entreprise (ex: TotalEnergies)"
               className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
               autoComplete="off"
             />
             {showSug && suggestions.length > 0 && (
-              <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-10 left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg max-h-72 overflow-auto">
                 {suggestions.map((s) => (
                   <button
                     type="button"
-                    key={`${s.symbol}-${s.displaySymbol}`}
+                    key={`${s.ticker}-${s.exchange}`}
                     onClick={() => pickSuggestion(s)}
                     className="w-full text-left px-4 py-2.5 hover:bg-subtle border-b border-border last:border-0"
                   >
-                    <p className="text-[13px] font-bold text-foreground truncate">{s.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {s.displaySymbol}{s.geography ? ` · ${s.geography}` : ""}
-                    </p>
+                    <p className="text-[14px] font-bold text-foreground truncate">{s.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[12px] text-muted-foreground">{s.ticker}</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-subtle text-foreground">
+                        {s.exchange}
+                      </span>
+                      {s.asset_type && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-border text-muted-foreground">
+                          {s.asset_type}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -556,7 +558,18 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
               <p className="absolute right-3 top-3.5 text-[11px] text-muted-foreground">…</p>
             )}
           </div>
-          <input required value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="Ticker (ex: TTE.PA)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+          <input
+            required
+            value={ticker}
+            onChange={(e) => {
+              const v = e.target.value;
+              setTicker(v);
+              setSearchQuery(v);
+            }}
+            placeholder="Ticker (ex: TTE.PA)"
+            className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+            autoComplete="off"
+          />
           <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
           <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
             <option value="">Géographie (optionnel)</option>
