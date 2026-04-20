@@ -165,12 +165,27 @@ Deno.serve(async (req) => {
     // spam users with empty alerts.
     const titleStr = typeof title === "string" ? title.trim() : "";
     const contentStr = typeof content === "string" ? content.trim() : "";
-    const isPlaceholderTitle = /aucune\s+information\s+disponible/i.test(titleStr);
-    if (!contentStr || isPlaceholderTitle) {
+    const isPlaceholderTitle =
+      /aucune\s+information\s+disponible/i.test(titleStr) ||
+      /analyse\s+neutre.*absence/i.test(titleStr);
+    const isPlaceholderContent =
+      /^aucun\s+événement\s+financier/i.test(contentStr) ||
+      /aucun\s+impact\s+directionnel/i.test(contentStr) ||
+      /statu\s+quo\s+informationnel/i.test(contentStr);
+    if (!contentStr || isPlaceholderTitle || isPlaceholderContent) {
+      console.log("[receive-alert-from-make] SKIPPED placeholder analysis", {
+        isPlaceholderTitle,
+        isPlaceholderContent,
+        title: titleStr.slice(0, 80),
+      });
       return new Response(
         JSON.stringify({
           skipped: true,
-          reason: isPlaceholderTitle ? "placeholder_title" : "empty_content",
+          reason: isPlaceholderTitle
+            ? "placeholder_title"
+            : isPlaceholderContent
+              ? "placeholder_content"
+              : "empty_content",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
