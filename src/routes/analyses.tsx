@@ -255,7 +255,15 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+    <p
+      className="uppercase"
+      style={{
+        fontSize: 10,
+        fontWeight: 500,
+        letterSpacing: "0.1em",
+        color: "#AAAAAA",
+      }}
+    >
       {children}
     </p>
   );
@@ -307,8 +315,13 @@ function AlertCard({
   return (
     <article
       ref={cardRef}
-      className="bg-surface rounded-2xl overflow-hidden border border-border shadow-sm"
-      style={{ borderLeft: `4px solid ${sideColor}` }}
+      className="overflow-hidden"
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid #EBEBEB",
+        borderLeft: `3px solid ${sideColor}`,
+        borderRadius: 16,
+      }}
     >
       {/* Collapsed header — always visible, click to expand */}
       <button
@@ -319,12 +332,20 @@ function AlertCard({
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-baseline gap-2 min-w-0 flex-1">
-            <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">
+          <div className="flex items-baseline min-w-0 flex-1">
+            <h3
+              className="leading-tight truncate"
+              style={{ fontSize: 17, fontWeight: 500, color: "#111111" }}
+            >
               {companyLabel}
             </h3>
             {tickerLabel && (
-              <span className="text-[12px] text-muted-foreground shrink-0 uppercase">{tickerLabel}</span>
+              <span
+                className="shrink-0 uppercase"
+                style={{ fontSize: 13, color: "#888888", marginLeft: 6 }}
+              >
+                {tickerLabel}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -337,8 +358,15 @@ function AlertCard({
               />
             )}
             <span
-              className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-[0.06em]"
-              style={{ background: badge.bg, color: badge.fg }}
+              style={{
+                background: badge.bg,
+                color: badge.fg,
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                padding: "3px 10px",
+                borderRadius: 4,
+              }}
             >
               {badge.label}
             </span>
@@ -353,24 +381,31 @@ function AlertCard({
               <Trash2 className="w-4 h-4" />
             </span>
             <ChevronDown
-              className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              className={`w-4 h-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              style={{ color: "#BBBBBB" }}
             />
           </div>
         </div>
 
         {/* Row 2: timestamp */}
-        <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(a.sent_at)}</p>
+        <p style={{ fontSize: 12, color: "#BBBBBB", marginTop: 4 }}>{timeAgo(a.sent_at)}</p>
 
         {/* Row 3: titre (French Claude title) */}
         {titre && (
-          <p className="text-[13px] font-bold text-foreground leading-snug mt-2 line-clamp-2">
+          <p
+            className="leading-snug line-clamp-2"
+            style={{ fontSize: 15, fontWeight: 500, color: "#111111", marginTop: 8 }}
+          >
             {titre}
           </p>
         )}
 
         {/* Row 4: content summary */}
         {summary && (
-          <p className={`text-[12px] text-muted-foreground leading-snug mt-1.5 ${open ? "" : "line-clamp-3"}`}>
+          <p
+            className={open ? "" : "line-clamp-3"}
+            style={{ fontSize: 13, color: "#888888", lineHeight: 1.6, marginTop: 6 }}
+          >
             {summary}
           </p>
         )}
@@ -378,7 +413,10 @@ function AlertCard({
 
       {/* Expandable analysis — display:none when collapsed to avoid mobile white-space bug */}
       {open && (
-        <div className="px-4 pb-4 pt-3 space-y-4 border-t border-border">
+        <div
+          className="px-4 pb-4 pt-3"
+          style={{ borderTop: "0.5px solid #EBEBEB" }}
+        >
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
@@ -418,65 +456,102 @@ function AlertCard({
               const portfColor = portfPositive ? "var(--success)" : "var(--danger)";
 
               return (
-                <section className="space-y-2">
+                <section className="space-y-3">
                   <SectionLabel>Impact</SectionLabel>
-                  <div className="rounded-xl border border-border bg-surface overflow-hidden">
-                    <div className="grid grid-cols-2">
-                      <div
-                        className="p-3 space-y-1.5"
-                        style={{
-                          borderLeft: `3px solid ${pos ? gainColor : "#EBEBEB"}`,
-                          borderRight: "1px solid #F0F0F0",
-                        }}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Votre position */}
+                    <div
+                      style={{
+                        background: "#F7F7F7",
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <p
+                        className="uppercase"
+                        style={{ fontSize: 10, color: "#AAAAAA", letterSpacing: "0.1em", fontWeight: 500 }}
                       >
-                        <p className="text-[10px] text-muted-foreground">Impact sur votre position</p>
-                        {pos ? (
-                          <>
-                            <p className="text-[11px] text-muted-foreground">
-                              {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
-                            </p>
-                            <p
-                              className="text-[20px] font-bold leading-none"
-                              style={{ color: gain != null ? gainColor : "#111111" }}
-                            >
-                              {gain != null
-                                ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
-                                : "—"}
-                            </p>
-                            {weightedPct != null && (
-                              <p className="text-[12px] font-semibold" style={{ color: gainColor }}>
-                                {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">
-                            Aucune position directe sur ce titre
+                        Votre position
+                      </p>
+                      {pos ? (
+                        <>
+                          <p style={{ fontSize: 11, color: "#888888", marginTop: 6 }}>
+                            {pos.quantity.toLocaleString("fr-FR")} {pos.quantity > 1 ? "actions" : "action"} · {formatEuro(pos.position_value)}
                           </p>
-                        )}
-                      </div>
-                      <div
-                        className="p-3 space-y-1.5"
-                        style={{ borderLeft: "3px solid #EBEBEB" }}
+                          <p
+                            className="leading-none"
+                            style={{
+                              fontSize: 28,
+                              fontWeight: 500,
+                              color: gain != null ? (gainPositive ? "#16A34A" : "#DC2626") : "#111111",
+                              marginTop: 8,
+                            }}
+                          >
+                            {gain != null
+                              ? `${gainPositive ? "+" : "-"}${formatEuro(Math.abs(gain))}`
+                              : "—"}
+                          </p>
+                          {weightedPct != null && (
+                            <p
+                              style={{
+                                fontSize: 13,
+                                color: gainPositive ? "#16A34A" : "#DC2626",
+                                marginTop: 6,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {gainPositive ? "↑" : "↓"} {fmtPct(weightedPct)} estimé
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: 12, color: "#888888", marginTop: 8 }}>
+                          Aucune position directe sur ce titre
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Portefeuille global */}
+                    <div
+                      style={{
+                        background: "#F7F7F7",
+                        borderRadius: 12,
+                        padding: 16,
+                      }}
+                    >
+                      <p
+                        className="uppercase"
+                        style={{ fontSize: 10, color: "#AAAAAA", letterSpacing: "0.1em", fontWeight: 500 }}
                       >
-                        <p className="text-[10px] text-muted-foreground">Portefeuille global</p>
-                        {portfolioValue > 0 ? (
-                          <>
-                            <p className="text-[11px] text-muted-foreground">
-                              Valeur actuelle {formatEuro(portfolioValue)}
+                        Portefeuille global
+                      </p>
+                      {portfolioValue > 0 ? (
+                        <>
+                          <p style={{ fontSize: 11, color: "#888888", marginTop: 6 }}>
+                            Valeur actuelle {formatEuro(portfolioValue)}
+                          </p>
+                          <p
+                            className="leading-none"
+                            style={{ fontSize: 28, fontWeight: 500, color: "#111111", marginTop: 8 }}
+                          >
+                            {formatEuro(adjustedPortfolio)}
+                          </p>
+                          {portfolioImpactPct != null && (
+                            <p
+                              style={{
+                                fontSize: 13,
+                                color: portfPositive ? "#16A34A" : "#DC2626",
+                                marginTop: 6,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {portfPositive ? "↑" : "↓"} {fmtPct(portfolioImpactPct)} du portefeuille
                             </p>
-                            <p className="text-[20px] font-bold leading-none" style={{ color: "#111111" }}>
-                              {formatEuro(adjustedPortfolio)}
-                            </p>
-                            {portfolioImpactPct != null && (
-                              <p className="text-[12px] font-semibold" style={{ color: portfColor }}>
-                                {portfPositive ? "↑" : "↓"} {fmtPct(portfolioImpactPct)} du portefeuille
-                              </p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground">Valeur ajustée estimée</p>
-                          </>
-                        ) : <p className="text-[11px] text-muted-foreground">Valeur actuelle indisponible</p>}
-                      </div>
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: 12, color: "#888888", marginTop: 8 }}>Valeur actuelle indisponible</p>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -485,9 +560,12 @@ function AlertCard({
 
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
-              <section className="space-y-2">
+              <section
+                className="space-y-3"
+                style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
+              >
                 <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
                   <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
                   <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
@@ -497,9 +575,12 @@ function AlertCard({
 
             {/* 2b. SCÉNARIOS LONG TERME 6 MOIS */}
             {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
-              <section className="space-y-2">
+              <section
+                className="space-y-3"
+                style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
+              >
                 <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
                   <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
                   <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
@@ -510,23 +591,28 @@ function AlertCard({
             {/* 3. CORRÉLATIONS — collapsible single card */}
             {((a.correlations_directes?.length ?? 0) > 0 ||
               (a.correlations_indirectes?.length ?? 0) > 0) && (
-              <CorrelationsBlock
-                directes={a.correlations_directes ?? []}
-                indirectes={a.correlations_indirectes ?? []}
-              />
+              <div style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}>
+                <CorrelationsBlock
+                  directes={a.correlations_directes ?? []}
+                  indirectes={a.correlations_indirectes ?? []}
+                />
+              </div>
             )}
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
-            <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
+            <div style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}>
+              <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
+            </div>
 
             {/* 6. SOURCE LINK */}
             {a.source_url && (
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-end pt-3">
                 <a
                   href={a.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
+                  style={{ fontSize: 11, color: "#888888" }}
+                  className="hover:text-foreground transition underline underline-offset-2"
                 >
                   Lire la source →
                 </a>
@@ -569,7 +655,10 @@ function CorrelationsBlock({
   const companyCount = directes.length;
 
   return (
-    <section className="rounded-2xl bg-surface overflow-hidden" style={{ border: "1.5px solid #222" }}>
+    <section
+      className="overflow-hidden"
+      style={{ border: "1px solid #EBEBEB", borderRadius: 16, background: "#FFFFFF" }}
+    >
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
@@ -697,37 +786,51 @@ function SectorBars({ c }: { c: Correlation }) {
 function ScenarioBox({
   variant, label, s,
 }: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
-  const styles = {
-    optimiste:  { bg: "#F9FFF9", border: "#C8E6C9", text: "var(--success)", num: "var(--success)" },
-    neutre:     { bg: "#FAFAFA", border: "#E0E0E0", text: "#666",            num: "#555" },
-    pessimiste: { bg: "#FFF9F9", border: "#FFCDD2", text: "var(--danger)",  num: "var(--danger)" },
+  const accent = {
+    optimiste:  "#16A34A",
+    neutre:     "#94A3B8",
+    pessimiste: "#DC2626",
   }[variant];
   const pct = toNum(s?.pourcentage ?? s?.impact_percent);
   const proba = toNum(s?.probabilite);
   return (
     <div
-      className="rounded-xl overflow-hidden"
-      style={{ background: styles.bg, border: `1px solid ${styles.border}` }}
+      className="overflow-hidden"
+      style={{
+        background: "#FFFFFF",
+        border: "0.5px solid #E5E7EB",
+        borderRadius: 12,
+      }}
     >
-      <div className="p-2.5 space-y-1">
+      {/* Top accent line */}
+      <div style={{ height: 2, background: accent }} />
+      <div style={{ padding: 14 }}>
         <p
-          className="text-[9px] uppercase tracking-[0.06em] font-bold"
-          style={{ color: styles.text }}
+          className="uppercase"
+          style={{
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+            color: accent,
+          }}
         >
           {label}
         </p>
         {pct != null && (
-          <p className="text-[16px] font-bold leading-tight" style={{ color: styles.num }}>
+          <p
+            className="leading-tight"
+            style={{ fontSize: 22, fontWeight: 500, color: accent, marginTop: 6 }}
+          >
             {fmtPct(pct)}
           </p>
         )}
         {proba != null && (
-          <p className="text-[10px]" style={{ color: "#888" }}>
+          <p style={{ fontSize: 11, color: "#888888", marginTop: 4 }}>
             Prob. {fmtPct(proba, false)}
           </p>
         )}
         {(s?.description || s?.base_historique) && (
-          <p className="text-[10px] leading-[1.5] pt-1" style={{ color: "#888" }}>
+          <p style={{ fontSize: 12, color: "#888888", lineHeight: 1.5, marginTop: 8 }}>
             {s?.description || s?.base_historique}
           </p>
         )}
@@ -851,10 +954,10 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
         </>
       ) : (
         <div className="space-y-2">
-          <ResultBar label="Ont conservé" pct={pct(stats!.counts.conserve)} barColor="#111111" highlight={stats!.my_action === "conserve"} />
-          <ResultBar label="Ont renforcé" pct={pct(stats!.counts.renforce)} barColor="var(--success)" highlight={stats!.my_action === "renforce"} />
-          <ResultBar label="Ont vendu"    pct={pct(stats!.counts.vend)}     barColor="var(--danger)"  highlight={stats!.my_action === "vend"} />
-          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}  barColor="var(--muted-foreground)" highlight={stats!.my_action === "rien"} />
+          <ResultBar label="Ont conservé"    pct={pct(stats!.counts.conserve)} highlight={stats!.my_action === "conserve"} />
+          <ResultBar label="Ont renforcé"    pct={pct(stats!.counts.renforce)} highlight={stats!.my_action === "renforce"} />
+          <ResultBar label="Ont vendu"       pct={pct(stats!.counts.vend)}     highlight={stats!.my_action === "vend"} />
+          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}     highlight={stats!.my_action === "rien"} />
         </div>
       )}
     </section>
@@ -874,24 +977,41 @@ function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => v
 }
 
 function ResultBar({
-  label, pct, barColor, highlight,
-}: { label: string; pct: number; barColor: string; highlight: boolean }) {
+  label, pct, highlight,
+}: { label: string; pct: number; highlight: boolean }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-baseline justify-between">
-        <span className={`text-[11px] ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
-          {label}
-        </span>
-        <span className={`text-[11px] tabular-nums ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
-          {pct}%
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#F0F0F0" }}>
+    <div className="flex items-center gap-3">
+      <span
+        style={{
+          fontSize: 13,
+          color: "#888888",
+          width: 110,
+          flexShrink: 0,
+          fontWeight: highlight ? 600 : 400,
+        }}
+      >
+        {label}
+      </span>
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ background: "#F3F4F6", height: 5, borderRadius: 4 }}
+      >
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: barColor, opacity: highlight ? 1 : 0.5 }}
+          className="h-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: "#111111",
+            borderRadius: 4,
+            opacity: highlight ? 1 : 0.7,
+          }}
         />
       </div>
+      <span
+        className="tabular-nums"
+        style={{ fontSize: 13, fontWeight: 500, color: "#111111", minWidth: 36, textAlign: "right" }}
+      >
+        {pct}%
+      </span>
     </div>
   );
 }
