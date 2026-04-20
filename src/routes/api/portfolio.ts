@@ -2,6 +2,34 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
 import { fetchQuote, fetchQuotes, fetchLogo, computePortfolioTotals } from "@/lib/quotes.server";
 
+// Map an OpenFIGI exchange code to the Yahoo Finance suffix used by our quote
+// + logo pipeline. Storing the suffixed symbol as `ticker` means every
+// downstream lookup (portfolio quotes, logos, dashboard totals) automatically
+// works for European stocks without additional plumbing.
+const EXCHANGE_TO_YAHOO_SUFFIX: Record<string, string> = {
+  EPA: ".PA",
+  ENX: ".PA",
+  XETRA: ".DE",
+  GER: ".DE",
+  LSE: ".L",
+  AMS: ".AS",
+  // US exchanges → no suffix
+  NYSE: "",
+  NASDAQ: "",
+  BATS: "",
+};
+
+function buildYahooSymbol(rawTicker: string, exchange: string | null): string {
+  const upper = String(rawTicker).toUpperCase().trim();
+  if (!upper) return upper;
+  // If the user already typed a Yahoo-style suffix, respect it.
+  if (upper.includes(".")) return upper;
+  if (!exchange) return upper;
+  const suffix = EXCHANGE_TO_YAHOO_SUFFIX[exchange.toUpperCase()];
+  if (suffix === undefined) return upper; // unknown exchange — leave as-is
+  return upper + suffix;
+}
+
 export const Route = createFileRoute("/api/portfolio")({
   server: {
     handlers: {
@@ -51,19 +79,23 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("ticker, name, quantity requis", 400);
         }
 
-        // Fetch the current price + logo right away so the new position
-        // shows up immediately with correct totals AND avatar.
+        // Normalise the ticker with the Yahoo suffix so EU stocks resolve via
+        // Yahoo/Stooq instead of falling through to Finnhub (US-only).
+        const storedTicker = buildYahooSymbol(String(ticker), exchange ?? null);
+
+        // Fetch current price + logo right away so the new position shows up
+        // immediately with correct totals AND avatar.
         const apiKey = process.env.FINNHUB_API_KEY;
         const [quote, logo] = await Promise.all([
-          apiKey ? fetchQuote(String(ticker), apiKey) : Promise.resolve(null),
-          apiKey ? fetchLogo(String(ticker), apiKey) : Promise.resolve(null),
+          apiKey ? fetchQuote(storedTicker, apiKey) : Promise.resolve(null),
+          apiKey ? fetchLogo(storedTicker, apiKey) : Promise.resolve(null),
         ]);
 
         const { data, error } = await auth.userClient
           .from("positions")
           .insert({
             user_id: auth.userId,
-            ticker,
+            ticker: storedTicker,
             name,
             company: name,
             quantity: Number(quantity),
