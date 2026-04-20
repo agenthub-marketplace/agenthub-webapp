@@ -738,16 +738,6 @@ function CorrelationsBlock({
       >
         <div className="overflow-hidden">
           <div className="px-3.5 pb-3.5 space-y-3 border-t border-border pt-3">
-            <p
-              style={{
-                fontSize: 12,
-                color: "#888888",
-                fontStyle: "italic",
-                marginBottom: 12,
-              }}
-            >
-              Ces entreprises que tu ne détiens pas sont aussi affectées — à surveiller.
-            </p>
             {/* Sub 1: portfolio matches */}
             {directes.length > 0 && (
               <div className="space-y-2">
@@ -765,10 +755,21 @@ function CorrelationsBlock({
               </div>
             )}
 
-            {/* Sub 2: top impacted */}
+            {/* Sub 2: impacted */}
             {top.length > 0 && (
               <div className="space-y-2">
-                <SectionLabel>Corrélations directes · Top entreprises impactées</SectionLabel>
+                <SectionLabel>Corrélations directes · Entreprises impactées</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "#888888",
+                    fontStyle: "italic",
+                    marginTop: -2,
+                    marginBottom: 4,
+                  }}
+                >
+                  Ces entreprises que tu ne détiens pas sont aussi affectées — à surveiller.
+                </p>
                 <CorrelationList items={top} />
               </div>
             )}
@@ -1026,10 +1027,10 @@ function CommunityReaction({ alertId }: { alertId: string; ticker: string }) {
         </>
       ) : (
         <div className="space-y-2">
-          <ResultBar label="Ont conservé"    pct={pct(stats!.counts.conserve)} highlight={stats!.my_action === "conserve"} />
-          <ResultBar label="Ont renforcé"    pct={pct(stats!.counts.renforce)} highlight={stats!.my_action === "renforce"} />
-          <ResultBar label="Ont vendu"       pct={pct(stats!.counts.vend)}     highlight={stats!.my_action === "vend"} />
-          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}     highlight={stats!.my_action === "rien"} />
+          <ResultBar label="Ont conservé"    pct={pct(stats!.counts.conserve)} color="#16A34A" highlight={stats!.my_action === "conserve"} />
+          <ResultBar label="Ont renforcé"    pct={pct(stats!.counts.renforce)} color="#111111" highlight={stats!.my_action === "renforce"} />
+          <ResultBar label="Ont vendu"       pct={pct(stats!.counts.vend)}     color="#DC2626" highlight={stats!.my_action === "vend"} />
+          <ResultBar label="N'ont rien fait" pct={pct(stats!.counts.rien)}     color="#F57C00" highlight={stats!.my_action === "rien"} />
         </div>
       )}
     </section>
@@ -1049,8 +1050,8 @@ function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => v
 }
 
 function ResultBar({
-  label, pct, highlight,
-}: { label: string; pct: number; highlight: boolean }) {
+  label, pct, color, highlight,
+}: { label: string; pct: number; color: string; highlight: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <span
@@ -1072,15 +1073,15 @@ function ResultBar({
           className="h-full transition-all duration-500"
           style={{
             width: `${pct}%`,
-            background: "#111111",
+            background: color,
             borderRadius: 4,
-            opacity: highlight ? 1 : 0.7,
+            opacity: highlight ? 1 : 0.85,
           }}
         />
       </div>
       <span
         className="tabular-nums"
-        style={{ fontSize: 13, fontWeight: 500, color: "#111111", minWidth: 36, textAlign: "right" }}
+        style={{ fontSize: 13, fontWeight: 500, color, minWidth: 36, textAlign: "right" }}
       >
         {pct}%
       </span>
