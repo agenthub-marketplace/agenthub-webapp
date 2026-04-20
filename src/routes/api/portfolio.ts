@@ -46,7 +46,7 @@ export const Route = createFileRoute("/api/portfolio")({
           return errorResponse("Body JSON invalide", 400);
         }
 
-        const { ticker, name, quantity, buy_price, sector, geography, isin } = body ?? {};
+        const { ticker, name, quantity, buy_price, sector, geography, isin, exchange, asset_type } = body ?? {};
         if (!ticker || !name || quantity == null) {
           return errorResponse("ticker, name, quantity requis", 400);
         }
