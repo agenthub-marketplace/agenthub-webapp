@@ -19,6 +19,7 @@ type Position = {
   name: string | null;
   sector: string | null;
   geography: string | null;
+  exchange: string | null;
   quantity: number;
   purchase_price: number | null;
   current_price: number | null;
@@ -29,6 +30,28 @@ type Position = {
 
 type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean; source?: "quote" | "candle" | "exchange-prefix" | "none" };
 type AddedPositionPayload = { item: Position; quote: Quote | null };
+
+function toQuoteFromAssetPrice(data: {
+  price?: number | null;
+  change?: number | null;
+  change_percent?: number | null;
+}): Quote {
+  const price = typeof data.price === "number" ? data.price : null;
+  const changePct = typeof data.change_percent === "number" ? data.change_percent : null;
+  const derivedChange =
+    typeof data.change === "number"
+      ? data.change
+      : price != null && changePct != null && changePct > -100
+        ? price - price / (1 + changePct / 100)
+        : null;
+
+  return {
+    price,
+    change: derivedChange,
+    changePct,
+    source: "exchange-prefix",
+  };
+}
 
 function Portefeuille() {
   const navigate = useNavigate();
@@ -77,17 +100,37 @@ function Portefeuille() {
       setQuotes({});
       return;
     }
-    const symbols = Array.from(new Set(positions.map((p) => p.ticker).filter(Boolean)));
-    if (symbols.length === 0) return;
+    const uniquePositions = Array.from(
+      new Map(
+        positions
+          .filter((p) => p.ticker)
+          .map((p) => [p.ticker, p]),
+      ).values(),
+    );
+    if (uniquePositions.length === 0) return;
     let cancelled = false;
     (async () => {
-      try {
-        const d = await apiFetch<{ quotes: Record<string, Quote> }>(
-          `/api/stocks/quote?symbols=${encodeURIComponent(symbols.join(","))}`,
-        );
-        if (!cancelled) setQuotes(d.quotes ?? {});
-      } catch {
-        // silent — quotes are best-effort
+      const entries = await Promise.all(
+        uniquePositions.map(async (position) => {
+          try {
+            const params = new URLSearchParams({ ticker: position.ticker });
+            if (position.exchange) params.set("exchange", position.exchange);
+
+            const data = await apiFetch<{
+              price?: number | null;
+              change?: number | null;
+              change_percent?: number | null;
+            }>(`/api/assets/price?${params.toString()}`);
+
+            return [position.ticker, toQuoteFromAssetPrice(data)] as const;
+          } catch {
+            return [position.ticker, { price: null, change: null, changePct: null, source: "none" as const }] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setQuotes(Object.fromEntries(entries));
       }
     })();
     return () => {
