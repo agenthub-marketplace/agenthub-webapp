@@ -255,7 +255,15 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground font-semibold">
+    <p
+      className="uppercase"
+      style={{
+        fontSize: 10,
+        fontWeight: 500,
+        letterSpacing: "0.1em",
+        color: "#AAAAAA",
+      }}
+    >
       {children}
     </p>
   );
