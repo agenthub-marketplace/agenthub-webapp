@@ -43,7 +43,7 @@ const GEOGRAPHY_MAP: Record<string, string> = {
   ENX: "Europe - France",
   XETRA: "Europe - Allemagne",
   GER: "Europe - Allemagne",
-  LSE: "Europe - UK",
+  LSE: "Europe - Royaume-Uni",
   AMS: "Europe - Pays-Bas",
   NASDAQ: "États-Unis",
   NYSE: "États-Unis",
