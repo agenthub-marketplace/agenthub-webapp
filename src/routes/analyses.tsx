@@ -421,6 +421,29 @@ function AlertCard({
           className="px-4 pb-4 pt-3"
           style={{ borderTop: "0.5px solid #EBEBEB" }}
         >
+            {/* 0. PHRASE DE CONNEXION CAUSALE — pourquoi cette news compte pour l'utilisateur */}
+            {(() => {
+              const explanation =
+                a.explication_personnalisee?.trim() ||
+                (pos
+                  ? `Cette news impacte directement ta position ${pos.company} via ${(a.title ?? "cet événement").trim()}. Voici pourquoi cela compte pour toi.`
+                  : `Cette news impacte directement ton portefeuille via ${(a.title ?? "cet événement").trim()}. Voici pourquoi cela compte pour toi.`);
+              return (
+                <div
+                  style={{
+                    background: "#F0FDF4",
+                    borderLeft: "3px solid #16A34A",
+                    borderRadius: 8,
+                    padding: "12px 16px",
+                    margin: "0 0 16px 0",
+                  }}
+                >
+                  <p style={{ fontSize: 13, color: "#111111", lineHeight: 1.6, fontWeight: 400 }}>
+                    {explanation}
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
