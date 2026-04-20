@@ -591,23 +591,28 @@ function AlertCard({
             {/* 3. CORRÉLATIONS — collapsible single card */}
             {((a.correlations_directes?.length ?? 0) > 0 ||
               (a.correlations_indirectes?.length ?? 0) > 0) && (
-              <CorrelationsBlock
-                directes={a.correlations_directes ?? []}
-                indirectes={a.correlations_indirectes ?? []}
-              />
+              <div style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}>
+                <CorrelationsBlock
+                  directes={a.correlations_directes ?? []}
+                  indirectes={a.correlations_indirectes ?? []}
+                />
+              </div>
             )}
 
             {/* 5. RÉACTION DE LA COMMUNAUTÉ */}
-            <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
+            <div style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}>
+              <CommunityReaction alertId={a.id} ticker={tickerLabel ?? ""} />
+            </div>
 
             {/* 6. SOURCE LINK */}
             {a.source_url && (
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-end pt-3">
                 <a
                   href={a.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
+                  style={{ fontSize: 11, color: "#888888" }}
+                  className="hover:text-foreground transition underline underline-offset-2"
                 >
                   Lire la source →
                 </a>
