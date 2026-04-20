@@ -263,7 +263,7 @@ function Portefeuille() {
 
                 return (
                   <article key={p.id} className="bg-surface border border-border rounded-[14px] p-3 flex items-center gap-3">
-                    <PositionLogo ticker={p.ticker} initialLogo={p.logo_url} />
+                    <PositionLogo ticker={p.ticker} companyName={p.name ?? p.company} initialLogo={p.logo_url} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-foreground truncate">{p.name ?? p.company}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
@@ -339,20 +339,68 @@ function Bar({ pct }: { pct: number }) {
 // Module-level cache so we don't refetch logos on re-renders.
 const logoCache = new Map<string, string | null>();
 
-function PositionLogo({ ticker, initialLogo }: { ticker: string; initialLogo?: string | null }) {
+// Known company → website-domain mapping for Clearbit logo fallback.
+// Falls back to "<lowercased-name>.com" when the company isn't listed.
+const COMPANY_DOMAIN: Record<string, string> = {
+  lvmh: "lvmh.com",
+  "moët hennessy louis vuitton": "lvmh.com",
+  hermès: "hermes.com",
+  hermes: "hermes.com",
+  totalenergies: "totalenergies.com",
+  total: "totalenergies.com",
+  bnp: "bnpparibas.com",
+  "bnp paribas": "bnpparibas.com",
+  "société générale": "societegenerale.com",
+  "societe generale": "societegenerale.com",
+  "air liquide": "airliquide.com",
+  "l'oreal": "loreal.com",
+  "l'oréal": "loreal.com",
+  loreal: "loreal.com",
+  airbus: "airbus.com",
+  sanofi: "sanofi.com",
+  axa: "axa.com",
+  kering: "kering.com",
+  vinci: "vinci.com",
+  orange: "orange.com",
+  danone: "danone.com",
+  pernod: "pernod-ricard.com",
+  "pernod ricard": "pernod-ricard.com",
+};
+
+function clearbitDomainFor(companyName: string | null | undefined): string | null {
+  if (!companyName) return null;
+  const norm = companyName.toLowerCase().replace(/\s+/g, " ").trim();
+  if (COMPANY_DOMAIN[norm]) return COMPANY_DOMAIN[norm];
+  // Try first significant word + .com (cheap heuristic).
+  const firstWord = norm.split(/[\s,.()-]+/)[0];
+  if (firstWord && firstWord.length >= 3) return `${firstWord}.com`;
+  return null;
+}
+
+function PositionLogo({
+  ticker,
+  companyName,
+  initialLogo,
+}: {
+  ticker: string;
+  companyName?: string | null;
+  initialLogo?: string | null;
+}) {
   const seed = initialLogo ?? logoCache.get(ticker) ?? null;
   const [logo, setLogo] = useState<string | null>(seed);
-  const [failed, setFailed] = useState(false);
+  // Track which fallback step we're on: 0 = primary, 1 = clearbit, 2 = initials.
+  const [fallbackStep, setFallbackStep] = useState(0);
 
   useEffect(() => {
-    // If we already have a cached logo (from DB or memory), no fetch needed.
     if (initialLogo) {
       logoCache.set(ticker, initialLogo);
       setLogo(initialLogo);
+      setFallbackStep(0);
       return;
     }
     if (logoCache.has(ticker)) {
       setLogo(logoCache.get(ticker) ?? null);
+      setFallbackStep(0);
       return;
     }
     let cancelled = false;
@@ -364,6 +412,7 @@ function PositionLogo({ ticker, initialLogo }: { ticker: string; initialLogo?: s
         if (cancelled) return;
         logoCache.set(ticker, d.logo);
         setLogo(d.logo);
+        setFallbackStep(0);
       } catch {
         if (!cancelled) {
           logoCache.set(ticker, null);
@@ -376,20 +425,52 @@ function PositionLogo({ ticker, initialLogo }: { ticker: string; initialLogo?: s
     };
   }, [ticker, initialLogo]);
 
-  if (logo && !failed) {
+  const handleError = () => {
+    if (fallbackStep === 0) {
+      const domain = clearbitDomainFor(companyName);
+      if (domain) {
+        setLogo(`https://logo.clearbit.com/${domain}`);
+        setFallbackStep(1);
+        return;
+      }
+    }
+    setFallbackStep(2);
+  };
+
+  // Step 0/1: try the current logo URL with onError fallback.
+  if (logo && fallbackStep < 2) {
     return (
       <img
         src={logo}
         alt=""
         loading="lazy"
-        onError={() => setFailed(true)}
+        onError={handleError}
         className="w-10 h-10 rounded-full object-contain bg-white border border-border"
       />
     );
   }
+
+  // No primary logo → try Clearbit directly before showing initials.
+  if (fallbackStep === 0) {
+    const domain = clearbitDomainFor(companyName);
+    if (domain) {
+      return (
+        <img
+          src={`https://logo.clearbit.com/${domain}`}
+          alt=""
+          loading="lazy"
+          onError={handleError}
+          className="w-10 h-10 rounded-full object-contain bg-white border border-border"
+        />
+      );
+    }
+  }
+
+  // Final fallback: initials circle.
+  const initials = (companyName ?? ticker).slice(0, 4).toUpperCase();
   return (
     <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center border border-border">
-      <span className="text-[12px] font-bold text-foreground">{ticker.slice(0, 4)}</span>
+      <span className="text-[12px] font-bold text-foreground">{initials}</span>
     </div>
   );
 }
