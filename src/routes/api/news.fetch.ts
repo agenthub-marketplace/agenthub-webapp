@@ -156,6 +156,13 @@ export const Route = createFileRoute("/api/news/fetch")({
 
           const articles = Array.isArray(data?.articles) ? (data.articles as any[]) : [];
 
+          console.log("[news.fetch] GNews returned", {
+            query,
+            symbol,
+            articleCount: articles.length,
+            firstTitle: articles[0]?.title ?? null,
+          });
+
           const news = articles
             .map((a) => ({
               headline: (a.title ?? "").trim(),
@@ -167,10 +174,11 @@ export const Route = createFileRoute("/api/news/fetch")({
             // Drop items with no usable text — Claude cannot summarize an empty article.
             .filter((n) => n.headline.length > 0 || n.summary.length > 0);
 
-          const payload = { news, query };
-          NEWS_CACHE.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, payload });
+          // Cache the array directly so cached responses match the live shape.
+          NEWS_CACHE.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, payload: news });
 
-          return json(payload, 200, {
+          // Return the news array at the root level for external consumers (Make.com etc.)
+          return json(news, 200, {
             "Cache-Control": "public, max-age=60",
             "X-News-Cache": "MISS",
           });
