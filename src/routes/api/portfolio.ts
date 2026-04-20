@@ -2,6 +2,34 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
 import { fetchQuote, fetchQuotes, fetchLogo, computePortfolioTotals } from "@/lib/quotes.server";
 
+// Map an OpenFIGI exchange code to the Yahoo Finance suffix used by our quote
+// + logo pipeline. Storing the suffixed symbol as `ticker` means every
+// downstream lookup (portfolio quotes, logos, dashboard totals) automatically
+// works for European stocks without additional plumbing.
+const EXCHANGE_TO_YAHOO_SUFFIX: Record<string, string> = {
+  EPA: ".PA",
+  ENX: ".PA",
+  XETRA: ".DE",
+  GER: ".DE",
+  LSE: ".L",
+  AMS: ".AS",
+  // US exchanges → no suffix
+  NYSE: "",
+  NASDAQ: "",
+  BATS: "",
+};
+
+function buildYahooSymbol(rawTicker: string, exchange: string | null): string {
+  const upper = String(rawTicker).toUpperCase().trim();
+  if (!upper) return upper;
+  // If the user already typed a Yahoo-style suffix, respect it.
+  if (upper.includes(".")) return upper;
+  if (!exchange) return upper;
+  const suffix = EXCHANGE_TO_YAHOO_SUFFIX[exchange.toUpperCase()];
+  if (suffix === undefined) return upper; // unknown exchange — leave as-is
+  return upper + suffix;
+}
+
 export const Route = createFileRoute("/api/portfolio")({
   server: {
     handlers: {
