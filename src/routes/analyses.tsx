@@ -321,6 +321,8 @@ function AlertCard({
         border: "1px solid #EBEBEB",
         borderLeft: `3px solid ${sideColor}`,
         borderRadius: 16,
+        height: "auto",
+        minHeight: 0,
       }}
     >
       {/* Collapsed header — always visible, click to expand */}
