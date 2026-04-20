@@ -321,6 +321,8 @@ function AlertCard({
         border: "1px solid #EBEBEB",
         borderLeft: `3px solid ${sideColor}`,
         borderRadius: 16,
+        height: "auto",
+        minHeight: 0,
       }}
     >
       {/* Collapsed header — always visible, click to expand */}
@@ -328,7 +330,8 @@ function AlertCard({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className={`w-full text-left px-4 pt-4 hover:bg-subtle/40 transition relative ${open ? "pb-3" : "pb-4"}`}
+        className={`w-full text-left px-4 pt-4 hover:bg-subtle/40 transition relative block ${open ? "pb-3" : "pb-4"}`}
+        style={{ minHeight: 0, height: "auto", marginBottom: 0 }}
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
@@ -830,7 +833,7 @@ function ScenarioBox({
           </p>
         )}
         {(s?.description || s?.base_historique) && (
-          <p style={{ fontSize: 12, color: "#888888", lineHeight: 1.5, marginTop: 8 }}>
+          <p style={{ fontSize: 12, color: "#111111", lineHeight: 1.5, marginTop: 8 }}>
             {s?.description || s?.base_historique}
           </p>
         )}
