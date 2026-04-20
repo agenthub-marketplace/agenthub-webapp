@@ -560,9 +560,12 @@ function AlertCard({
 
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
-              <section className="space-y-2">
+              <section
+                className="space-y-3"
+                style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
+              >
                 <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
                   <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
                   <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
