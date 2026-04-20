@@ -475,9 +475,11 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setTicker(s.ticker);
     setExchange(s.exchange);
     setAssetType(s.asset_type);
-    if (s.sector) setSector(s.sector);
-    if (s.geography) setGeography(s.geography);
+    setSector(s.sector || "Autre");
+    setGeography(s.geography || "Autre");
     setShowSug(false);
+    setSuggestions([]);
+    setSearchQuery(s.name);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -507,6 +509,9 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     }
   };
 
+  const inputCls =
+    "w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground";
+
   return (
     <div className="fixed inset-0 z-[60] bg-black/40 flex items-end justify-center" onClick={onClose}>
       <div
@@ -520,17 +525,17 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           </button>
         </div>
         <form onSubmit={submit} className="space-y-2.5">
+          {/* Single search input — name OR ticker, debounced 2+ chars */}
           <div className="relative">
             <input
-              required
-              value={name}
+              value={searchQuery}
               onChange={(e) => {
-                setName(e.target.value);
                 setSearchQuery(e.target.value);
+                setShowSug(true);
               }}
               onFocus={() => suggestions.length > 0 && setShowSug(true)}
-              placeholder="Nom de l'entreprise (ex: TotalEnergies)"
-              className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+              placeholder="Rechercher un actif (nom ou ticker)"
+              className={inputCls}
               autoComplete="off"
             />
             {showSug && suggestions.length > 0 && (
@@ -562,31 +567,69 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
               <p className="absolute right-3 top-3.5 text-[11px] text-muted-foreground">…</p>
             )}
           </div>
+
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nom de l'entreprise"
+            className={inputCls}
+            autoComplete="off"
+          />
           <input
             required
             value={ticker}
-            onChange={(e) => {
-              const v = e.target.value;
-              setTicker(v);
-              setSearchQuery(v);
-            }}
-            placeholder="Ticker (ex: TTE.PA)"
-            className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="Ticker"
+            className={inputCls}
             autoComplete="off"
           />
-          <input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="Secteur (optionnel)" className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
-          <select value={geography} onChange={(e) => setGeography(e.target.value)} className="w-full h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground text-foreground">
-            <option value="">Géographie (optionnel)</option>
-            <option value="Europe">Europe</option>
+          <input
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            placeholder="Secteur (optionnel)"
+            className={inputCls}
+          />
+          <select
+            value={geography}
+            onChange={(e) => setGeography(e.target.value)}
+            className={`${inputCls} text-foreground appearance-none`}
+          >
+            <option value="">Géographie</option>
+            <option value="Europe - France">Europe - France</option>
+            <option value="Europe - Allemagne">Europe - Allemagne</option>
+            <option value="Europe - Royaume-Uni">Europe - Royaume-Uni</option>
+            <option value="Europe - Pays-Bas">Europe - Pays-Bas</option>
             <option value="États-Unis">États-Unis</option>
             <option value="Asie">Asie</option>
             <option value="Autre">Autre</option>
           </select>
           <div className="grid grid-cols-2 gap-2.5">
-            <input required type="number" step="0.0001" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Quantité" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
-            <input type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Prix unitaire (€)" className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground" />
+            <input
+              required
+              type="number"
+              step="0.0001"
+              min="0"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="Quantité"
+              className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="Prix unitaire"
+              className="h-12 px-4 bg-background border border-border rounded-xl text-[14px] outline-none focus:border-foreground"
+            />
           </div>
-          <button type="submit" disabled={saving} className="w-full h-12 bg-foreground text-primary-foreground rounded-xl font-semibold text-[14px] disabled:opacity-60">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full h-12 bg-foreground text-primary-foreground rounded-xl font-semibold text-[14px] disabled:opacity-60"
+          >
             {saving ? "..." : "Ajouter"}
           </button>
         </form>
