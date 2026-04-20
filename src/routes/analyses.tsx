@@ -1050,8 +1050,8 @@ function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => v
 }
 
 function ResultBar({
-  label, pct, highlight,
-}: { label: string; pct: number; highlight: boolean }) {
+  label, pct, color, highlight,
+}: { label: string; pct: number; color: string; highlight: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <span
@@ -1073,15 +1073,15 @@ function ResultBar({
           className="h-full transition-all duration-500"
           style={{
             width: `${pct}%`,
-            background: "#111111",
+            background: color,
             borderRadius: 4,
-            opacity: highlight ? 1 : 0.7,
+            opacity: highlight ? 1 : 0.85,
           }}
         />
       </div>
       <span
         className="tabular-nums"
-        style={{ fontSize: 13, fontWeight: 500, color: "#111111", minWidth: 36, textAlign: "right" }}
+        style={{ fontSize: 13, fontWeight: 500, color, minWidth: 36, textAlign: "right" }}
       >
         {pct}%
       </span>
