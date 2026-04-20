@@ -8,14 +8,18 @@ type FigiResult = {
   securityType?: string;
   securityType2?: string;
   marketSector?: string;
+  // OpenFIGI sometimes returns a sector field on /v3/search hits
+  sector?: string;
+  industrySector?: string;
 };
 
 const ASSET_TYPE_MAP: Record<string, string> = {
   "Common Stock": "Action",
   "Preferred Stock": "Action",
   "Depositary Receipt": "Action",
-  "REIT": "Action",
-  "ETP": "ETF",
+  REIT: "Action",
+  ETP: "ETF",
+  ETF: "ETF",
   "Mutual Fund": "Fonds",
   "Open-End Fund": "Fonds",
   "Closed-End Fund": "Fonds",
@@ -32,6 +36,22 @@ function mapAssetType(r: FigiResult): string {
   if (/fund/i.test(t)) return "Fonds";
   if (/stock|equity|share/i.test(t)) return "Action";
   return t || "Autre";
+}
+
+const GEOGRAPHY_MAP: Record<string, string> = {
+  EPA: "Europe - France",
+  ENX: "Europe - France",
+  XETRA: "Europe - Allemagne",
+  GER: "Europe - Allemagne",
+  LSE: "Europe - UK",
+  AMS: "Europe - Pays-Bas",
+  NASDAQ: "États-Unis",
+  NYSE: "États-Unis",
+  BATS: "États-Unis",
+};
+
+function mapGeography(exchCode: string): string {
+  return GEOGRAPHY_MAP[exchCode] ?? "Autre";
 }
 
 export const Route = createFileRoute("/api/assets/search")({
@@ -62,18 +82,26 @@ export const Route = createFileRoute("/api/assets/search")({
 
         const ALLOWED_TYPES = ["Common Stock", "ETF", "Mutual Fund"] as const;
 
+        // Build the request matrix: for each allowed securityType2, run
+        // both a name-search (query) and a ticker-search (ticker filter +
+        // upper-cased input) so the user can search either way.
+        const upperQuery = query.toUpperCase();
+        const requests: Array<Record<string, string>> = [];
+        for (const securityType2 of ALLOWED_TYPES) {
+          requests.push({ query, securityType2 });
+          requests.push({ query: upperQuery, ticker: upperQuery, securityType2 });
+        }
+
         try {
-          // OpenFIGI /v3/search supports a single securityType2 filter per
-          // request — fan out one call per allowed type and merge.
           const responses = await Promise.all(
-            ALLOWED_TYPES.map((securityType2) =>
+            requests.map((bodyPayload) =>
               fetch("https://api.openfigi.com/v3/search", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                   "X-OPENFIGI-APIKEY": apiKey,
                 },
-                body: JSON.stringify({ query, securityType2 }),
+                body: JSON.stringify(bodyPayload),
               }),
             ),
           );
@@ -96,6 +124,28 @@ export const Route = createFileRoute("/api/assets/search")({
             (r) => r.securityType2 && allowed.has(r.securityType2),
           );
 
+          // Rank: exact ticker match first, then exchange preference (US/EU
+          // primary listings before obscure venues), then encounter order.
+          const exchangeRank = (e: string) =>
+            ({
+              NASDAQ: 0,
+              NYSE: 0,
+              BATS: 0,
+              EPA: 1,
+              ENX: 1,
+              XETRA: 1,
+              GER: 1,
+              LSE: 1,
+              AMS: 1,
+            }[e] ?? 5);
+
+          filtered.sort((a, b) => {
+            const aExact = a.ticker?.toUpperCase() === upperQuery ? 0 : 1;
+            const bExact = b.ticker?.toUpperCase() === upperQuery ? 0 : 1;
+            if (aExact !== bExact) return aExact - bExact;
+            return exchangeRank(a.exchCode ?? "") - exchangeRank(b.exchCode ?? "");
+          });
+
           // Dedupe by ticker+exchange, keep first 6 with a name + ticker.
           const seen = new Set<string>();
           const results = [] as Array<{
@@ -104,6 +154,8 @@ export const Route = createFileRoute("/api/assets/search")({
             exchange: string;
             asset_type: string;
             security_type: string;
+            sector: string;
+            geography: string;
           }>;
           for (const r of filtered) {
             if (!r.name || !r.ticker || !r.exchCode) continue;
@@ -116,6 +168,8 @@ export const Route = createFileRoute("/api/assets/search")({
               exchange: r.exchCode,
               asset_type: mapAssetType(r),
               security_type: r.securityType2 || r.securityType || "",
+              sector: r.sector || r.industrySector || r.marketSector || "Autre",
+              geography: mapGeography(r.exchCode),
             });
             if (results.length >= 6) break;
           }
