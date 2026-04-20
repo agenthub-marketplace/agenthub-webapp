@@ -73,6 +73,7 @@ type Alert = {
   impact_long_term_pct: number | null;
   impact_position_euros: number | null;
   impact_portfolio_percent: number | null;
+  explication_personnalisee: string | null;
   scenario_optimiste: Scenario;
   scenario_neutre: Scenario;
   scenario_pessimiste: Scenario;
@@ -420,6 +421,29 @@ function AlertCard({
           className="px-4 pb-4 pt-3"
           style={{ borderTop: "0.5px solid #EBEBEB" }}
         >
+            {/* 0. PHRASE DE CONNEXION CAUSALE — pourquoi cette news compte pour l'utilisateur */}
+            {(() => {
+              const explanation =
+                a.explication_personnalisee?.trim() ||
+                (pos
+                  ? `Cette news impacte directement ta position ${pos.company} via ${(a.title ?? "cet événement").trim()}. Voici pourquoi cela compte pour toi.`
+                  : `Cette news impacte directement ton portefeuille via ${(a.title ?? "cet événement").trim()}. Voici pourquoi cela compte pour toi.`);
+              return (
+                <div
+                  style={{
+                    background: "#F0FDF4",
+                    borderLeft: "3px solid #16A34A",
+                    borderRadius: 8,
+                    padding: "12px 16px",
+                    margin: "0 0 16px 0",
+                  }}
+                >
+                  <p style={{ fontSize: 13, color: "#111111", lineHeight: 1.6, fontWeight: 400 }}>
+                    {explanation}
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
@@ -484,8 +508,8 @@ function AlertCard({
                           <p
                             className="leading-none"
                             style={{
-                              fontSize: 28,
-                              fontWeight: 500,
+                              fontSize: 40,
+                              fontWeight: 600,
                               color: gain != null ? (gainPositive ? "#16A34A" : "#DC2626") : "#111111",
                               marginTop: 8,
                             }}
@@ -564,14 +588,24 @@ function AlertCard({
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
               <section
-                className="space-y-3"
                 style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
               >
                 <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#AAAAAA",
+                    fontStyle: "italic",
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }}
+                >
+                  Réaction probable du marché dans les 48h suivant la news
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
-                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
-                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste}  positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre}     positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} positionValue={pos?.position_value ?? null} />
                 </div>
               </section>
             )}
@@ -579,14 +613,24 @@ function AlertCard({
             {/* 2b. SCÉNARIOS LONG TERME 6 MOIS */}
             {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
               <section
-                className="space-y-3"
                 style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
               >
                 <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#AAAAAA",
+                    fontStyle: "italic",
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }}
+                >
+                  Impact fondamental sur la valeur de l'entreprise à 6 mois
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
-                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
-                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt}  positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt}     positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} positionValue={pos?.position_value ?? null} />
                 </div>
               </section>
             )}
@@ -694,6 +738,16 @@ function CorrelationsBlock({
       >
         <div className="overflow-hidden">
           <div className="px-3.5 pb-3.5 space-y-3 border-t border-border pt-3">
+            <p
+              style={{
+                fontSize: 12,
+                color: "#888888",
+                fontStyle: "italic",
+                marginBottom: 12,
+              }}
+            >
+              Ces entreprises que tu ne détiens pas sont aussi affectées — à surveiller.
+            </p>
             {/* Sub 1: portfolio matches */}
             {directes.length > 0 && (
               <div className="space-y-2">
@@ -787,8 +841,13 @@ function SectorBars({ c }: { c: Correlation }) {
 }
 
 function ScenarioBox({
-  variant, label, s,
-}: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
+  variant, label, s, positionValue,
+}: {
+  variant: "optimiste" | "neutre" | "pessimiste";
+  label: string;
+  s: Scenario;
+  positionValue?: number | null;
+}) {
   const accent = {
     optimiste:  "#16A34A",
     neutre:     "#94A3B8",
@@ -796,6 +855,11 @@ function ScenarioBox({
   }[variant];
   const pct = toNum(s?.pourcentage ?? s?.impact_percent);
   const proba = toNum(s?.probabilite);
+  const euroImpact =
+    pct != null && positionValue != null && positionValue > 0
+      ? positionValue * (pct / 100)
+      : null;
+  const euroPositive = (euroImpact ?? 0) >= 0;
   return (
     <div
       className="overflow-hidden"
@@ -825,6 +889,11 @@ function ScenarioBox({
             style={{ fontSize: 22, fontWeight: 500, color: accent, marginTop: 6 }}
           >
             {fmtPct(pct)}
+          </p>
+        )}
+        {euroImpact != null && (
+          <p style={{ fontSize: 13, color: "#111111", fontWeight: 500, marginTop: 4 }}>
+            ≈ {euroPositive ? "+" : "-"}{formatEuro(Math.abs(euroImpact))} sur ta position
           </p>
         )}
         {proba != null && (
