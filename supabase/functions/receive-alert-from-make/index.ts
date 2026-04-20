@@ -86,7 +86,12 @@ Deno.serve(async (req) => {
     const text = new TextDecoder("utf-8").decode(buf);
     let body = JSON.parse(text);
 
-    // Parse Make.com payload below.
+    // [DEBUG] Log raw body received from Make.com
+    console.log("=".repeat(80));
+    console.log("[receive-alert-from-make] RAW BODY RECEIVED FROM MAKE:");
+    console.log(JSON.stringify(body, null, 2));
+    console.log("[receive-alert-from-make] TOP-LEVEL KEYS:", Object.keys(body));
+    console.log("=".repeat(80));
 
     // If Make.com sends the Claude analysis as a raw JSON string,
     // parse it server-side and merge it into the body (parsed wins).
