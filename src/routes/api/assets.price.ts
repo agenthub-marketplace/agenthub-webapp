@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CORS, jsonResponse, errorResponse, requireUser } from "@/lib/api-auth";
+import { CORS, errorResponse, requireUser } from "@/lib/api-auth";
 
 const EXCHANGE_SUFFIX: Record<string, string> = {
   EPA: ".PA",
