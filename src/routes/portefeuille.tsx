@@ -19,6 +19,7 @@ type Position = {
   name: string | null;
   sector: string | null;
   geography: string | null;
+  exchange: string | null;
   quantity: number;
   purchase_price: number | null;
   current_price: number | null;
@@ -29,6 +30,28 @@ type Position = {
 
 type Quote = { price: number | null; change: number | null; changePct: number | null; stale?: boolean; source?: "quote" | "candle" | "exchange-prefix" | "none" };
 type AddedPositionPayload = { item: Position; quote: Quote | null };
+
+function toQuoteFromAssetPrice(data: {
+  price?: number | null;
+  change?: number | null;
+  change_percent?: number | null;
+}): Quote {
+  const price = typeof data.price === "number" ? data.price : null;
+  const changePct = typeof data.change_percent === "number" ? data.change_percent : null;
+  const derivedChange =
+    typeof data.change === "number"
+      ? data.change
+      : price != null && changePct != null && changePct > -100
+        ? price - price / (1 + changePct / 100)
+        : null;
+
+  return {
+    price,
+    change: derivedChange,
+    changePct,
+    source: "exchange-prefix",
+  };
+}
 
 function Portefeuille() {
   const navigate = useNavigate();
@@ -77,17 +100,37 @@ function Portefeuille() {
       setQuotes({});
       return;
     }
-    const symbols = Array.from(new Set(positions.map((p) => p.ticker).filter(Boolean)));
-    if (symbols.length === 0) return;
+    const uniquePositions = Array.from(
+      new Map(
+        positions
+          .filter((p) => p.ticker)
+          .map((p) => [p.ticker, p]),
+      ).values(),
+    );
+    if (uniquePositions.length === 0) return;
     let cancelled = false;
     (async () => {
-      try {
-        const d = await apiFetch<{ quotes: Record<string, Quote> }>(
-          `/api/stocks/quote?symbols=${encodeURIComponent(symbols.join(","))}`,
-        );
-        if (!cancelled) setQuotes(d.quotes ?? {});
-      } catch {
-        // silent — quotes are best-effort
+      const entries = await Promise.all(
+        uniquePositions.map(async (position) => {
+          try {
+            const params = new URLSearchParams({ ticker: position.ticker });
+            if (position.exchange) params.set("exchange", position.exchange);
+
+            const data = await apiFetch<{
+              price?: number | null;
+              change?: number | null;
+              change_percent?: number | null;
+            }>(`/api/assets/price?${params.toString()}`);
+
+            return [position.ticker, toQuoteFromAssetPrice(data)] as const;
+          } catch {
+            return [position.ticker, { price: null, change: null, changePct: null, source: "none" as const }] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setQuotes(Object.fromEntries(entries));
       }
     })();
     return () => {
@@ -390,15 +433,21 @@ function PositionLogo({
   const [logo, setLogo] = useState<string | null>(seed);
   // Track which fallback step we're on: 0 = primary, 1 = clearbit, 2 = initials.
   const [fallbackStep, setFallbackStep] = useState(0);
+  const clearbitUrl = useMemo(() => {
+    const domain = clearbitDomainFor(companyName);
+    return domain ? `https://logo.clearbit.com/${domain}` : null;
+  }, [companyName]);
 
   useEffect(() => {
     if (initialLogo) {
+      console.log("[PositionLogo] using initial logo", { ticker, companyName, initialLogo });
       logoCache.set(ticker, initialLogo);
       setLogo(initialLogo);
       setFallbackStep(0);
       return;
     }
     if (logoCache.has(ticker)) {
+      console.log("[PositionLogo] using cached logo", { ticker, companyName, cached: logoCache.get(ticker) ?? null });
       setLogo(logoCache.get(ticker) ?? null);
       setFallbackStep(0);
       return;
@@ -406,6 +455,7 @@ function PositionLogo({
     let cancelled = false;
     (async () => {
       try {
+        console.log("[PositionLogo] trying primary logo API", { ticker, companyName });
         const d = await apiFetch<{ logo: string | null }>(
           `/api/stocks/logo?symbol=${encodeURIComponent(ticker)}`,
         );
@@ -413,26 +463,52 @@ function PositionLogo({
         logoCache.set(ticker, d.logo);
         setLogo(d.logo);
         setFallbackStep(0);
+        if (!d.logo) {
+          console.log("[PositionLogo] primary logo empty, forcing Clearbit", {
+            ticker,
+            companyName,
+            clearbitUrl,
+          });
+        } else {
+          console.log("[PositionLogo] primary logo resolved", { ticker, companyName, logo: d.logo });
+        }
       } catch {
         if (!cancelled) {
+          console.log("[PositionLogo] primary logo failed, forcing Clearbit", {
+            ticker,
+            companyName,
+            clearbitUrl,
+          });
           logoCache.set(ticker, null);
           setLogo(null);
+          setFallbackStep(0);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ticker, initialLogo]);
+  }, [ticker, companyName, initialLogo, clearbitUrl]);
 
   const handleError = () => {
     if (fallbackStep === 0) {
-      const domain = clearbitDomainFor(companyName);
-      if (domain) {
-        setLogo(`https://logo.clearbit.com/${domain}`);
+      if (clearbitUrl) {
+        console.log("[PositionLogo] primary image failed, trying Clearbit", {
+          ticker,
+          companyName,
+          clearbitUrl,
+        });
+        setLogo(clearbitUrl);
         setFallbackStep(1);
         return;
       }
+    }
+    if (fallbackStep === 1) {
+      console.log("[PositionLogo] Clearbit failed, falling back to initials", {
+        ticker,
+        companyName,
+        clearbitUrl,
+      });
     }
     setFallbackStep(2);
   };
@@ -452,11 +528,10 @@ function PositionLogo({
 
   // No primary logo → try Clearbit directly before showing initials.
   if (fallbackStep === 0) {
-    const domain = clearbitDomainFor(companyName);
-    if (domain) {
+    if (clearbitUrl) {
       return (
         <img
-          src={`https://logo.clearbit.com/${domain}`}
+          src={clearbitUrl}
           alt=""
           loading="lazy"
           onError={handleError}
