@@ -475,6 +475,8 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setTicker(s.ticker);
     setExchange(s.exchange);
     setAssetType(s.asset_type);
+    if (s.sector) setSector(s.sector);
+    if (s.geography) setGeography(s.geography);
     setShowSug(false);
   };
 
