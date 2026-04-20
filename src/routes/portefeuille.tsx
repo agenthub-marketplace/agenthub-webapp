@@ -426,18 +426,21 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [name, setName] = useState("");
   const [sector, setSector] = useState("");
   const [geography, setGeography] = useState("");
+  const [exchange, setExchange] = useState("");
+  const [assetType, setAssetType] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Autocomplete state
+  // Autocomplete state — driven by name OR ticker input
   const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
   const [showSug, setShowSug] = useState(false);
   const [searching, setSearching] = useState(false);
   const lastQueryRef = useRef("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    const q = name.trim();
+    const q = searchQuery.trim();
     if (q.length < 2) {
       setSuggestions([]);
       return;
@@ -447,9 +450,12 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
       setSearching(true);
       try {
         const d = await apiFetch<{ results: StockSuggestion[] }>(
-          `/api/stocks/search?q=${encodeURIComponent(q)}`,
+          "/api/assets/search",
+          {
+            method: "POST",
+            body: JSON.stringify({ query: q }),
+          },
         );
-        // Ignore if user kept typing
         if (lastQueryRef.current !== q) return;
         setSuggestions(d.results ?? []);
         setShowSug(true);
@@ -460,32 +466,14 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [name]);
+  }, [searchQuery]);
 
-  const pickSuggestion = async (s: StockSuggestion) => {
+  const pickSuggestion = (s: StockSuggestion) => {
     setName(s.name);
-    // CRITICAL: use Finnhub's full `symbol` (e.g. "GLE.PA", "MT.AS") — NOT
-    // `displaySymbol` which strips the market suffix and breaks /quote calls
-    // for European stocks.
-    const fullSymbol = s.symbol || s.displaySymbol;
-    setTicker(fullSymbol);
-    if (s.geography) setGeography(s.geography);
+    setTicker(s.ticker);
+    setExchange(s.exchange);
+    setAssetType(s.asset_type);
     setShowSug(false);
-    // Enrich with sector via profile endpoint — but DO NOT overwrite the
-    // ticker with the profile's bare symbol (Finnhub returns "MT" for MT.AS).
-    try {
-      const d = await apiFetch<{
-        profile: { sector: string | null; geography: string | null; ticker: string };
-      }>(`/api/stocks/profile?symbol=${encodeURIComponent(s.symbol)}`);
-      if (d.profile?.sector) setSector(d.profile.sector);
-      if (d.profile?.geography) setGeography(d.profile.geography);
-      // Only adopt the profile ticker if it preserves the market suffix
-      if (d.profile?.ticker && d.profile.ticker.includes(".")) {
-        setTicker(d.profile.ticker);
-      }
-    } catch {
-      // best-effort
-    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -499,6 +487,8 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
           name,
           sector: sector || null,
           geography: geography || null,
+          exchange: exchange || null,
+          asset_type: assetType || null,
           quantity: Number(quantity),
           buy_price: price ? Number(price) : null,
         }),
