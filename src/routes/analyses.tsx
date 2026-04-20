@@ -588,14 +588,24 @@ function AlertCard({
             {/* 2. SCÉNARIOS COURT TERME 48H */}
             {(a.scenario_optimiste || a.scenario_neutre || a.scenario_pessimiste) && (
               <section
-                className="space-y-3"
                 style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
               >
                 <SectionLabel>Scénarios · Court terme 48h</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#AAAAAA",
+                    fontStyle: "italic",
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }}
+                >
+                  Réaction probable du marché dans les 48h suivant la news
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste} />
-                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre} />
-                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste}  positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre}     positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste} positionValue={pos?.position_value ?? null} />
                 </div>
               </section>
             )}
@@ -603,14 +613,24 @@ function AlertCard({
             {/* 2b. SCÉNARIOS LONG TERME 6 MOIS */}
             {(a.scenario_optimiste_lt || a.scenario_neutre_lt || a.scenario_pessimiste_lt) && (
               <section
-                className="space-y-3"
                 style={{ borderTop: "0.5px solid #EBEBEB", marginTop: 20, paddingTop: 20 }}
               >
                 <SectionLabel>Scénarios · Long terme 6 mois</SectionLabel>
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: "#AAAAAA",
+                    fontStyle: "italic",
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }}
+                >
+                  Impact fondamental sur la valeur de l'entreprise à 6 mois
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt} />
-                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt} />
-                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} />
+                  <ScenarioBox variant="optimiste"  label="Optimiste"  s={a.scenario_optimiste_lt}  positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="neutre"     label="Neutre"     s={a.scenario_neutre_lt}     positionValue={pos?.position_value ?? null} />
+                  <ScenarioBox variant="pessimiste" label="Pessimiste" s={a.scenario_pessimiste_lt} positionValue={pos?.position_value ?? null} />
                 </div>
               </section>
             )}
