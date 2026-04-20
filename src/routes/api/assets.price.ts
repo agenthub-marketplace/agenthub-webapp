@@ -25,7 +25,7 @@ function buildYahooSymbol(ticker: string, exchange: string | null): string {
 
 const YAHOO_HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
   Accept: "application/json",
 };
 
@@ -58,6 +58,19 @@ const PRICE_CACHE = new Map<
 >();
 const TTL = 60_000;
 
+function respond(body: Record<string, unknown>, status = 200) {
+  const payload = JSON.stringify(body);
+  return new Response(payload, {
+    status,
+    headers: {
+      ...CORS,
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Length": String(new TextEncoder().encode(payload).length),
+      "Cache-Control": "private, max-age=60",
+    },
+  });
+}
+
 export const Route = createFileRoute("/api/assets/price")({
   server: {
     handlers: {
@@ -72,16 +85,23 @@ export const Route = createFileRoute("/api/assets/price")({
         if (!tickerRaw) return errorResponse("ticker requis", 400);
 
         const symbol = buildYahooSymbol(tickerRaw, exchange);
+        console.log("[api/assets/price] requested", { ticker: tickerRaw, exchange, symbol });
 
         const cached = PRICE_CACHE.get(symbol);
         if (cached && Date.now() - cached.at < TTL) {
-          return jsonResponse(cached.payload);
+          console.log("[api/assets/price] cache hit", { symbol });
+          return respond(cached.payload);
         }
 
-        for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
-          const yUrl = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+        for (const yUrl of [
+          `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`,
+          `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+        ]) {
           try {
+            console.log("[api/assets/price] yahoo url", { symbol, url: yUrl });
             const res = await fetch(yUrl, { headers: YAHOO_HEADERS });
+            console.log("[api/assets/price] yahoo status", { symbol, url: yUrl, status: res.status, ok: res.ok });
             if (!res.ok) continue;
             const d = (await res.json()) as YahooChartResponse;
             if (d.chart?.error) continue;
@@ -91,32 +111,32 @@ export const Route = createFileRoute("/api/assets/price")({
             if (price == null) continue;
             const changePct =
               prev != null && prev > 0 ? ((price - prev) / prev) * 100 : null;
+            const change = prev != null ? price - prev : null;
 
             const payload = {
               price,
+              change,
               currency: meta?.currency ?? null,
               change_percent: changePct,
               market: meta?.exchangeName ?? exchange ?? null,
               symbol,
             };
             PRICE_CACHE.set(symbol, { at: Date.now(), payload });
-            return jsonResponse(payload);
+            return respond(payload);
           } catch (e) {
-            console.error(`[api/assets/price] ${symbol} fetch error on ${host}`, e);
+            console.error(`[api/assets/price] ${symbol} fetch error`, { url: yUrl, error: e });
           }
         }
 
-        return jsonResponse(
-          {
-            price: null,
-            currency: null,
-            change_percent: null,
-            market: exchange ?? null,
-            symbol,
-            error: "Cours indisponible",
-          },
-          200,
-        );
+        return respond({
+          price: null,
+          change: null,
+          currency: null,
+          change_percent: null,
+          market: exchange ?? null,
+          symbol,
+          error: "Cours indisponible",
+        });
       },
     },
   },

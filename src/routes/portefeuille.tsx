@@ -433,15 +433,21 @@ function PositionLogo({
   const [logo, setLogo] = useState<string | null>(seed);
   // Track which fallback step we're on: 0 = primary, 1 = clearbit, 2 = initials.
   const [fallbackStep, setFallbackStep] = useState(0);
+  const clearbitUrl = useMemo(() => {
+    const domain = clearbitDomainFor(companyName);
+    return domain ? `https://logo.clearbit.com/${domain}` : null;
+  }, [companyName]);
 
   useEffect(() => {
     if (initialLogo) {
+      console.log("[PositionLogo] using initial logo", { ticker, companyName, initialLogo });
       logoCache.set(ticker, initialLogo);
       setLogo(initialLogo);
       setFallbackStep(0);
       return;
     }
     if (logoCache.has(ticker)) {
+      console.log("[PositionLogo] using cached logo", { ticker, companyName, cached: logoCache.get(ticker) ?? null });
       setLogo(logoCache.get(ticker) ?? null);
       setFallbackStep(0);
       return;
@@ -449,6 +455,7 @@ function PositionLogo({
     let cancelled = false;
     (async () => {
       try {
+        console.log("[PositionLogo] trying primary logo API", { ticker, companyName });
         const d = await apiFetch<{ logo: string | null }>(
           `/api/stocks/logo?symbol=${encodeURIComponent(ticker)}`,
         );
@@ -456,26 +463,52 @@ function PositionLogo({
         logoCache.set(ticker, d.logo);
         setLogo(d.logo);
         setFallbackStep(0);
+        if (!d.logo) {
+          console.log("[PositionLogo] primary logo empty, forcing Clearbit", {
+            ticker,
+            companyName,
+            clearbitUrl,
+          });
+        } else {
+          console.log("[PositionLogo] primary logo resolved", { ticker, companyName, logo: d.logo });
+        }
       } catch {
         if (!cancelled) {
+          console.log("[PositionLogo] primary logo failed, forcing Clearbit", {
+            ticker,
+            companyName,
+            clearbitUrl,
+          });
           logoCache.set(ticker, null);
           setLogo(null);
+          setFallbackStep(0);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ticker, initialLogo]);
+  }, [ticker, companyName, initialLogo, clearbitUrl]);
 
   const handleError = () => {
     if (fallbackStep === 0) {
-      const domain = clearbitDomainFor(companyName);
-      if (domain) {
-        setLogo(`https://logo.clearbit.com/${domain}`);
+      if (clearbitUrl) {
+        console.log("[PositionLogo] primary image failed, trying Clearbit", {
+          ticker,
+          companyName,
+          clearbitUrl,
+        });
+        setLogo(clearbitUrl);
         setFallbackStep(1);
         return;
       }
+    }
+    if (fallbackStep === 1) {
+      console.log("[PositionLogo] Clearbit failed, falling back to initials", {
+        ticker,
+        companyName,
+        clearbitUrl,
+      });
     }
     setFallbackStep(2);
   };
@@ -495,11 +528,10 @@ function PositionLogo({
 
   // No primary logo → try Clearbit directly before showing initials.
   if (fallbackStep === 0) {
-    const domain = clearbitDomainFor(companyName);
-    if (domain) {
+    if (clearbitUrl) {
       return (
         <img
-          src={`https://logo.clearbit.com/${domain}`}
+          src={clearbitUrl}
           alt=""
           loading="lazy"
           onError={handleError}
