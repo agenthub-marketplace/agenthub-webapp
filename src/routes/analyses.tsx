@@ -73,6 +73,7 @@ type Alert = {
   impact_long_term_pct: number | null;
   impact_position_euros: number | null;
   impact_portfolio_percent: number | null;
+  explication_personnalisee: string | null;
   scenario_optimiste: Scenario;
   scenario_neutre: Scenario;
   scenario_pessimiste: Scenario;
