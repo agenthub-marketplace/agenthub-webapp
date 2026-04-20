@@ -330,7 +330,8 @@ function AlertCard({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className={`w-full text-left px-4 pt-4 hover:bg-subtle/40 transition relative ${open ? "pb-3" : "pb-4"}`}
+        className={`w-full text-left px-4 pt-4 hover:bg-subtle/40 transition relative block ${open ? "pb-3" : "pb-4"}`}
+        style={{ minHeight: 0, height: "auto", marginBottom: 0 }}
       >
         {/* Row 1: company + ticker LEFT / badge + trash + chevron RIGHT */}
         <div className="flex items-start justify-between gap-3">
