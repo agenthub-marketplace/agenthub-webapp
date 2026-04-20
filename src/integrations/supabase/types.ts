@@ -189,9 +189,11 @@ export type Database = {
       }
       positions: {
         Row: {
+          asset_type: string | null
           company: string
           created_at: string
           current_price: number | null
+          exchange: string | null
           geography: string | null
           id: string
           isin: string | null
@@ -206,9 +208,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asset_type?: string | null
           company: string
           created_at?: string
           current_price?: number | null
+          exchange?: string | null
           geography?: string | null
           id?: string
           isin?: string | null
@@ -223,9 +227,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asset_type?: string | null
           company?: string
           created_at?: string
           current_price?: number | null
+          exchange?: string | null
           geography?: string | null
           id?: string
           isin?: string | null
