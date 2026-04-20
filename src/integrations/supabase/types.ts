@@ -55,6 +55,7 @@ export type Database = {
           correlations_directes: Json | null
           correlations_indirectes: Json | null
           created_at: string
+          explication_personnalisee: string | null
           id: string
           impact_long_term: string | null
           impact_long_term_pct: number | null
@@ -86,6 +87,7 @@ export type Database = {
           correlations_directes?: Json | null
           correlations_indirectes?: Json | null
           created_at?: string
+          explication_personnalisee?: string | null
           id?: string
           impact_long_term?: string | null
           impact_long_term_pct?: number | null
@@ -117,6 +119,7 @@ export type Database = {
           correlations_directes?: Json | null
           correlations_indirectes?: Json | null
           created_at?: string
+          explication_personnalisee?: string | null
           id?: string
           impact_long_term?: string | null
           impact_long_term_pct?: number | null

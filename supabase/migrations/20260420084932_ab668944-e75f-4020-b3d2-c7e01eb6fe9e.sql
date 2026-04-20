@@ -1,0 +1,1 @@
+ALTER TABLE public.alerts ADD COLUMN IF NOT EXISTS explication_personnalisee text;
