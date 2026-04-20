@@ -475,9 +475,11 @@ function AddPositionModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     setTicker(s.ticker);
     setExchange(s.exchange);
     setAssetType(s.asset_type);
-    if (s.sector) setSector(s.sector);
-    if (s.geography) setGeography(s.geography);
+    setSector(s.sector || "Autre");
+    setGeography(s.geography || "Autre");
     setShowSug(false);
+    setSuggestions([]);
+    setSearchQuery(s.name);
   };
 
   const submit = async (e: React.FormEvent) => {
