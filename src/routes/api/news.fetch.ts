@@ -156,13 +156,6 @@ export const Route = createFileRoute("/api/news/fetch")({
 
           const articles = Array.isArray(data?.articles) ? (data.articles as any[]) : [];
 
-          console.log("[news.fetch] GNews returned", {
-            query,
-            symbol,
-            articleCount: articles.length,
-            firstTitle: articles[0]?.title ?? null,
-          });
-
           const news = articles
             .map((a) => ({
               headline: (a.title ?? "").trim(),
