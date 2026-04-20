@@ -783,37 +783,51 @@ function SectorBars({ c }: { c: Correlation }) {
 function ScenarioBox({
   variant, label, s,
 }: { variant: "optimiste" | "neutre" | "pessimiste"; label: string; s: Scenario }) {
-  const styles = {
-    optimiste:  { bg: "#F9FFF9", border: "#C8E6C9", text: "var(--success)", num: "var(--success)" },
-    neutre:     { bg: "#FAFAFA", border: "#E0E0E0", text: "#666",            num: "#555" },
-    pessimiste: { bg: "#FFF9F9", border: "#FFCDD2", text: "var(--danger)",  num: "var(--danger)" },
+  const accent = {
+    optimiste:  "#16A34A",
+    neutre:     "#94A3B8",
+    pessimiste: "#DC2626",
   }[variant];
   const pct = toNum(s?.pourcentage ?? s?.impact_percent);
   const proba = toNum(s?.probabilite);
   return (
     <div
-      className="rounded-xl overflow-hidden"
-      style={{ background: styles.bg, border: `1px solid ${styles.border}` }}
+      className="overflow-hidden"
+      style={{
+        background: "#FFFFFF",
+        border: "0.5px solid #E5E7EB",
+        borderRadius: 12,
+      }}
     >
-      <div className="p-2.5 space-y-1">
+      {/* Top accent line */}
+      <div style={{ height: 2, background: accent }} />
+      <div style={{ padding: 14 }}>
         <p
-          className="text-[9px] uppercase tracking-[0.06em] font-bold"
-          style={{ color: styles.text }}
+          className="uppercase"
+          style={{
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+            color: accent,
+          }}
         >
           {label}
         </p>
         {pct != null && (
-          <p className="text-[16px] font-bold leading-tight" style={{ color: styles.num }}>
+          <p
+            className="leading-tight"
+            style={{ fontSize: 22, fontWeight: 500, color: accent, marginTop: 6 }}
+          >
             {fmtPct(pct)}
           </p>
         )}
         {proba != null && (
-          <p className="text-[10px]" style={{ color: "#888" }}>
+          <p style={{ fontSize: 11, color: "#888888", marginTop: 4 }}>
             Prob. {fmtPct(proba, false)}
           </p>
         )}
         {(s?.description || s?.base_historique) && (
-          <p className="text-[10px] leading-[1.5] pt-1" style={{ color: "#888" }}>
+          <p style={{ fontSize: 12, color: "#888888", lineHeight: 1.5, marginTop: 8 }}>
             {s?.description || s?.base_historique}
           </p>
         )}
