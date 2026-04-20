@@ -85,11 +85,11 @@ export const Route = createFileRoute("/api/assets/price")({
         if (!tickerRaw) return errorResponse("ticker requis", 400);
 
         const symbol = buildYahooSymbol(tickerRaw, exchange);
-        console.log("[api/assets/price] requested", { ticker: tickerRaw, exchange, symbol });
+        
 
         const cached = PRICE_CACHE.get(symbol);
         if (cached && Date.now() - cached.at < TTL) {
-          console.log("[api/assets/price] cache hit", { symbol });
+          
           return respond(cached.payload);
         }
 
@@ -99,9 +99,7 @@ export const Route = createFileRoute("/api/assets/price")({
           `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
         ]) {
           try {
-            console.log("[api/assets/price] yahoo url", { symbol, url: yUrl });
             const res = await fetch(yUrl, { headers: YAHOO_HEADERS });
-            console.log("[api/assets/price] yahoo status", { symbol, url: yUrl, status: res.status, ok: res.ok });
             if (!res.ok) continue;
             const d = (await res.json()) as YahooChartResponse;
             if (d.chart?.error) continue;
