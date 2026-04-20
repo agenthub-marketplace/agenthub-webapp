@@ -508,8 +508,8 @@ function AlertCard({
                           <p
                             className="leading-none"
                             style={{
-                              fontSize: 28,
-                              fontWeight: 500,
+                              fontSize: 40,
+                              fontWeight: 600,
                               color: gain != null ? (gainPositive ? "#16A34A" : "#DC2626") : "#111111",
                               marginTop: 8,
                             }}
