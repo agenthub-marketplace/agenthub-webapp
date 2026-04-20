@@ -974,24 +974,41 @@ function VoteBtn({ label, onClick, disabled }: { label: string; onClick: () => v
 }
 
 function ResultBar({
-  label, pct, barColor, highlight,
-}: { label: string; pct: number; barColor: string; highlight: boolean }) {
+  label, pct, highlight,
+}: { label: string; pct: number; highlight: boolean }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-baseline justify-between">
-        <span className={`text-[11px] ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
-          {label}
-        </span>
-        <span className={`text-[11px] tabular-nums ${highlight ? "font-bold text-foreground" : "text-muted-foreground"}`}>
-          {pct}%
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#F0F0F0" }}>
+    <div className="flex items-center gap-3">
+      <span
+        style={{
+          fontSize: 13,
+          color: "#888888",
+          width: 110,
+          flexShrink: 0,
+          fontWeight: highlight ? 600 : 400,
+        }}
+      >
+        {label}
+      </span>
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ background: "#F3F4F6", height: 5, borderRadius: 4 }}
+      >
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: barColor, opacity: highlight ? 1 : 0.5 }}
+          className="h-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: "#111111",
+            borderRadius: 4,
+            opacity: highlight ? 1 : 0.7,
+          }}
         />
       </div>
+      <span
+        className="tabular-nums"
+        style={{ fontSize: 13, fontWeight: 500, color: "#111111", minWidth: 36, textAlign: "right" }}
+      >
+        {pct}%
+      </span>
     </div>
   );
 }
