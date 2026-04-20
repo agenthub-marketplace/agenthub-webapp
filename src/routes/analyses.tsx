@@ -833,7 +833,7 @@ function ScenarioBox({
           </p>
         )}
         {(s?.description || s?.base_historique) && (
-          <p style={{ fontSize: 12, color: "#888888", lineHeight: 1.5, marginTop: 8 }}>
+          <p style={{ fontSize: 12, color: "#111111", lineHeight: 1.5, marginTop: 8 }}>
             {s?.description || s?.base_historique}
           </p>
         )}
