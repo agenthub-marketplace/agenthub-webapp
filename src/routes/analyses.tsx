@@ -758,7 +758,7 @@ function CorrelationsBlock({
             {/* Sub 2: impacted */}
             {top.length > 0 && (
               <div className="space-y-2">
-                <SectionLabel>Corrélations directes · Entreprises impactées</SectionLabel>
+                <SectionLabel>Corrélations directes · Autres entreprises impactées</SectionLabel>
                 <p
                   style={{
                     fontSize: 12,
