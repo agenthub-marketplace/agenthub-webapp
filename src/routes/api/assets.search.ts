@@ -115,7 +115,7 @@ export const Route = createFileRoute("/api/assets/search")({
         }
 
         try {
-          console.log("[api/assets/search] query:", query, "→", requests.length, "OpenFIGI requests");
+          
           const responses = await Promise.all(
             requests.map((bodyPayload) =>
               fetch("https://api.openfigi.com/v3/search", {
@@ -140,7 +140,7 @@ export const Route = createFileRoute("/api/assets/search")({
             const json = (await r.json()) as { data?: FigiResult[] };
             if (json.data?.length) allRaw.push(...json.data);
           }
-          console.log("[api/assets/search] total raw results:", allRaw.length);
+          
 
           // 1. Allowlist filter — Common Stock + ETF only.
           const allowed = new Set<string>(ALLOWED_TYPES);
@@ -191,7 +191,7 @@ export const Route = createFileRoute("/api/assets/search")({
             if (results.length >= 6) break;
           }
 
-          console.log("[api/assets/search] returning", results.length, "deduped results");
+          
           return jsonResponse({ results });
         } catch (err) {
           console.error("[api/assets/search] fetch failed", err);
