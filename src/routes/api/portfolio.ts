@@ -72,6 +72,8 @@ export const Route = createFileRoute("/api/portfolio")({
             sector: sector ?? null,
             geography: geography ?? null,
             isin: isin ?? null,
+            exchange: exchange ?? null,
+            asset_type: asset_type ?? null,
             source: "manual",
             logo_url: logo,
           })
