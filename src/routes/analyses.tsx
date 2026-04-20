@@ -413,7 +413,10 @@ function AlertCard({
 
       {/* Expandable analysis — display:none when collapsed to avoid mobile white-space bug */}
       {open && (
-        <div className="px-4 pb-4 pt-3 space-y-4 border-t border-border">
+        <div
+          className="px-4 pb-4 pt-3"
+          style={{ borderTop: "0.5px solid #EBEBEB" }}
+        >
 
             {/* 1. IMPACT — pondéré sur les 3 scénarios court terme */}
             {(() => {
