@@ -5,7 +5,7 @@ PRISM is a Lovable-exported React application using Vite, TanStack Start, TanSta
 ## Prerequisites
 
 - Git
-- Node.js 20 recommended
+- Node.js 22.12+ recommended
 - npm
 - VS Code
 
@@ -91,7 +91,7 @@ Some API routes depend on server-only values such as `FINNHUB_API_KEY`, `OPENFIG
 
 ### Wrong Node Version
 
-Use Node 20 if local dependencies or Vite behave unexpectedly. Newer Node versions may work, but Node 20 is the recommended baseline for handoff.
+Use Node 22.12 or newer for local development. Node 20 may install dependencies, but current `@tanstack/*` packages declare an engine requirement of Node `>=22.12.0` and npm will print engine warnings under Node 20.
 
 ### Secrets Accidentally Added
 
