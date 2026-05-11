@@ -17,7 +17,9 @@ Agents should move through explicit states:
 - `rejected`
 - `suspended`
 
-Admins should validate scope, deliverables, endpoint ownership, safety constraints, data handling, support expectations, and review history before approval.
+Admins should validate scope, deliverables, endpoint ownership, safety constraints, data handling, support expectations, risk level, and review history before approval. Approved listings are curated marketplace entries, not an open directory.
+
+Beta agents must not present themselves as medical diagnosis tools, lawyers, financial advisers, or regulated decision-makers. They can assist with drafts, summaries, preparation, and operational workflows when the listing clearly states that a qualified human remains responsible for final decisions.
 
 ## Data sensitivity levels
 
@@ -26,6 +28,15 @@ Admins should validate scope, deliverables, endpoint ownership, safety constrain
 - Creator-private: endpoint details, validation notes, revenue and payout data.
 - Admin-only: internal review notes, audit logs, moderation decisions, service role operations.
 - Secret: Supabase service role key, Stripe keys, webhook secrets, gateway secrets.
+
+## Risk classification
+
+Agents should be classified before approval:
+
+- `low`: routine business assistance with limited sensitive data.
+- `medium`: professional documents or operational workflows with private business data.
+- `high`: sensitive documents, high business impact, or workflows needing stricter review.
+- `forbidden_beta`: medical diagnosis, final legal or financial advice, unsafe automation, credential handling, or other use cases outside beta scope.
 
 ## API endpoint verification
 
@@ -61,3 +72,4 @@ Refund and dispute workflows must preserve evidence, status changes, admin decis
 - Keep public variables prefixed with `NEXT_PUBLIC_`.
 - Keep service role, Stripe, webhook, and gateway secrets server-only.
 - Never print secrets in logs, build output, support replies, or issue comments.
+- Never expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
