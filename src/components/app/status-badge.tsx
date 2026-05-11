@@ -2,11 +2,14 @@ import type { AgentStatus } from "@/types/agent";
 import type { OrderStatus } from "@/types/order";
 
 import { Badge } from "@/components/ui/badge";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/config";
 import { cn } from "@/lib/utils";
 
 type StatusBadgeProps = {
   status: AgentStatus | OrderStatus | "low" | "medium" | "high" | "verified";
   label?: string;
+  locale?: Locale;
 };
 
 const statusClasses: Record<StatusBadgeProps["status"], string> = {
@@ -30,8 +33,8 @@ const statusClasses: Record<StatusBadgeProps["status"], string> = {
   verified: "bg-[#dceee6] text-[#1e5d47] border-[#b8dccd]",
 };
 
-export function StatusBadge({ status, label }: StatusBadgeProps) {
-  const fallbackLabel = status.replaceAll("_", " ");
+export function StatusBadge({ status, label, locale = "fr" }: StatusBadgeProps) {
+  const fallbackLabel = getDictionary(locale).statuses[status] ?? status.replaceAll("_", " ");
 
   return (
     <Badge

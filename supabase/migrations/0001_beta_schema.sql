@@ -251,7 +251,8 @@ begin
   -- These profile fields are server-controlled and must not be changed by direct
   -- client updates. Future role changes must go through a secure admin/server-side
   -- flow, not a direct client update against public.profiles.
-  if auth.role() is distinct from 'service_role'
+  if current_user not in ('postgres', 'supabase_admin')
+    and auth.role() is distinct from 'service_role'
     and (
       new.id is distinct from old.id
       or new.email is distinct from old.email
@@ -281,7 +282,8 @@ begin
   if (
     new.verified_at is distinct from old.verified_at
     or new.verification_notes is distinct from old.verification_notes
-  ) and auth.role() is distinct from 'service_role'
+  ) and current_user not in ('postgres', 'supabase_admin')
+    and auth.role() is distinct from 'service_role'
     and not public.is_admin()
   then
     raise exception 'Only admins can change creator verification fields' using errcode = '42501';

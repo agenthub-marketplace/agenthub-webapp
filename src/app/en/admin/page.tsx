@@ -3,7 +3,7 @@ import { requireAdminAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
-  await requireAdminAccess("fr");
-  return <AdminView locale="fr" />;
+export default async function EnglishAdminPage() {
+  await requireAdminAccess("en");
+  return <AdminView locale="en" />;
 }

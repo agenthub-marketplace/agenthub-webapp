@@ -3,7 +3,7 @@ import { requireCreatorAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreatorPage() {
-  await requireCreatorAccess("fr");
-  return <CreatorView locale="fr" />;
+export default async function EnglishCreatorPage() {
+  await requireCreatorAccess("en");
+  return <CreatorView locale="en" />;
 }

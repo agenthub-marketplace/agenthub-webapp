@@ -1,7 +1,7 @@
 import { AgentDetailView } from "@/components/views/agent-detail-view";
 import { mockAgents } from "@/lib/mock-data/agents";
 
-type AgentDetailPageProps = {
+type EnglishAgentDetailPageProps = {
   params: Promise<{
     slug: string;
   }>;
@@ -13,7 +13,7 @@ export function generateStaticParams() {
   }));
 }
 
-export default async function AgentDetailPage({ params }: AgentDetailPageProps) {
+export default async function EnglishAgentDetailPage({ params }: EnglishAgentDetailPageProps) {
   const { slug } = await params;
-  return <AgentDetailView locale="fr" slug={slug} />;
+  return <AgentDetailView locale="en" slug={slug} />;
 }

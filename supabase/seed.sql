@@ -26,7 +26,7 @@ values
     crypt('password', gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Beta Creator"}'::jsonb,
+    '{"name":"Beta Creator","role":"creator"}'::jsonb,
     now(),
     now()
   ),
@@ -39,7 +39,7 @@ values
     crypt('password', gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Beta Admin"}'::jsonb,
+    '{"name":"Beta Admin","role":"admin"}'::jsonb,
     now(),
     now()
   )
@@ -59,7 +59,10 @@ values
     'Beta Admin',
     'admin'
   )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  email = excluded.email,
+  display_name = excluded.display_name,
+  role = excluded.role;
 
 insert into public.creator_profiles (
   id,
@@ -77,7 +80,12 @@ values (
   'https://example.com',
   now()
 )
-on conflict (user_id) do nothing;
+on conflict (user_id) do update set
+  id = excluded.id,
+  public_name = excluded.public_name,
+  bio = excluded.bio,
+  website_url = excluded.website_url,
+  verified_at = excluded.verified_at;
 
 insert into public.agent_categories (id, slug, name, description)
 values
