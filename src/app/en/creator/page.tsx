@@ -3,7 +3,11 @@ import { requireCreatorAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function EnglishCreatorPage() {
-  await requireCreatorAccess("en");
-  return <CreatorView locale="en" />;
+type EnglishCreatorPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function EnglishCreatorPage({ searchParams }: EnglishCreatorPageProps) {
+  const profile = await requireCreatorAccess("en");
+  return <CreatorView locale="en" profile={profile} searchParams={searchParams} />;
 }
