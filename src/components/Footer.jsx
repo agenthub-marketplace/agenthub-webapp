@@ -6,9 +6,33 @@ import { useT } from '@/lib/i18n';
 export default function Footer() {
   const { t } = useT();
   const cols = [
-    { title: t('ft.product'), links: [t('nav.discoveragents'), t('nav.leaderboard'), t('nav.workspace'), t('nav.creatormode')] },
-    { title: t('ft.resources'), links: [t('ft.help'), t('ft.docs'), t('ft.blog'), t('ft.apidocs')] },
-    { title: t('ft.company'), links: [t('ft.about'), t('ft.careers'), t('ft.press'), t('ft.contact')] },
+    {
+      title: t('ft.product'),
+      links: [
+        { label: t('nav.discoveragents'), href: '/search' },
+        { label: t('nav.leaderboard'), href: '/leaderboard' },
+        { label: t('nav.workspace'), href: '/workspace' },
+        { label: t('nav.creatormode'), href: '/creator' },
+      ],
+    },
+    {
+      title: t('ft.resources'),
+      links: [
+        { label: t('ft.help'), href: '#' },
+        { label: t('ft.docs'), href: '#' },
+        { label: t('ft.blog'), href: '#' },
+        { label: t('ft.apidocs'), href: '#' },
+      ],
+    },
+    {
+      title: t('ft.company'),
+      links: [
+        { label: t('ft.about'), href: '#' },
+        { label: t('ft.careers'), href: '#' },
+        { label: t('ft.press'), href: '#' },
+        { label: t('ft.contact'), href: '#' },
+      ],
+    },
   ];
   return (
     <footer className="border-t border-[#251A40] mt-24 bg-[#0A0816] ">
@@ -28,7 +52,7 @@ export default function Footer() {
               <h4 className="font-label text-xs text-[#F5F1FA] mb-4">{col.title}</h4>
               <ul className="space-y-2">
                 {col.links.map(l => (
-                  <li key={l}><Link href="#" className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">{l}</Link></li>
+                  <li key={l.label}><Link href={l.href} className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">{l.label}</Link></li>
                 ))}
               </ul>
             </div>

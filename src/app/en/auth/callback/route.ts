@@ -1,0 +1,9 @@
+import type { NextRequest } from "next/server";
+
+import { handleAuthCallback } from "@/lib/auth/callback";
+
+export const dynamic = "force-dynamic";
+
+export function GET(request: NextRequest) {
+  return handleAuthCallback(request, "en");
+}

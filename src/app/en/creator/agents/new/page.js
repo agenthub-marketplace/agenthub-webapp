@@ -1,11 +1,11 @@
 import { requireCreatorAccess } from '@/lib/auth/session';
 import { getAgentCategoryOptions, getCreatorProfileForUser } from '@/server/agents/creator-agents';
-import NewAgentContent from './new-agent-content';
+import NewAgentContent from '../../../../creator/agents/new/new-agent-content';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewAgentPage({ searchParams }) {
-  const profile = await requireCreatorAccess('fr');
+  const profile = await requireCreatorAccess('en');
   const creatorProfile = await getCreatorProfileForUser(profile.id);
   const categories = await getAgentCategoryOptions();
   const params = searchParams ? await searchParams : {};
@@ -15,7 +15,7 @@ export default async function NewAgentPage({ searchParams }) {
       categories={categories}
       creatorProfileMissing={creatorProfile.creatorProfileMissing}
       error={typeof params?.error === 'string' ? params.error : null}
-      locale="fr"
+      locale="en"
       profile={profile}
       profileError={creatorProfile.error}
     />
