@@ -16,7 +16,7 @@ function timeColor(pct) {
   return { txt: 'text-[#10B981]', bg: 'bg-[#10B981]', urgent: false };
 }
 
-function DashboardPage({ profile }) {
+function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
   const { t, lang } = useT();
   const [tab, setTab] = useState('rentals');
   const [memory, setMemory] = useState({
@@ -105,7 +105,53 @@ function DashboardPage({ profile }) {
         </div>
 
         {tab === 'rentals' && (
-          <div className="grid md:grid-cols-3 gap-5">
+          <div>
+            {betaRentalsError && (
+              <div className="mb-5 rounded-2xl border border-[#F59E0B]/40 bg-[#110D24] px-4 py-3 text-sm text-[#F59E0B]">
+                {lang === 'en' ? 'Beta rentals are temporarily unavailable.' : 'Les locations beta sont temporairement indisponibles.'}
+              </div>
+            )}
+
+            {betaRentals.length > 0 && (
+              <div className="mb-6">
+                <p className="font-label text-xs text-[#A78BCF] mb-3">{lang === 'en' ? 'BETA RENTALS' : 'LOCATIONS BETA'}</p>
+                <div className="grid md:grid-cols-3 gap-5">
+                  {betaRentals.map((rental) => (
+                    <div key={rental.id} className="bg-[#110D24] border border-[#251A40] rounded-2xl p-5 card-hover">
+                      <div className="flex items-start gap-3 mb-4">
+                        <AgentAvatar index={0} size="md" />
+                        <div className="flex-1">
+                          <h3 className="font-display font-bold text-lg text-[#F5F1FA]">{rental.agent?.name ?? 'AgentHub agent'}</h3>
+                          <p className="text-xs text-[#A78BCF]">{rental.agent?.summary ?? ''}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="rounded-full border border-[#F59E0B]/30 bg-[#1A152F] px-2.5 py-1 text-[10px] font-label text-[#F59E0B]">
+                          {rental.status}
+                        </span>
+                        <span className="font-stat text-[#F5F1FA]">
+                          €{Math.round((rental.priceCents ?? 0) / 100)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#A78BCF] mb-4">
+                        {lang === 'en'
+                          ? 'Created without payment during the private beta.'
+                          : 'Créée sans paiement pendant la beta privée.'}
+                      </p>
+                      {rental.agent?.slug && (
+                        <Link href={`/agents/${rental.agent.slug}`}>
+                          <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
+                            {lang === 'en' ? 'View agent' : 'Voir l’agent'}
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-3 gap-5">
             {activeRentals.map(r => {
               const pct = (r.timeRemainingHours/r.totalHours)*100;
               const col = timeColor(pct);
@@ -130,6 +176,7 @@ function DashboardPage({ profile }) {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 

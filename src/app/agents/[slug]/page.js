@@ -4,6 +4,7 @@ import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
+import { createBetaRentalAction } from '@/server/rentals/actions';
 import { AlertTriangle, ArrowLeft, Check, Clock, ShieldCheck, Star } from 'lucide-react';
 
 function ListSection({ title, items, icon: Icon, tone = 'default' }) {
@@ -124,11 +125,15 @@ export default async function Page({ params }) {
                 <span className="text-base text-[#9B72CF] ml-1">/ {priceModeLabel}</span>
               </p>
               <p className="text-sm text-[#9B72CF] mb-5">Paiement Stripe non activé. Les demandes seront branchées dans la prochaine phase beta.</p>
-              <Button disabled className="w-full bg-[#532B88] text-white border-0 opacity-70 h-12 mb-3">
-                Demande utilisateur bientôt disponible
-              </Button>
+              <form action={createBetaRentalAction.bind(null, 'fr')}>
+                <input type="hidden" name="agent_id" value={agent.id} />
+                <input type="hidden" name="slug" value={agent.slug} />
+                <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12 mb-3">
+                  Louer cet agent en beta
+                </Button>
+              </form>
               <p className="text-xs text-[#9B72CF]">
-                Prochaine étape : créer une demande manuelle sans paiement pour cet agent.
+                Aucun paiement réel n’est traité pendant la beta privée.
               </p>
             </div>
 
