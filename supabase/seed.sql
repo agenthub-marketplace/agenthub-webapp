@@ -140,7 +140,7 @@ values
   (
     '40000000-0000-4000-8000-000000000001',
     '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000001',
+    (select id from public.agent_categories where slug = 'legal-documents'),
     'contract-review-assistant',
     'Contract Review Assistant',
     'Summarizes business contracts and flags clauses to review with counsel.',
@@ -155,7 +155,7 @@ values
   (
     '40000000-0000-4000-8000-000000000002',
     '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000002',
+    (select id from public.agent_categories where slug = 'accounting-admin'),
     'invoice-admin-assistant',
     'Invoice Admin Assistant',
     'Extracts invoice fields and prepares a clean payment tracking summary.',
@@ -170,7 +170,7 @@ values
   (
     '40000000-0000-4000-8000-000000000003',
     '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000005',
+    (select id from public.agent_categories where slug = 'research-analysis'),
     'market-research-brief',
     'Market Research Brief',
     'Creates concise market and competitor snapshots from public information.',
@@ -185,7 +185,7 @@ values
   (
     '40000000-0000-4000-8000-000000000004',
     '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000003',
+    (select id from public.agent_categories where slug = 'hr-recruiting'),
     'candidate-screening-helper',
     'Candidate Screening Helper',
     'Prepares structured candidate summaries from resumes and job criteria.',
@@ -200,7 +200,7 @@ values
   (
     '40000000-0000-4000-8000-000000000005',
     '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000004',
+    (select id from public.agent_categories where slug = 'business-documents'),
     'business-plan-reviewer',
     'Business Plan Reviewer',
     'Reviews business plans for clarity, gaps, and investor-readiness questions.',
