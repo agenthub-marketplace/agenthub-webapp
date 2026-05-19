@@ -1,9 +1,0 @@
-import { CreatorView } from "@/components/views/creator-view";
-import { requireCreatorAccess } from "@/lib/auth/session";
-
-export const dynamic = "force-dynamic";
-
-export default async function CreatorPage() {
-  await requireCreatorAccess("fr");
-  return <CreatorView locale="fr" />;
-}
