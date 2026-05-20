@@ -30,6 +30,7 @@ const reviewErrors = {
   'invalid-review': 'Décision de validation invalide.',
   'agent-not-found': 'Agent introuvable.',
   'agent-not-reviewable': 'Cet agent n’est plus en attente de validation.',
+  'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être approuvés en beta.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
 };

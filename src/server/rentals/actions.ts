@@ -53,7 +53,7 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
     redirectWithAgentError(locale, slug, "agent-unavailable");
   }
 
-  const creatorProfile = await getCreatorProfileForUser(profile.id);
+  const creatorProfile = await getCreatorProfileForUser();
 
   if (!creatorProfile.error && !creatorProfile.creatorProfileMissing && creatorProfile.id === agent.creator_id) {
     redirectWithAgentError(locale, slug, "self-rental-not-allowed");
@@ -90,7 +90,7 @@ function redirectWithCreatorRentalError(locale: Locale, error: string): never {
 }
 
 export async function updateCreatorRentalStatusAction(locale: Locale, formData: FormData) {
-  const profile = await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale);
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -110,7 +110,7 @@ export async function updateCreatorRentalStatusAction(locale: Locale, formData: 
     redirectWithCreatorRentalError(locale, "invalid-action");
   }
 
-  const creatorProfile = await getCreatorProfileForUser(profile.id);
+  const creatorProfile = await getCreatorProfileForUser();
 
   if (creatorProfile.error || creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     redirectWithCreatorRentalError(locale, "creator-profile-required");
@@ -135,7 +135,7 @@ export async function updateCreatorRentalStatusAction(locale: Locale, formData: 
 }
 
 export async function deliverCreatorRentalResultAction(locale: Locale, formData: FormData) {
-  const profile = await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale);
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -155,7 +155,7 @@ export async function deliverCreatorRentalResultAction(locale: Locale, formData:
     redirectWithCreatorRentalError(locale, "invalid-delivery-summary");
   }
 
-  const creatorProfile = await getCreatorProfileForUser(profile.id);
+  const creatorProfile = await getCreatorProfileForUser();
 
   if (creatorProfile.error || creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     redirectWithCreatorRentalError(locale, "creator-profile-required");

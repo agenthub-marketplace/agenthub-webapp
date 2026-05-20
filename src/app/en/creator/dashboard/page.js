@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function CreatorDashboardPage({ searchParams }) {
   const profile = await requireCreatorAccess('en');
-  const creatorAgentsResult = await getCreatorAgentsForUser(profile.id);
-  const creatorRentalsResult = await getCreatorRentalsForUser(profile.id);
+  const creatorAgentsResult = await getCreatorAgentsForUser();
+  const creatorRentalsResult = await getCreatorRentalsForUser();
   const params = searchParams ? await searchParams : {};
 
   return (

@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -81,7 +81,7 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     redirectWithReviewError(locale, rentalId, "rental-not-delivered");
   }
 
-  const creatorProfile = await getCreatorProfileForUser(profile.id);
+  const creatorProfile = await getCreatorProfileForUser();
 
   if (!creatorProfile.error && !creatorProfile.creatorProfileMissing && creatorProfile.id === rental.creator_id) {
     redirectWithReviewError(locale, rentalId, "self-review-not-allowed");

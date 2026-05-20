@@ -41,7 +41,7 @@ function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-export async function getCreatorRentalsForUser(userId: string): Promise<CreatorRentalsResult> {
+export async function getCreatorRentalsForUser(): Promise<CreatorRentalsResult> {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -52,7 +52,7 @@ export async function getCreatorRentalsForUser(userId: string): Promise<CreatorR
     };
   }
 
-  const creatorProfile = await getCreatorProfileForUser(userId);
+  const creatorProfile = await getCreatorProfileForUser();
 
   if (creatorProfile.error || creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     return {

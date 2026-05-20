@@ -19,11 +19,6 @@ export type CreatorAgentListItem = {
   createdAt: string;
 };
 
-type CreatorProfileRow = {
-  id: string;
-  public_name: string;
-};
-
 type AgentCategoryRow = {
   id: string;
   name: string;
@@ -76,7 +71,7 @@ export async function getAgentCategoryOptions(): Promise<AgentCategoryOption[]> 
   return data ?? [];
 }
 
-export async function getCreatorProfileForUser(userId: string): Promise<CreatorProfileLookup> {
+export async function getCreatorProfileForUser(): Promise<CreatorProfileLookup> {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -87,11 +82,7 @@ export async function getCreatorProfileForUser(userId: string): Promise<CreatorP
     };
   }
 
-  const { data, error } = await supabase
-    .from("creator_profiles")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle<Pick<CreatorProfileRow, "id">>();
+  const { data, error } = await supabase.rpc("get_own_creator_profile_id");
 
   if (error) {
     return {
@@ -102,13 +93,13 @@ export async function getCreatorProfileForUser(userId: string): Promise<CreatorP
   }
 
   return {
-    id: data?.id ?? null,
+    id: data ?? null,
     creatorProfileMissing: !data,
     error: null,
   };
 }
 
-export async function getCreatorAgentsForUser(userId: string): Promise<CreatorAgentsResult> {
+export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -119,21 +110,17 @@ export async function getCreatorAgentsForUser(userId: string): Promise<CreatorAg
     };
   }
 
-  const { data: creatorProfile, error: creatorProfileError } = await supabase
-    .from("creator_profiles")
-    .select("id,public_name")
-    .eq("user_id", userId)
-    .maybeSingle<CreatorProfileRow>();
+  const creatorProfileLookup = await getCreatorProfileForUser();
 
-  if (creatorProfileError) {
+  if (creatorProfileLookup.error) {
     return {
       agents: [],
       creatorProfileMissing: false,
-      error: "creator-profile-error",
+      error: creatorProfileLookup.error,
     };
   }
 
-  if (!creatorProfile) {
+  if (creatorProfileLookup.creatorProfileMissing || !creatorProfileLookup.id) {
     return {
       agents: [],
       creatorProfileMissing: true,
@@ -144,7 +131,7 @@ export async function getCreatorAgentsForUser(userId: string): Promise<CreatorAg
   const { data, error } = await supabase
     .from("agents")
     .select("id,name,summary,status,pricing_type,risk_level,created_at,agent_categories(name)")
-    .eq("creator_id", creatorProfile.id)
+    .eq("creator_id", creatorProfileLookup.id)
     .order("created_at", { ascending: false })
     .returns<CreatorAgentRow[]>();
 

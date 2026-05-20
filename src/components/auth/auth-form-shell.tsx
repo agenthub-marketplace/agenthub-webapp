@@ -20,6 +20,8 @@ const copy = {
     name: "Nom",
     email: "Email",
     password: "Mot de passe",
+    passwordHelp:
+      "Au moins 8 caractères avec une majuscule, une minuscule, un chiffre et un caractère spécial.",
     role: "Type de compte",
     user: "Utilisateur",
     creator: "Créateur",
@@ -33,6 +35,8 @@ const copy = {
     invalid: "Identifiants invalides ou inscription impossible.",
     missingConfig: "Configuration Supabase manquante.",
     callback: "La confirmation email a échoué. Réessayez.",
+    passwordPolicy:
+      "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.",
     note: "L’authentification Supabase est active. Les rôles admin restent attribués manuellement.",
   },
   en: {
@@ -43,6 +47,8 @@ const copy = {
     name: "Name",
     email: "Email",
     password: "Password",
+    passwordHelp:
+      "At least 8 characters with one uppercase letter, one lowercase letter, one number, and one special character.",
     role: "Account type",
     user: "User",
     creator: "Creator",
@@ -56,6 +62,8 @@ const copy = {
     invalid: "Invalid credentials or signup failed.",
     missingConfig: "Missing Supabase configuration.",
     callback: "Email confirmation failed. Try again.",
+    passwordPolicy:
+      "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character.",
     note: "Supabase Auth is active. Admin roles are still assigned manually.",
   },
 } as const;
@@ -80,6 +88,10 @@ function statusMessage(searchParams: SearchParams | undefined, locale: Locale) {
 
   if (error === "callback") {
     return { tone: "error" as const, text: dictionary.callback };
+  }
+
+  if (error === "password-policy") {
+    return { tone: "error" as const, text: dictionary.passwordPolicy };
   }
 
   if (error) {
@@ -153,9 +165,17 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
                 name="password"
                 type="password"
                 autoComplete={isLogin ? "current-password" : "new-password"}
+                minLength={isLogin ? undefined : 8}
+                pattern={isLogin ? undefined : "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}"}
+                aria-describedby={!isLogin ? "password-help" : undefined}
                 required
                 className="h-11 w-full rounded-xl border border-[#251A40] bg-[#080612] px-3 text-sm text-[#F5F1FA] outline-none transition-colors focus:border-[#8B5CF6]"
               />
+              {!isLogin && (
+                <span id="password-help" className="mt-1.5 block text-xs leading-relaxed text-[#8A7CA0]">
+                  {dictionary.passwordHelp}
+                </span>
+              )}
             </label>
 
             {!isLogin && (

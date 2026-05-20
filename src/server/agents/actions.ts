@@ -9,11 +9,8 @@ import { requireCreatorAccess } from "@/lib/auth/session";
 import { PRICING_TYPES, RISK_LEVELS, type RiskLevel } from "@/lib/domain/status";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 import type { PricingType } from "@/types/agent";
-
-type CreatorProfileRow = {
-  id: string;
-};
 
 type InsertedAgent = {
   id: string;
@@ -79,7 +76,7 @@ function isRiskLevel(value: string): value is RiskLevel {
 }
 
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
-  const profile = await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale);
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -105,17 +102,13 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "forbidden-risk");
   }
 
-  const { data: creatorProfile, error: creatorProfileError } = await supabase
-    .from("creator_profiles")
-    .select("id")
-    .eq("user_id", profile.id)
-    .maybeSingle<CreatorProfileRow>();
+  const creatorProfile = await getCreatorProfileForUser();
 
-  if (creatorProfileError) {
-    redirectWithError(locale, "creator-profile-error");
+  if (creatorProfile.error) {
+    redirectWithError(locale, creatorProfile.error);
   }
 
-  if (!creatorProfile) {
+  if (creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     redirectWithError(locale, "creator-profile-missing");
   }
 

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewAgentPage({ searchParams }) {
   const profile = await requireCreatorAccess('fr');
-  const creatorProfile = await getCreatorProfileForUser(profile.id);
+  const creatorProfile = await getCreatorProfileForUser();
   const categories = await getAgentCategoryOptions();
   const params = searchParams ? await searchParams : {};
 

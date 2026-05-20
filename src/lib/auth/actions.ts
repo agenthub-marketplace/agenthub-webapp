@@ -13,6 +13,16 @@ function readText(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isStrongPassword(password: string) {
+  return (
+    password.length >= 8 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
+}
+
 function authRedirect(
   locale: Locale,
   page: "login" | "signup",
@@ -95,6 +105,11 @@ export async function signupAction(locale: Locale, formData: FormData) {
   const displayName = readText(formData, "name");
   const requestedRole = readText(formData, "role");
   const role: Exclude<UserRole, "admin"> = requestedRole === "creator" ? "creator" : "user";
+
+  if (!isStrongPassword(password)) {
+    authRedirect(locale, "signup", "error", "password-policy");
+  }
+
   const nextPath = localizedPath(role === "creator" ? "/creator" : "/dashboard", locale);
   const callbackPath = localizedPath("/auth/callback", locale);
   const emailRedirectTo = `${getAppUrl()}${callbackPath}?next=${encodeURIComponent(nextPath)}`;
@@ -112,6 +127,13 @@ export async function signupAction(locale: Locale, formData: FormData) {
   });
 
   if (error) {
+    if (
+      error.code === "weak_password" ||
+      error.message.toLowerCase().includes("password")
+    ) {
+      authRedirect(locale, "signup", "error", "password-policy");
+    }
+
     authRedirect(locale, "signup", "error", "invalid-credentials");
   }
 

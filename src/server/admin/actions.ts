@@ -64,6 +64,10 @@ export async function reviewAgentAction(formData: FormData) {
     redirectWithError(locale, "agent-not-reviewable");
   }
 
+  if (decision === "approve" && agent.risk_level === "forbidden_beta") {
+    redirectWithError(locale, "forbidden-risk");
+  }
+
   const nextStatus = decision === "approve" ? "approved" : "rejected";
   const reviewNotes =
     decision === "changes"
