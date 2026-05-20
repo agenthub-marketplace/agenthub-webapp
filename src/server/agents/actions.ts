@@ -12,15 +12,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 import type { PricingType } from "@/types/agent";
 
-type InsertedAgent = {
-  id: string;
-  slug: string;
-};
-
-type InsertedVersion = {
-  id: string;
-};
-
 const requiredFields = [
   "name",
   "category_id",
@@ -112,11 +103,14 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "creator-profile-missing");
   }
 
-  const slug = `${slugify(values.name)}-${randomUUID().slice(0, 8)}`;
+  const agentId = randomUUID();
+  const versionId = randomUUID();
+  const slug = `${slugify(values.name)}-${agentId.slice(0, 8)}`;
 
-  const { data: agent, error: agentError } = await supabase
+  const { error: agentError } = await supabase
     .from("agents")
     .insert({
+      id: agentId,
       creator_id: creatorProfile.id,
       category_id: values.category_id,
       slug,
@@ -127,11 +121,13 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
       pricing_type: values.pricing_type,
       risk_level: values.risk_level,
       currency: "eur",
-    })
-    .select("id,slug")
-    .single<InsertedAgent>();
+    });
 
   if (agentError) {
+    console.error("Agent insert failed", {
+      code: agentError.code,
+      message: agentError.message,
+    });
     redirectWithError(locale, "agent-insert-failed");
   }
 
@@ -143,10 +139,11 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     `Sample output: ${values.sample_output}`,
   ].join("\n\n");
 
-  const { data: version, error: versionError } = await supabase
+  const { error: versionError } = await supabase
     .from("agent_versions")
     .insert({
-      agent_id: agent.id,
+      id: versionId,
+      agent_id: agentId,
       version_number: 1,
       model_notes: modelNotes,
       capabilities: readLines(values.does),
@@ -155,17 +152,19 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
       limitations,
       data_handling_notes: `Risk level declared by creator: ${values.risk_level}`,
       changelog: "Initial creator submission.",
-    })
-    .select("id")
-    .single<InsertedVersion>();
+    });
 
   if (versionError) {
+    console.error("Agent version insert failed", {
+      code: versionError.code,
+      message: versionError.message,
+    });
     // Best-effort cleanup: without a DB transaction, remove the draft created
     // earlier so a failed version insert does not leave an incomplete listing.
     await supabase
       .from("agents")
       .delete()
-      .eq("id", agent.id)
+      .eq("id", agentId)
       .eq("creator_id", creatorProfile.id)
       .eq("status", "draft");
 
@@ -174,17 +173,21 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
 
   const { error: submitError } = await supabase
     .from("agents")
-    .update({ active_version_id: version.id, status: "submitted" })
-    .eq("id", agent.id)
+    .update({ active_version_id: versionId, status: "submitted" })
+    .eq("id", agentId)
     .eq("creator_id", creatorProfile.id);
 
   if (submitError) {
+    console.error("Agent submit failed", {
+      code: submitError.code,
+      message: submitError.message,
+    });
     // Best-effort cleanup: agent_versions.agent_id cascades on agent delete, so
     // removing this still-draft agent also removes the version created above.
     await supabase
       .from("agents")
       .delete()
-      .eq("id", agent.id)
+      .eq("id", agentId)
       .eq("creator_id", creatorProfile.id)
       .eq("status", "draft");
 
@@ -193,5 +196,5 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
 
   revalidatePath(localizedPath("/creator", locale));
   revalidatePath(localizedPath("/creator/dashboard", locale));
-  redirect(`${localizedPath("/creator/dashboard", locale)}?submitted=${encodeURIComponent(agent.slug)}`);
+  redirect(`${localizedPath("/creator/dashboard", locale)}?submitted=${encodeURIComponent(slug)}`);
 }
