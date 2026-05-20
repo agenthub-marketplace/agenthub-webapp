@@ -24,6 +24,10 @@ type AgentCategoryRow = {
   name: string;
 };
 
+type CreatorProfileRow = {
+  id: string;
+};
+
 type CreatorAgentRow = {
   id: string;
   name: string;
@@ -84,7 +88,51 @@ export async function getCreatorProfileForUser(): Promise<CreatorProfileLookup> 
 
   const { data, error } = await supabase.rpc("get_own_creator_profile_id");
 
-  if (error) {
+  if (!error) {
+    return {
+      id: data ?? null,
+      creatorProfileMissing: !data,
+      error: null,
+    };
+  }
+
+  const rpcMissing =
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    error.message.toLowerCase().includes("could not find the function") ||
+    error.message.toLowerCase().includes("function public.get_own_creator_profile_id");
+
+  if (!rpcMissing) {
+    return {
+      id: null,
+      creatorProfileMissing: false,
+      error: "creator-profile-error",
+    };
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      id: null,
+      creatorProfileMissing: false,
+      error: "creator-profile-error",
+    };
+  }
+
+  // Transitional fallback for environments where the hardening migration has
+  // not reached PostgREST yet. Hardened databases use the RPC above; older
+  // databases still have the previous creator_profiles.user_id SELECT grant.
+  const { data: creatorProfile, error: profileError } = await supabase
+    .from("creator_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle<CreatorProfileRow>();
+
+  if (profileError) {
     return {
       id: null,
       creatorProfileMissing: false,
@@ -93,8 +141,8 @@ export async function getCreatorProfileForUser(): Promise<CreatorProfileLookup> 
   }
 
   return {
-    id: data ?? null,
-    creatorProfileMissing: !data,
+    id: creatorProfile?.id ?? null,
+    creatorProfileMissing: !creatorProfile,
     error: null,
   };
 }
