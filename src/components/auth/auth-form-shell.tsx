@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Locale } from "@/lib/i18n/config";
 import { localizedPath } from "@/lib/i18n/config";
 import { loginAction, signupAction } from "@/lib/auth/actions";
+import { PasswordInput } from "@/components/auth/password-input";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -23,6 +24,8 @@ const copy = {
     passwordPlaceholder: "8+ caractères, Aa, 1, @",
     passwordHelp:
       "Au moins 8 caractères avec une majuscule, une minuscule, un chiffre et un caractère spécial.",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     role: "Type de compte",
     user: "Utilisateur",
     creator: "Créateur",
@@ -52,6 +55,8 @@ const copy = {
     passwordPlaceholder: "8+ characters, Aa, 1, @",
     passwordHelp:
       "At least 8 characters with one uppercase letter, one lowercase letter, one number, and one special character.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     role: "Account type",
     user: "User",
     creator: "Creator",
@@ -169,16 +174,15 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
 
             <label className="block">
               <span className="font-label mb-1.5 block text-xs text-[#A78BCF]">{dictionary.password}</span>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 minLength={isLogin ? undefined : 8}
                 pattern={isLogin ? undefined : "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}"}
-                aria-describedby={!isLogin ? "password-help" : undefined}
+                describedBy={!isLogin ? "password-help" : undefined}
                 placeholder={!isLogin ? dictionary.passwordPlaceholder : undefined}
-                required
-                className="h-11 w-full rounded-xl border border-[#251A40] bg-[#080612] px-3 pr-12 text-sm text-[#F5F1FA] outline-none transition-colors placeholder:text-[#5F526F] focus:border-[#8B5CF6]"
+                showLabel={dictionary.showPassword}
+                hideLabel={dictionary.hidePassword}
               />
               {!isLogin && (
                 <p
