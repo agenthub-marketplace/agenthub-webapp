@@ -20,6 +20,7 @@ const copy = {
     name: "Nom",
     email: "Email",
     password: "Mot de passe",
+    passwordPlaceholder: "8+ caractères, Aa, 1, @",
     passwordHelp:
       "Au moins 8 caractères avec une majuscule, une minuscule, un chiffre et un caractère spécial.",
     role: "Type de compte",
@@ -47,6 +48,7 @@ const copy = {
     name: "Name",
     email: "Email",
     password: "Password",
+    passwordPlaceholder: "8+ characters, Aa, 1, @",
     passwordHelp:
       "At least 8 characters with one uppercase letter, one lowercase letter, one number, and one special character.",
     role: "Account type",
@@ -168,13 +170,17 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
                 minLength={isLogin ? undefined : 8}
                 pattern={isLogin ? undefined : "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}"}
                 aria-describedby={!isLogin ? "password-help" : undefined}
+                placeholder={!isLogin ? dictionary.passwordPlaceholder : undefined}
                 required
-                className="h-11 w-full rounded-xl border border-[#251A40] bg-[#080612] px-3 text-sm text-[#F5F1FA] outline-none transition-colors focus:border-[#8B5CF6]"
+                className="h-11 w-full rounded-xl border border-[#251A40] bg-[#080612] px-3 pr-12 text-sm text-[#F5F1FA] outline-none transition-colors placeholder:text-[#5F526F] focus:border-[#8B5CF6]"
               />
               {!isLogin && (
-                <span id="password-help" className="mt-1.5 block text-xs leading-relaxed text-[#8A7CA0]">
+                <p
+                  id="password-help"
+                  className="mt-2 rounded-lg border border-[#8B5CF6]/25 bg-[#8B5CF6]/10 px-3 py-2 text-xs leading-relaxed text-[#D6C5E8]"
+                >
                   {dictionary.passwordHelp}
-                </span>
+                </p>
               )}
             </label>
 
