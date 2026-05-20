@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,17 @@ const copy = {
     rentalActionError: 'Impossible de mettre à jour cette location.',
     deliveryPlaceholder: 'Résumez le travail effectué, les liens utiles et les prochaines étapes pour le client.',
     submitted: 'Agent soumis pour validation. Il apparaît maintenant dans votre espace créateur.',
+    adminFeedbackTitle: 'Retour admin',
+    adminFeedbackEmpty: 'Aucun commentaire ajouté.',
+    adminReviewLabels: {
+      changes_requested: 'Modifications demandées',
+      in_review: 'En revue',
+      approved: 'Agent approuvé',
+      rejected: 'Agent refusé',
+      draft: 'Brouillon',
+      submitted: 'Soumis',
+      suspended: 'Suspendu',
+    },
     stripeTitle: 'Stripe Connect prévu',
     stripeText: 'La monétisation créateur sera activée plus tard. Aucun paiement réel n’est traité dans cette beta.',
     statuses: {
@@ -74,6 +87,17 @@ const copy = {
     rentalActionError: 'Could not update this rental.',
     deliveryPlaceholder: 'Summarize the completed work, useful links, and next steps for the client.',
     submitted: 'Agent submitted for review. It now appears in your creator workspace.',
+    adminFeedbackTitle: 'Admin feedback',
+    adminFeedbackEmpty: 'No comment added.',
+    adminReviewLabels: {
+      changes_requested: 'Changes requested',
+      in_review: 'In review',
+      approved: 'Agent approved',
+      rejected: 'Agent rejected',
+      draft: 'Draft',
+      submitted: 'Submitted',
+      suspended: 'Suspended',
+    },
     stripeTitle: 'Stripe Connect planned',
     stripeText: 'Creator monetization will be enabled later. No real payments are processed in this beta.',
     statuses: {
@@ -122,6 +146,22 @@ function StatusBadge({ label, status }) {
   );
 }
 
+function isChangesRequest(review) {
+  return review?.decision === 'in_review' && review?.notes?.toLowerCase().includes('modifications demand');
+}
+
+function getAdminReviewLabel(review, t) {
+  if (!review) {
+    return '';
+  }
+
+  if (isChangesRequest(review)) {
+    return t.adminReviewLabels.changes_requested;
+  }
+
+  return t.adminReviewLabels[review.decision] || review.decision;
+}
+
 function Panel({ children, className = '' }) {
   return <div className={`rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5 ${className}`}>{children}</div>;
 }
@@ -137,12 +177,24 @@ export default function CreatorDashboardContent({
   submittedSlug,
 }) {
   const t = copy[locale] || copy.fr;
+  const router = useRouter();
   const agents = creatorAgentsResult?.agents ?? [];
   const rentals = creatorRentalsResult?.rentals ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/creator/agents/new';
   const updateRentalAction = updateCreatorRentalStatusAction.bind(null, locale);
   const deliverRentalAction = deliverCreatorRentalResultAction.bind(null, locale);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        router.refresh();
+      }
+    };
+    const interval = window.setInterval(refresh, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [router]);
 
   const stats = [
     { label: t.statuses.submitted, value: agents.filter((agent) => agent.status === 'submitted').length },
@@ -357,6 +409,23 @@ export default function CreatorDashboardContent({
                         <span>{agent.pricingType}</span>
                         <span>{agent.riskLevel}</span>
                       </div>
+                      {agent.latestAdminReview && (
+                        <div className="mt-4 rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                          <p className="font-label mb-1 text-[10px] text-[#9B72CF]">{t.adminFeedbackTitle}</p>
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <StatusBadge
+                              status={agent.latestAdminReview.decision}
+                              label={getAdminReviewLabel(agent.latestAdminReview, t)}
+                            />
+                            <span className="text-xs text-[#7F6B9C]">
+                              {new Date(agent.latestAdminReview.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed text-[#C8B1E4]">
+                            {agent.latestAdminReview.notes || t.adminFeedbackEmpty}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-[#9B72CF]">
                       <Clock className="h-4 w-4" />

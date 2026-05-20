@@ -7,7 +7,7 @@ import { requireAdminAccess } from "@/lib/auth/session";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type ReviewDecision = "approve" | "reject" | "changes";
+type ReviewDecision = "approve" | "reject" | "changes" | "start_review";
 
 type AgentReviewRow = {
   id: string;
@@ -22,7 +22,7 @@ function readText(formData: FormData, key: string) {
 }
 
 function isReviewDecision(value: string): value is ReviewDecision {
-  return value === "approve" || value === "reject" || value === "changes";
+  return value === "approve" || value === "reject" || value === "changes" || value === "start_review";
 }
 
 function readLocale(formData: FormData): Locale {
@@ -68,10 +68,15 @@ export async function reviewAgentAction(formData: FormData) {
     redirectWithError(locale, "forbidden-risk");
   }
 
-  const nextStatus = decision === "approve" ? "approved" : "rejected";
+  const nextStatus =
+    decision === "approve"
+      ? "approved"
+      : decision === "reject"
+        ? "rejected"
+        : "in_review";
   const reviewNotes =
     decision === "changes"
-      ? `Changes requested: ${notes || "No details provided."}`
+      ? `Modifications demandées : ${notes || "Aucun détail fourni."}`
       : notes || null;
 
   const { error: updateError } = await supabase
@@ -110,6 +115,10 @@ export async function reviewAgentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/en/admin");
+  revalidatePath("/creator");
+  revalidatePath("/creator/dashboard");
+  revalidatePath("/en/creator");
+  revalidatePath("/en/creator/dashboard");
   revalidatePath("/search");
 
   redirect(`${localizedPath("/admin", locale)}?reviewed=${encodeURIComponent(agent.id)}`);

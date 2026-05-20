@@ -17,6 +17,11 @@ export type CreatorAgentListItem = {
   riskLevel: "low" | "medium" | "high" | "forbidden_beta";
   categoryName: string | null;
   createdAt: string;
+  latestAdminReview: {
+    decision: AgentStatus;
+    notes: string | null;
+    createdAt: string;
+  } | null;
 };
 
 type AgentCategoryRow = {
@@ -37,6 +42,13 @@ type CreatorAgentRow = {
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   created_at: string;
   agent_categories: { name: string } | { name: string }[] | null;
+};
+
+type AdminReviewFeedbackRow = {
+  agent_id: string;
+  decision: AgentStatus;
+  notes: string | null;
+  created_at: string;
 };
 
 export type CreatorAgentsResult = {
@@ -191,8 +203,31 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
     };
   }
 
+  const agentRows = data ?? [];
+  const agentIds = agentRows.map((agent) => agent.id);
+  const latestReviewsByAgent = new Map<string, CreatorAgentListItem["latestAdminReview"]>();
+
+  if (agentIds.length > 0) {
+    const { data: reviews } = await supabase
+      .from("admin_reviews")
+      .select("agent_id,decision,notes,created_at")
+      .in("agent_id", agentIds)
+      .order("created_at", { ascending: false })
+      .returns<AdminReviewFeedbackRow[]>();
+
+    for (const review of reviews ?? []) {
+      if (!latestReviewsByAgent.has(review.agent_id)) {
+        latestReviewsByAgent.set(review.agent_id, {
+          decision: review.decision,
+          notes: review.notes,
+          createdAt: review.created_at,
+        });
+      }
+    }
+  }
+
   return {
-    agents: (data ?? []).map((agent) => ({
+    agents: agentRows.map((agent) => ({
       id: agent.id,
       name: agent.name,
       summary: agent.summary,
@@ -201,6 +236,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       riskLevel: agent.risk_level,
       categoryName: readCategoryName(agent.agent_categories),
       createdAt: agent.created_at,
+      latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
     })),
     creatorProfileMissing: false,
     error: null,

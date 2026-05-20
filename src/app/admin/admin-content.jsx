@@ -148,7 +148,19 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                   <pre className="text-xs bg-[#0A0816] border border-[#251A40] rounded-lg p-3 text-[#D6C5E8] overflow-x-auto font-mono">Version de validation créée. Les capacités, inputs et livrables seront détaillés dans la prochaine étape admin.</pre>
                 </div>
                 {actionType === null && (
-                  <div className="flex gap-2">
+                  <div className="space-y-2">
+                    {activeSelection.status === 'submitted' && (
+                      <form action={reviewAgentAction}>
+                        <input type="hidden" name="agent_id" value={activeSelection.id} />
+                        <input type="hidden" name="decision" value="start_review" />
+                        <input type="hidden" name="locale" value={locale} />
+                        <Button type="submit" size="sm" variant="outline" className="w-full bg-transparent border-[#8B5CF6] text-[#C4B5FD] hover:bg-[#8B5CF6]/10">
+                          <Eye className="w-4 h-4 mr-1" />
+                          Prendre en revue
+                        </Button>
+                      </form>
+                    )}
+                    <div className="flex gap-2">
                     <form action={reviewAgentAction} className="flex-1">
                       <input type="hidden" name="agent_id" value={activeSelection.id} />
                       <input type="hidden" name="decision" value="approve" />
@@ -157,6 +169,7 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                     </form>
                     <Button size="sm" onClick={()=>setActionType('changes')} variant="outline" className="flex-1 bg-transparent border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10"><Edit className="w-4 h-4 mr-1"/>Modifications</Button>
                     <Button size="sm" onClick={()=>setActionType('reject')} variant="outline" className="flex-1 bg-transparent border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10"><X className="w-4 h-4 mr-1"/>Refuser</Button>
+                    </div>
                   </div>
                 )}
                 {actionType !== null && actionType !== 'approve' && (

@@ -41,6 +41,9 @@ export default function Navbar({ profile = null }) {
   const [scrolled, setScrolled] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [readNotificationIds, setReadNotificationIds] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -91,6 +94,20 @@ export default function Navbar({ profile = null }) {
   const displayName = getDisplayName(resolvedProfile);
   const routePrefix = pathname === '/en' || pathname.startsWith('/en/') ? '/en' : '';
   const currentLang = languages.find((l) => l.code === lang) || languages[0];
+  const notificationCopy = lang === 'en'
+    ? {
+        title: 'Notifications',
+        empty: 'No notifications yet.',
+        open: 'Open notifications',
+        see: 'Open',
+      }
+    : {
+        title: 'Notifications',
+        empty: 'Aucune notification pour le moment.',
+        open: 'Ouvrir les notifications',
+        see: 'Voir',
+      };
+  const unreadNotifications = notifications.filter((notification) => !readNotificationIds.includes(notification.id));
   const canAccessCreator = resolvedProfile?.role === 'creator' || resolvedProfile?.role === 'admin';
   const roleLinks = [
     ...(canAccessCreator
@@ -133,6 +150,40 @@ export default function Navbar({ profile = null }) {
         ]
       : []),
   ];
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      return;
+    }
+
+    let active = true;
+
+    const loadNotifications = () => {
+      fetch('/api/notifications', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload) => {
+          if (active) {
+            setNotifications(Array.isArray(payload?.notifications) ? payload.notifications : []);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setNotifications([]);
+          }
+        });
+    };
+
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [isSignedIn, resolvedProfile?.email, resolvedProfile?.role]);
 
   return (
     <>
@@ -208,15 +259,81 @@ export default function Navbar({ profile = null }) {
 
             {isSignedIn ? (
               <>
-                <button className="relative hidden rounded-md p-2 text-[#A78BCF] transition-colors hover:bg-[#15112A] hover:text-[#F5F1FA] sm:block" aria-label={t('nav.notifications')}>
-                  <Bell className="h-5 w-5" />
-                  <span className="pulse-dot absolute right-1 top-1 h-2 w-2 rounded-full bg-[#8B5CF6]" />
-                </button>
+                <div className="relative hidden sm:block">
+                  <button
+                    className="relative rounded-md p-2 text-[#A78BCF] transition-colors hover:bg-[#15112A] hover:text-[#F5F1FA]"
+                    aria-label={notificationCopy.open}
+                    onClick={() => {
+                      const nextOpen = !notificationsOpen;
+                      setNotificationsOpen(nextOpen);
+                      if (nextOpen) {
+                        setReadNotificationIds((current) => [
+                          ...new Set([...current, ...notifications.map((notification) => notification.id)]),
+                        ]);
+                      }
+                      setUserOpen(false);
+                      setLangOpen(false);
+                    }}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadNotifications.length > 0 && (
+                      <>
+                        <span className="pulse-dot absolute right-1 top-1 h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                        <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-[#8B5CF6] px-1 text-[10px] font-bold text-white">
+                          {unreadNotifications.length}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                  {notificationsOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
+                      <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-[#251A40] bg-[#110D24] shadow-2xl">
+                        <div className="border-b border-[#251A40] p-3">
+                          <p className="font-display text-sm font-semibold text-[#F5F1FA]">{notificationCopy.title}</p>
+                        </div>
+                        {notifications.length === 0 ? (
+                          <p className="p-4 text-sm text-[#A78BCF]">{notificationCopy.empty}</p>
+                        ) : (
+                          <div className="max-h-96 overflow-y-auto">
+                            {notifications.map((notification) => (
+                              <Link
+                                key={notification.id}
+                                href={routePrefix && notification.href.startsWith('/') ? `${routePrefix}${notification.href}` : notification.href}
+                                onClick={() => setNotificationsOpen(false)}
+                                className="block border-b border-[#251A40]/70 p-3 transition-colors last:border-b-0 hover:bg-[#1A152F]"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <span
+                                    className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                                      notification.tone === 'success'
+                                        ? 'bg-[#10B981]'
+                                        : notification.tone === 'error'
+                                          ? 'bg-[#EF4444]'
+                                          : notification.tone === 'warning'
+                                            ? 'bg-[#F59E0B]'
+                                            : 'bg-[#8B5CF6]'
+                                    }`}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-[#F5F1FA]">{notification.title}</p>
+                                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#A78BCF]">{notification.body}</p>
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="relative hidden sm:block">
                   <button
                     onClick={() => {
                       setUserOpen(!userOpen);
                       setLangOpen(false);
+                      setNotificationsOpen(false);
                     }}
                     className="flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-[#15112A]"
                     aria-label={t('nav.myprofile')}
