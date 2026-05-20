@@ -127,11 +127,24 @@ export async function signupAction(locale: Locale, formData: FormData) {
   });
 
   if (error) {
+    const errorText = `${error.code ?? ""} ${error.message}`.toLowerCase();
+
     if (
       error.code === "weak_password" ||
-      error.message.toLowerCase().includes("password")
+      errorText.includes("password")
     ) {
       authRedirect(locale, "signup", "error", "password-policy");
+    }
+
+    if (
+      error.code === "user_already_exists" ||
+      error.status === 422 ||
+      errorText.includes("already registered") ||
+      errorText.includes("already exists") ||
+      errorText.includes("already in use") ||
+      errorText.includes("user already")
+    ) {
+      authRedirect(locale, "signup", "error", "email-used");
     }
 
     authRedirect(locale, "signup", "error", "invalid-credentials");

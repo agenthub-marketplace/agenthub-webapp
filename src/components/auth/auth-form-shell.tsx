@@ -34,6 +34,7 @@ const copy = {
     loginLink: "Se connecter",
     checkEmail: "Compte créé. Confirmez votre email avant de vous connecter.",
     invalid: "Identifiants invalides ou inscription impossible.",
+    emailUsed: "Cet email est déjà utilisé. Connectez-vous ou utilisez une autre adresse.",
     missingConfig: "Configuration Supabase manquante.",
     callback: "La confirmation email a échoué. Réessayez.",
     passwordPolicy:
@@ -62,6 +63,7 @@ const copy = {
     loginLink: "Sign in",
     checkEmail: "Account created. Confirm your email before signing in.",
     invalid: "Invalid credentials or signup failed.",
+    emailUsed: "This email is already in use. Sign in or use another address.",
     missingConfig: "Missing Supabase configuration.",
     callback: "Email confirmation failed. Try again.",
     passwordPolicy:
@@ -94,6 +96,10 @@ function statusMessage(searchParams: SearchParams | undefined, locale: Locale) {
 
   if (error === "password-policy") {
     return { tone: "error" as const, text: dictionary.passwordPolicy };
+  }
+
+  if (error === "email-used") {
+    return { tone: "error" as const, text: dictionary.emailUsed };
   }
 
   if (error) {
