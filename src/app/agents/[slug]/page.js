@@ -3,6 +3,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
+import { getCurrentProfile } from '@/lib/auth/session';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
 import { createBetaRentalAction } from '@/server/rentals/actions';
 import { AlertTriangle, ArrowLeft, Check, Clock, ShieldCheck, Star } from 'lucide-react';
@@ -15,8 +16,8 @@ function ListSection({ title, items, icon: Icon, tone = 'default' }) {
       <h2 className="font-display font-bold text-lg mb-4">{title}</h2>
       {items.length > 0 ? (
         <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item} className="flex items-start gap-2 text-sm text-[#C8B1E4]">
+          {items.map((item, index) => (
+            <div key={`${item}-${index}`} className="flex items-start gap-2 text-sm text-[#C8B1E4]">
               <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${iconColor}`} />
               <span>{item}</span>
             </div>
@@ -29,16 +30,61 @@ function ListSection({ title, items, icon: Icon, tone = 'default' }) {
   );
 }
 
-export default async function Page({ params }) {
+function ReviewSection({ reviews }) {
+  if (!reviews || reviews.length === 0) {
+    return (
+      <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
+        <h2 className="font-display font-bold text-lg mb-4">Avis vérifiés</h2>
+        <p className="text-sm text-[#9B72CF]">Aucun avis vérifié pour cet agent pour l’instant.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5 space-y-4">
+      <h2 className="font-display font-bold text-lg">Avis vérifiés</h2>
+      <div className="space-y-3">
+        {reviews.map((review) => (
+          <div key={review.id} className="rounded-xl border border-[#2F184B] bg-[#0A0818] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                {Array.from({ length: review.rating }).map((_, index) => (
+                  <Star key={index} className="w-3.5 h-3.5 fill-[#F59E0B] text-[#F59E0B]" />
+                ))}
+                <span className="ml-1 text-xs text-[#9B72CF]">
+                  {new Date(review.createdAt).toLocaleDateString("fr-FR")}
+                </span>
+              </div>
+            </div>
+            {review.title && <p className="font-label text-xs text-[#F4EFFA] mb-1">{review.title}</p>}
+            {review.body && <p className="text-sm text-[#C8B1E4] leading-relaxed">{review.body}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const rentalErrors = {
+  'agent-load-failed': 'Impossible de charger cet agent pour le moment.',
+  'agent-unavailable': 'Cet agent n’est plus disponible à la location beta.',
+  'rental-create-failed': 'Impossible de créer cette location beta pour le moment.',
+  'self-rental-not-allowed': 'Vous ne pouvez pas louer votre propre agent en beta.',
+};
+
+export default async function Page({ params, searchParams }) {
   const { slug } = await params;
   const { agent, error } = await getMarketplaceAgentBySlug(slug);
+  const query = searchParams ? await searchParams : {};
+  const rentalError = typeof query?.error === 'string' ? query.error : null;
+  const profile = await getCurrentProfile();
 
   if (!agent) {
     return (
       <div className="min-h-screen">
-        <Navbar />
+        <Navbar profile={profile} />
         <main className="container py-20">
-          <Link href="/search" className="inline-flex items-center gap-2 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-8">
+          <Link href="/marketplace" className="inline-flex items-center gap-2 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-8">
             <ArrowLeft className="w-4 h-4" />
             Retour marketplace
           </Link>
@@ -48,7 +94,7 @@ export default async function Page({ params }) {
             <p className="text-[#C8B1E4] mb-6">
               {error ? 'La marketplace est temporairement indisponible.' : 'Ce slug ne correspond à aucun agent approuvé dans Supabase.'}
             </p>
-            <Link href="/search">
+            <Link href="/marketplace">
               <Button className="bg-[#532B88] hover:bg-[#7C3AED] text-white border-0">Voir les agents disponibles</Button>
             </Link>
           </div>
@@ -62,9 +108,9 @@ export default async function Page({ params }) {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <Navbar profile={profile} />
       <main className="container py-8">
-        <Link href="/search" className="inline-flex items-center gap-2 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-8">
+        <Link href="/marketplace" className="inline-flex items-center gap-2 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-8">
           <ArrowLeft className="w-4 h-4" />
           Retour marketplace
         </Link>
@@ -115,6 +161,8 @@ export default async function Page({ params }) {
               <ListSection title="Inputs nécessaires" items={agent.requiredInputs} icon={Check} />
               <ListSection title="Livrables attendus" items={agent.deliverables} icon={Check} />
             </div>
+
+            <ReviewSection reviews={agent.reviewSummaries} />
           </section>
 
           <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
@@ -124,7 +172,14 @@ export default async function Page({ params }) {
                 €{agent.fromPrice}
                 <span className="text-base text-[#9B72CF] ml-1">/ {priceModeLabel}</span>
               </p>
-              <p className="text-sm text-[#9B72CF] mb-5">Paiement Stripe non activé. Les demandes seront branchées dans la prochaine phase beta.</p>
+              {rentalError && (
+                <div className="mb-4 rounded-xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-3 text-xs text-[#FCA5A5]">
+                  {rentalErrors[rentalError] || 'Impossible de créer cette location beta.'}
+                </div>
+              )}
+              <p className="text-sm text-[#9B72CF] mb-5">
+                Paiement Stripe non activé. Cette location beta est créée sans paiement réel.
+              </p>
               <form action={createBetaRentalAction.bind(null, 'fr')}>
                 <input type="hidden" name="agent_id" value={agent.id} />
                 <input type="hidden" name="slug" value={agent.slug} />
@@ -148,6 +203,12 @@ export default async function Page({ params }) {
                   <p className="text-[11px] text-[#9B72CF]">Créateur vérifié AgentHub</p>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-4">
+              <p className="font-label text-[10px] text-[#9B72CF] mb-2">Retours vérifiés</p>
+              <div className="text-[#F4EFFA] font-stat text-sm">{agent.reviews} avis</div>
+              <p className="text-xs text-[#9B72CF] mt-2">Note moyenne basée sur les évaluations post-location.</p>
             </div>
 
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-4">

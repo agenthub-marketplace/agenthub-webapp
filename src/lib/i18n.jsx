@@ -295,6 +295,13 @@ const DICT = {
 };
 
 // Same dictionary fallback for missing keys
+export function translate(locale, key, vars) {
+  const lang = DICT[locale] ? locale : 'fr';
+  let value = (DICT[lang] && DICT[lang][key]) || DICT.fr[key] || key;
+  if (vars) Object.keys(vars).forEach(k => { value = value.replace(`{${k}}`, vars[k]); });
+  return value;
+}
+
 const Ctx = createContext({ lang: 'fr', setLang: () => {}, t: (k) => k });
 
 export function LanguageProvider({ children }) {
@@ -307,9 +314,7 @@ export function LanguageProvider({ children }) {
   };
 
   const t = (key, vars) => {
-    let v = (DICT[lang] && DICT[lang][key]) || DICT.fr[key] || key;
-    if (vars) Object.keys(vars).forEach(k => { v = v.replace(`{${k}}`, vars[k]); });
-    return v;
+    return translate(lang, key, vars);
   };
 
   return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;

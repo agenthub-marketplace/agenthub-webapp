@@ -33,6 +33,13 @@ export type MarketplaceAgent = {
   deliverables: string[];
   limitations: string[];
   dataHandlingNotes: string | null;
+  reviewSummaries: {
+    id: string;
+    rating: number;
+    title: string | null;
+    body: string | null;
+    createdAt: string;
+  }[];
 };
 
 export type MarketplaceCategory = {
@@ -71,6 +78,22 @@ type AgentRow = {
         data_handling_notes: string | null;
       }[]
     | null;
+  agent_reviews:
+    | {
+        id: string;
+        rating: number;
+        title: string | null;
+        body: string | null;
+        created_at: string;
+      }
+    | {
+        id: string;
+        rating: number;
+        title: string | null;
+        body: string | null;
+        created_at: string;
+      }[]
+    | null;
 };
 
 function readSingle<T>(value: T | T[] | null) {
@@ -91,6 +114,8 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
   const creator = readSingle(row.creator_profiles);
   const version = readSingle(row.agent_versions);
   const creatorName = creator?.public_name ?? "AgentHub Creator";
+  const reviews = Array.isArray(row.agent_reviews) ? row.agent_reviews : row.agent_reviews ? [row.agent_reviews] : [];
+  const rating = reviews.length > 0 ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length : 0;
 
   return {
     id: row.id,
@@ -100,8 +125,8 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     description: row.description,
     category: category?.name ?? "Business agents",
     categoryId: category?.slug ?? "business-agents",
-    rating: 0,
-    reviews: 0,
+    rating,
+    reviews: reviews.length,
     fromPrice: Math.max(0, Math.round((row.starting_price_cents ?? 0) / 100)),
     priceMode: row.pricing_type,
     creator: {
@@ -123,6 +148,15 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     deliverables: version?.deliverables ?? [],
     limitations: version?.limitations ?? [],
     dataHandlingNotes: version?.data_handling_notes ?? null,
+    reviewSummaries: reviews
+      .map((review) => ({
+        id: review.id,
+        rating: review.rating,
+        title: review.title,
+        body: review.body,
+        createdAt: review.created_at,
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   };
 }
 
@@ -136,7 +170,7 @@ export async function getMarketplaceAgents() {
   const { data, error } = await supabase
     .from("agents")
     .select(
-      "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes)",
+      "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)",
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false })

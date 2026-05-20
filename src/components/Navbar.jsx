@@ -118,7 +118,7 @@ export default function Navbar({ profile = null }) {
       : []),
   ];
   const links = [
-    { href: '/search', label: t('nav.discoveragents'), icon: Search },
+    { href: `${routePrefix}/search`, label: t('nav.discoveragents'), icon: Search },
     { href: '/workspace', label: t('nav.workspace'), icon: MessageSquare },
     { href: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy },
     ...roleLinks,

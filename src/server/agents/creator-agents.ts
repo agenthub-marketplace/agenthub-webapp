@@ -47,6 +47,7 @@ export type CreatorAgentsResult = {
 };
 
 export type CreatorProfileLookup = {
+  id: string | null;
   creatorProfileMissing: boolean;
   error: string | null;
 };
@@ -80,6 +81,7 @@ export async function getCreatorProfileForUser(userId: string): Promise<CreatorP
 
   if (!supabase) {
     return {
+      id: null,
       creatorProfileMissing: false,
       error: "missing-config",
     };
@@ -93,12 +95,14 @@ export async function getCreatorProfileForUser(userId: string): Promise<CreatorP
 
   if (error) {
     return {
+      id: null,
       creatorProfileMissing: false,
       error: "creator-profile-error",
     };
   }
 
   return {
+    id: data?.id ?? null,
     creatorProfileMissing: !data,
     error: null,
   };

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAuth } from "@/lib/auth/session";
+import { requireCreatorAccess } from "@/lib/auth/session";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 
 type AgentRentalRow = {
   id: string;
@@ -33,7 +35,7 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
   const slug = formData.get("slug");
 
   if (typeof agentId !== "string" || typeof slug !== "string" || !agentId || !slug) {
-    redirect(localizedPath("/search", locale));
+    redirect(localizedPath("/marketplace", locale));
   }
 
   const { data: agent, error: agentError } = await supabase
@@ -49,6 +51,12 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
 
   if (!agent) {
     redirectWithAgentError(locale, slug, "agent-unavailable");
+  }
+
+  const creatorProfile = await getCreatorProfileForUser(profile.id);
+
+  if (!creatorProfile.error && !creatorProfile.creatorProfileMissing && creatorProfile.id === agent.creator_id) {
+    redirectWithAgentError(locale, slug, "self-rental-not-allowed");
   }
 
   const { error: insertError } = await supabase.from("rental_requests").insert({
@@ -69,4 +77,112 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
 
   revalidatePath(localizedPath("/dashboard", locale));
   redirect(`${localizedPath("/dashboard", locale)}?rental=created`);
+}
+
+const rentalTransitions = {
+  accept: { from: "pending", to: "accepted" },
+  reject: { from: "pending", to: "rejected" },
+  start: { from: "accepted", to: "in_progress" },
+} as const;
+
+function redirectWithCreatorRentalError(locale: Locale, error: string): never {
+  redirect(`${localizedPath("/creator/dashboard", locale)}?rentalError=${encodeURIComponent(error)}`);
+}
+
+export async function updateCreatorRentalStatusAction(locale: Locale, formData: FormData) {
+  const profile = await requireCreatorAccess(locale);
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    redirectWithCreatorRentalError(locale, "missing-config");
+  }
+
+  const rentalId = formData.get("rental_id");
+  const action = formData.get("action");
+
+  if (typeof rentalId !== "string" || !rentalId || typeof action !== "string") {
+    redirectWithCreatorRentalError(locale, "invalid-request");
+  }
+
+  const transition = rentalTransitions[action as keyof typeof rentalTransitions];
+
+  if (!transition) {
+    redirectWithCreatorRentalError(locale, "invalid-action");
+  }
+
+  const creatorProfile = await getCreatorProfileForUser(profile.id);
+
+  if (creatorProfile.error || creatorProfile.creatorProfileMissing || !creatorProfile.id) {
+    redirectWithCreatorRentalError(locale, "creator-profile-required");
+  }
+
+  const { data, error } = await supabase
+    .from("rental_requests")
+    .update({ status: transition.to })
+    .eq("id", rentalId)
+    .eq("creator_id", creatorProfile.id)
+    .eq("status", transition.from)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    redirectWithCreatorRentalError(locale, "rental-update-failed");
+  }
+
+  revalidatePath(localizedPath("/creator/dashboard", locale));
+  revalidatePath(localizedPath("/creator", locale));
+  redirect(`${localizedPath("/creator/dashboard", locale)}?rentalUpdated=${encodeURIComponent(rentalId)}`);
+}
+
+export async function deliverCreatorRentalResultAction(locale: Locale, formData: FormData) {
+  const profile = await requireCreatorAccess(locale);
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    redirectWithCreatorRentalError(locale, "missing-config");
+  }
+
+  const rentalId = formData.get("rental_id");
+  const summary = formData.get("summary");
+
+  if (typeof rentalId !== "string" || !rentalId || typeof summary !== "string") {
+    redirectWithCreatorRentalError(locale, "invalid-request");
+  }
+
+  const normalizedSummary = summary.trim();
+
+  if (normalizedSummary.length < 10 || normalizedSummary.length > 8000) {
+    redirectWithCreatorRentalError(locale, "invalid-delivery-summary");
+  }
+
+  const creatorProfile = await getCreatorProfileForUser(profile.id);
+
+  if (creatorProfile.error || creatorProfile.creatorProfileMissing || !creatorProfile.id) {
+    redirectWithCreatorRentalError(locale, "creator-profile-required");
+  }
+
+  const { data: rental, error: rentalError } = await supabase
+    .from("rental_requests")
+    .select("id")
+    .eq("id", rentalId)
+    .eq("creator_id", creatorProfile.id)
+    .eq("status", "in_progress")
+    .maybeSingle<{ id: string }>();
+
+  if (rentalError || !rental) {
+    redirectWithCreatorRentalError(locale, "rental-not-ready");
+  }
+
+  const { error } = await supabase.rpc("deliver_creator_rental_result", {
+    p_rental_request_id: rental.id,
+    p_summary: normalizedSummary,
+  });
+
+  if (error) {
+    redirectWithCreatorRentalError(locale, "delivery-failed");
+  }
+
+  revalidatePath(localizedPath("/creator/dashboard", locale));
+  revalidatePath(localizedPath("/dashboard", locale));
+  redirect(`${localizedPath("/creator/dashboard", locale)}?rentalDelivered=${encodeURIComponent(rental.id)}`);
 }

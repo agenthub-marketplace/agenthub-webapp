@@ -5,18 +5,34 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import AgentCard from '@/components/AgentCard';
-import { activeRentals, rentalHistory, agentsList, currentUser, userReviews } from '@/lib/mock-data';
-import { Download, Edit3, Heart, Star, FileText, AlertTriangle, ArrowRight } from 'lucide-react';
+import { agentsList, userReviews } from '@/lib/mock-data';
+import { Download, Edit3, Heart, Star, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n';
+import { submitRentalReviewAction } from '@/server/reviews/actions';
 
-function timeColor(pct) {
-  if (pct < 20) return { txt: 'text-[#EF4444]', bg: 'bg-[#EF4444]', urgent: true };
-  if (pct < 50) return { txt: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]', urgent: false };
-  return { txt: 'text-[#10B981]', bg: 'bg-[#10B981]', urgent: false };
+function statusBadgeClass(status) {
+  return (
+    {
+      pending: 'bg-[#1A152F] border-[#F59E0B]/30 text-[#F59E0B]',
+      accepted: 'bg-[#1A152F] border-[#8B5CF6]/30 text-[#C4B5FD]',
+      in_progress: 'bg-[#1A152F] border-[#0EA5E9]/30 text-[#7DD3FC]',
+      delivered: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      rejected: 'bg-[#1A152F] border-[#EF4444]/30 text-[#FCA5A5]',
+      cancelled: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
+    }[status] ?? 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]'
+  );
 }
 
-function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
+function DashboardPage({
+  profile,
+  betaRentals = [],
+  betaRentalsError = null,
+  reviewSubmitted = null,
+  reviewError = null,
+  rentalCreated = false,
+  locale,
+}) {
   const { t, lang } = useT();
   const [tab, setTab] = useState('rentals');
   const [memory, setMemory] = useState({
@@ -37,15 +53,107 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
     { id: 'memory', label: t('db.t.memory') },
     { id: 'payments', label: t('db.t.payments') },
   ];
+
+  const effectiveLocale = (locale ?? lang ?? 'fr') === 'en' ? 'en' : 'fr';
+  const reviewAction = submitRentalReviewAction.bind(null, effectiveLocale);
+  const marketplacePath = effectiveLocale === 'en' ? '/en/marketplace' : '/marketplace';
+
+  const historyRows = betaRentals
+    .filter((rental) => ['delivered', 'rejected', 'cancelled'].includes(rental.status))
+    .map((rental) => ({
+      id: rental.id,
+      agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'AgentHub agent'),
+      mode: rental.pricingType,
+      date: new Date(rental.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR'),
+      price: rental.priceCents ?? 0,
+      rating: rental.review?.rating ?? null,
+      dates: new Date(rental.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR'),
+    }));
+
+  const reviewErrorMessage = (() => {
+    if (!reviewError) {
+      return null;
+    }
+
+    if (reviewError === 'invalid-request') {
+      return lang === 'en' ? 'Invalid review request.' : 'Requête d’avis invalide.';
+    }
+
+    if (reviewError === 'review-body-required') {
+      return lang === 'en' ? 'Please write a review message.' : 'Ajoute un commentaire pour l’avis.';
+    }
+
+    if (reviewError === 'review-body-too-short') {
+      return lang === 'en'
+        ? 'Your review must contain at least 5 characters.'
+        : 'Votre avis doit contenir au moins 5 caractères.';
+    }
+
+    if (reviewError === 'rating-required') {
+      return lang === 'en' ? 'Please choose a rating.' : 'Choisissez une note.';
+    }
+
+    if (reviewError === 'invalid-rating') {
+      return lang === 'en' ? 'The rating must be between 1 and 5.' : 'La note doit être comprise entre 1 et 5.';
+    }
+
+    if (reviewError === 'rental-not-delivered') {
+      return lang === 'en'
+        ? 'This beta rental can be reviewed only after it is delivered.'
+        : 'Cette location beta doit être livrée avant de pouvoir être notée.';
+    }
+
+    if (reviewError === 'review-already-exists') {
+      return lang === 'en' ? 'You already reviewed this rental.' : 'Vous avez déjà laissé un avis pour cette location.';
+    }
+
+    if (reviewError === 'self-review-not-allowed') {
+      return lang === 'en'
+        ? 'You cannot review a beta rental for your own agent.'
+        : 'Vous ne pouvez pas noter une location beta de votre propre agent.';
+    }
+
+    if (reviewError === 'review-create-failed') {
+      return lang === 'en'
+        ? 'Unable to save your review right now.'
+        : 'Impossible d’enregistrer l’avis pour le moment.';
+    }
+
+    return lang === 'en' ? 'An unexpected error occurred.' : 'Une erreur inattendue est survenue.';
+  })();
+
+  const greetingName = (profile?.displayName ?? profile?.email ?? '').split(' ')[0] || t('db.name');
   return (
     <div className="min-h-screen ">
       <Navbar profile={profile} />
       <div className="container py-10">
         <div className="mb-8">
           <p className="font-label text-xs text-[#A78BCF] mb-2">{t('db.myaccount')}</p>
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-[#F5F1FA]">{t('db.hello', { name: currentUser.name.split(' ')[0] })}</h1>
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-[#F5F1FA]">{t('db.hello', { name: greetingName })}</h1>
           <p className="text-[#D6C5E8] mt-2">{t('db.subtitle')}</p>
         </div>
+
+        {reviewSubmitted && (
+          <div className="mb-5 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
+            {lang === 'en'
+              ? 'Your review has been submitted. Thanks for the feedback.'
+              : 'Votre avis a bien été envoyé. Merci pour votre retour.'}
+          </div>
+        )}
+
+        {rentalCreated && (
+          <div className="mb-5 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
+            {lang === 'en'
+              ? 'Your beta rental has been created. Follow its status from this dashboard.'
+              : 'Votre location beta a bien été créée. Suivez son statut depuis ce tableau de bord.'}
+          </div>
+        )}
+
+        {reviewErrorMessage && (
+          <div className="mb-5 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-3 text-sm text-[#FCA5A5]">
+            {reviewErrorMessage}
+          </div>
+        )}
 
         {/* Recommended agents row */}
         <section className="mb-10">
@@ -64,8 +172,8 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
               ))}
             </div>
           </div>
-          <div className="text-center mt-6">
-            <Link href="/search"><Button variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F] hover:text-[#F5F1FA] h-11 px-6">{t('db.seeall')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
+            <div className="text-center mt-6">
+            <Link href={marketplacePath}><Button variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F] hover:text-[#F5F1FA] h-11 px-6">{t('db.seeall')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
           </div>
         </section>
 
@@ -126,7 +234,7 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
                         </div>
                       </div>
                       <div className="flex items-center justify-between mb-4">
-                        <span className="rounded-full border border-[#F59E0B]/30 bg-[#1A152F] px-2.5 py-1 text-[10px] font-label text-[#F59E0B]">
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-label ${statusBadgeClass(rental.status)}`}>
                           {rental.status}
                         </span>
                         <span className="font-stat text-[#F5F1FA]">
@@ -138,6 +246,77 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
                           ? 'Created without payment during the private beta.'
                           : 'Créée sans paiement pendant la beta privée.'}
                       </p>
+                      {rental.result && (
+                        <div className="mb-4 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-3 text-xs text-[#D6C5E8]">
+                          <p className="font-label mb-1 text-[10px] text-[#6EE7B7]">
+                            {lang === 'en' ? 'DELIVERED RESULT' : 'RÉSULTAT LIVRÉ'}
+                          </p>
+                          <p className="leading-relaxed">{rental.result.summary}</p>
+                        </div>
+                      )}
+                      {!rental.result && rental.status === 'delivered' && (
+                        <div className="mb-4 rounded-xl border border-[#2F184B] bg-[#07050F] p-3 text-xs text-[#C8B1E4]">
+                          {lang === 'en' ? 'Result is pending creation by the creator.' : 'Le résultat est en préparation côté créateur.'}
+                        </div>
+                      )}
+
+                      {rental.status === 'delivered' && rental.result && !rental.review && (
+                        <form action={reviewAction} className="mt-4 space-y-2">
+                          <input type="hidden" name="rental_id" value={rental.id} />
+                          <div>
+                            <label className="mb-1 block text-xs text-[#A78BCF]">Note</label>
+                            <select
+                              name="rating"
+                              required
+                              defaultValue=""
+                              className="w-full rounded-lg bg-[#07050F] border border-[#2F184B] px-3 py-2 text-sm text-[#F5F1FA]"
+                            >
+                              <option value="" disabled>
+                                {lang === 'en' ? 'Choose a rating' : 'Choisir une note'}
+                              </option>
+                              {[1, 2, 3, 4, 5].map((value) => (
+                                <option key={value} value={value}>
+                                  {value}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <input
+                            name="title"
+                            maxLength={200}
+                            placeholder={lang === 'en' ? 'Title (optional)' : 'Titre (optionnel)'}
+                            className="w-full rounded-lg bg-[#07050F] border border-[#2F184B] px-3 py-2 text-sm text-[#F5F1FA]"
+                          />
+                          <textarea
+                            name="body"
+                            required
+                            minLength={5}
+                            maxLength={1200}
+                            rows={4}
+                            placeholder={lang === 'en' ? 'Your feedback on the delivery' : 'Votre avis sur la livraison'}
+                            className="w-full rounded-lg bg-[#07050F] border border-[#2F184B] px-3 py-2 text-sm text-[#F5F1FA]"
+                          />
+                          <Button type="submit" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                            {lang === 'en' ? 'Send review' : 'Publier l’avis'}
+                          </Button>
+                        </form>
+                      )}
+
+                      {rental.review && (
+                        <div className="mt-4 rounded-xl border border-[#2F184B] bg-[#0F0A1E] p-3 text-xs text-[#C8B1E4]">
+                          <p className="mb-1 text-[11px] font-label text-[#9B72CF]">
+                            {lang === 'en' ? 'Your review' : 'Votre avis'}
+                          </p>
+                          <div className="mb-1 flex gap-1">
+                            {Array.from({ length: rental.review.rating }).map((_, index) => (
+                              <Star key={index} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" />
+                            ))}
+                          </div>
+                          {rental.review.title && <p className="mb-1 font-label text-[#F4EFFA]">{rental.review.title}</p>}
+                          {rental.review.body && <p className="leading-relaxed">{rental.review.body}</p>}
+                        </div>
+                      )}
+
                       {rental.agent?.slug && (
                         <Link href={`/agents/${rental.agent.slug}`}>
                           <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
@@ -151,32 +330,23 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
               </div>
             )}
 
-            <div className="grid md:grid-cols-3 gap-5">
-            {activeRentals.map(r => {
-              const pct = (r.timeRemainingHours/r.totalHours)*100;
-              const col = timeColor(pct);
-              return (
-                <div key={r.id} className="bg-[#110D24] border border-[#251A40] rounded-2xl p-5 card-hover">
-                  <div className="flex items-start gap-3 mb-4">
-                    <AgentAvatar index={r.gradient} size="md"/>
-                    <div className="flex-1">
-                      <h3 className="font-display font-bold text-lg text-[#F5F1FA]">{r.agentName}</h3>
-                      <p className="text-xs text-[#A78BCF]">{r.mode}</p>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between text-xs mb-1.5"><span className="text-[#A78BCF]">{lang==='en'?'Time remaining':'Temps restant'}</span><span className={`font-stat ${col.txt}`}>{r.timeRemainingHours >= 24 ? `${Math.floor(r.timeRemainingHours/24)}${lang==='en'?'d':'j'} ${r.timeRemainingHours%24}h` : `${r.timeRemainingHours}h`}</span></div>
-                    <div className="h-2 rounded-full bg-[#1A152F]"><div className={`h-full rounded-full ${col.bg}`} style={{ width: `${pct}%` }}/></div>
-                  </div>
-                  {col.urgent && <p className="text-xs text-[#EF4444] mb-3 flex items-center gap-1"><AlertTriangle className="w-3 h-3"/>{t('db.expsoon')}</p>}
-                  <div className="flex gap-2">
-                    <Link href="/workspace" className="flex-1"><Button size="sm" className="w-full bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0">{t('db.openws')}</Button></Link>
-                    <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">{t('a.extend')}</Button>
-                  </div>
-                </div>
-              );
-            })}
-            </div>
+            {!betaRentalsError && betaRentals.length === 0 && (
+              <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-8 text-center">
+                <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
+                  {lang === 'en' ? 'No beta rentals yet' : 'Aucune location beta pour l’instant'}
+                </h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-[#A78BCF]">
+                  {lang === 'en'
+                    ? 'Rent an approved agent from the marketplace to track it here.'
+                    : 'Louez un agent approuvé depuis la marketplace pour le suivre ici.'}
+                </p>
+                <Link href={marketplacePath} className="mt-5 inline-flex">
+                  <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                    {lang === 'en' ? 'Explore agents' : 'Explorer les agents'}
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -186,28 +356,38 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
               <p className="font-display font-bold">{lang==='en'?'Rental history':'Historique des locations'}</p>
               <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]"><Download className="w-3.5 h-3.5 mr-1"/>{t('cr.exportcsv')}</Button>
             </div>
-            <table className="w-full text-sm min-w-[700px]">
-              <thead><tr className="text-[10px] font-label text-[#A78BCF] border-b border-[#251A40]">
-                <th className="text-left p-3">{t('db.h.agent')}</th><th>{t('db.h.mode')}</th><th>{t('db.h.dates')}</th><th className="text-right">{t('db.h.price')}</th><th>{t('db.h.rating')}</th><th className="text-right pr-4">{t('db.h.actions')}</th>
-              </tr></thead>
-              <tbody>
-                {rentalHistory.map(h => (
-                  <tr key={h.id} className="border-b border-[#251A40] hover:bg-[#1A152F]">
-                    <td className="p-3 text-[#F5F1FA] font-display font-semibold">{h.agent}</td>
-                    <td className="text-[#D6C5E8]">{h.mode}</td>
-                    <td className="text-[#A78BCF]">{h.dates}</td>
-                    <td className="text-right font-stat text-[#F5F1FA]">€{h.price}</td>
-                    <td><div className="flex gap-0.5">{Array.from({length:h.rating}).map((_,i)=><Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]"/>)}</div></td>
-                    <td className="text-right pr-4">
-                      <div className="flex justify-end gap-1">
-                        <button className="text-xs px-2 py-1 rounded bg-[#1A152F] hover:bg-[#251A40] text-[#D6C5E8]">{t('db.rerent')}</button>
-                        <button className="p-1.5 rounded hover:bg-[#1A152F] text-[#A78BCF]"><FileText className="w-3.5 h-3.5"/></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {historyRows.length === 0 ? (
+              <div className="p-6 text-sm text-[#A78BCF]">
+                {lang === 'en' ? 'No completed rentals yet.' : 'Aucun historique de location pour l’instant.'}
+              </div>
+            ) : (
+              <table className="w-full text-sm min-w-[700px]">
+                <thead><tr className="text-[10px] font-label text-[#A78BCF] border-b border-[#251A40]">
+                  <th className="text-left p-3">{t('db.h.agent')}</th><th>{t('db.h.mode')}</th><th>{t('db.h.dates')}</th><th className="text-right">{t('db.h.price')}</th><th>{t('db.h.rating')}</th><th className="text-right pr-4">{t('db.h.actions')}</th>
+                </tr></thead>
+                <tbody>
+                  {historyRows.map((h) => (
+                    <tr key={h.id} className="border-b border-[#251A40] hover:bg-[#1A152F]">
+                      <td className="p-3 text-[#F5F1FA] font-display font-semibold">{h.agent}</td>
+                      <td className="text-[#D6C5E8]">{h.mode}</td>
+                      <td className="text-[#A78BCF]">{h.dates}</td>
+                      <td className="text-right font-stat text-[#F5F1FA]">€{Math.round(h.price / 100)}</td>
+                      <td>
+                        <div className="flex gap-0.5">
+                          {Array.from({ length: h.rating ?? 0 }).map((_,i)=><Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]"/>)}
+                        </div>
+                      </td>
+                      <td className="text-right pr-4">
+                        <div className="flex justify-end gap-1">
+                          <button className="text-xs px-2 py-1 rounded bg-[#1A152F] hover:bg-[#251A40] text-[#D6C5E8]">{t('db.rerent')}</button>
+                          <button className="p-1.5 rounded hover:bg-[#1A152F] text-[#A78BCF]"><FileText className="w-3.5 h-3.5"/></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
@@ -259,36 +439,16 @@ function DashboardPage({ profile, betaRentals = [], betaRentalsError = null }) {
         )}
 
         {tab === 'payments' && (
-          <div className="space-y-6">
-            <div className="bg-[#110D24] border border-[#251A40] rounded-2xl p-5">
-              <p className="font-label text-xs text-[#A78BCF] mb-3">{t('db.pm')}</p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-8 rounded bg-gradient-to-br from-[#1A1F71] to-[#0066B2] flex items-center justify-center text-white font-bold text-xs">VISA</div>
-                  <div>
-                    <p className="text-[#F5F1FA] font-display">{t('db.pmend')}</p>
-                    <p className="text-xs text-[#A78BCF]">{t('db.pmexp')}</p>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8]">{t('db.payadd')}</Button>
-              </div>
-            </div>
-            <div className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-[#251A40]"><p className="font-display font-bold">{t('db.payhist')}</p></div>
-              <table className="w-full text-sm">
-                <thead><tr className="text-[10px] font-label text-[#A78BCF] border-b border-[#251A40]"><th className="text-left p-3">{t('db.h.dates')}</th><th>{t('db.h.agent')}</th><th className="text-right">{t('db.h.amount')}</th><th className="text-right pr-4">{t('db.h.invoice')}</th></tr></thead>
-                <tbody>
-                  {rentalHistory.map(h => (
-                    <tr key={h.id} className="border-b border-[#251A40]">
-                      <td className="p-3 text-[#D6C5E8]">{h.dates}</td>
-                      <td className="text-[#F5F1FA]">{h.agent}</td>
-                      <td className="text-right font-stat text-[#F5F1FA]">€{h.price}</td>
-                      <td className="text-right pr-4"><button className="text-xs text-[#A78BCF] hover:text-[#F5F1FA] inline-flex items-center gap-1"><Download className="w-3 h-3"/>PDF</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6">
+            <p className="font-label text-xs text-[#A78BCF] mb-2">{t('db.pm')}</p>
+            <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
+              {lang === 'en' ? 'Payments are not active during the private beta.' : 'Les paiements ne sont pas actifs pendant la beta privée.'}
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm text-[#A78BCF]">
+              {lang === 'en'
+                ? 'Beta rentals are currently created without Stripe checkout, stored payment methods, invoices, or charges.'
+                : 'Les locations beta sont actuellement créées sans checkout Stripe, moyen de paiement enregistré, facture ou débit.'}
+            </p>
           </div>
         )}
       </div>

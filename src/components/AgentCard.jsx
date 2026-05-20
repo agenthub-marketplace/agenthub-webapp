@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n';
 
 export default function AgentCard({ agent, variant = 'dark' }) {
   const { t } = useT();
+  const ratingLabel = agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'New';
   const isLight = variant === 'light';
   const card = isLight
     ? 'bg-white border border-[#E8DFCB] shadow-[0_4px_24px_rgba(107,63,160,0.08)]'
@@ -35,7 +36,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
         <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full mb-3 ${chip}`}>{agent.category}</span>
         <div className="flex items-center gap-1.5 mb-3">
           <Star className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" />
-          <span className={`font-stat text-sm ${title}`}>{agent.rating}</span>
+          <span className={`font-stat text-sm ${title}`}>{ratingLabel}</span>
           <span className={`text-xs ${muted}`}>({agent.reviews} {t('g.reviews')})</span>
         </div>
         <div className={`mt-auto pt-3 border-t ${divider} flex items-center justify-between`}>
