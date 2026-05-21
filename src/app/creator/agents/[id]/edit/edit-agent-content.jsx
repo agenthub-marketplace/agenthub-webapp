@@ -21,6 +21,7 @@ const errorMessages = {
   'agent-load-failed': 'Impossible de charger cet agent.',
   'version-update-failed': 'Impossible de mettre à jour la version de validation.',
   'agent-update-failed': 'Impossible de resoumettre l’agent.',
+  'changes-summary-required': 'Expliquez les modifications apportées en au moins 10 caractères.',
   'missing-config': 'Configuration Supabase manquante.',
 };
 
@@ -46,8 +47,20 @@ function euros(cents) {
   return String(cents / 100);
 }
 
+function cleanAdminNotes(notes) {
+  return (notes || '')
+    .replace(/^\s*Modifications demandées\s*:\s*/i, '')
+    .trim();
+}
+
 function EditAgentPage({ agentResult, categories = [], error, profile }) {
   const agent = agentResult?.agent;
+  const adminNotes = cleanAdminNotes(agent?.latestAdminReview?.notes);
+  const adminFeedbackTitle = agent?.latestAdminReview?.isChangesRequest
+    ? 'Modifications demandées'
+    : agent?.latestAdminReview?.decision === 'rejected' || agent?.status === 'rejected'
+      ? 'Refus admin'
+      : 'Retour admin';
 
   return (
     <div className="min-h-screen">
@@ -81,6 +94,13 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
         {agent && (
           <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
             <input type="hidden" name="agent_id" value={agent.id} />
+            {adminNotes && (
+              <section className="rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-5 text-sm text-[#F6C177]">
+                <p className="font-label mb-2 text-xs text-[#F59E0B]">Retour admin</p>
+                <h2 className="font-display mb-2 text-xl font-bold text-[#F4EFFA]">{adminFeedbackTitle}</h2>
+                <p className="whitespace-pre-line leading-relaxed">{adminNotes}</p>
+              </section>
+            )}
             <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
               <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">Informations principales</h2>
               <div className="grid gap-5 md:grid-cols-2">
@@ -139,6 +159,16 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                   </select>
                 </Field>
               </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <h2 className="font-display mb-2 text-2xl font-bold text-[#F4EFFA]">Modifications apportées</h2>
+              <p className="mb-5 text-sm text-[#C8B1E4]">
+                Résumez uniquement ce que vous avez corrigé. L’admin verra ce résumé avec la fiche complète mise à jour.
+              </p>
+              <Field label="Résumé des corrections" hint="Exemple : limites juridiques clarifiées, prix fixe détaillé, exemples de documents ajoutés." wide>
+                <textarea name="changes_summary" required minLength={10} rows={4} className={inputClass} />
+              </Field>
             </section>
 
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">

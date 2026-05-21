@@ -41,6 +41,12 @@ export type CreatorAgentEditItem = {
     deliverables: string[];
     limitations: string[];
   } | null;
+  latestAdminReview: {
+    decision: AgentStatus;
+    notes: string | null;
+    createdAt: string;
+    isChangesRequest: boolean;
+  } | null;
 };
 
 type AgentCategoryRow = {
@@ -320,6 +326,7 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
   }
 
   let version: CreatorAgentEditItem["version"] = null;
+  let latestAdminReview: CreatorAgentEditItem["latestAdminReview"] = null;
 
   if (agent.active_version_id) {
     const { data: versionRow } = await supabase
@@ -338,6 +345,23 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
     }
   }
 
+  const { data: latestReview } = await supabase
+    .from("admin_reviews")
+    .select("decision,notes,created_at")
+    .eq("agent_id", agent.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<Omit<AdminReviewFeedbackRow, "agent_id">>();
+
+  if (latestReview) {
+    latestAdminReview = {
+      decision: latestReview.decision,
+      notes: latestReview.notes,
+      createdAt: latestReview.created_at,
+      isChangesRequest: agent.status === "in_review" && latestReview.decision === "in_review" && Boolean(latestReview.notes?.trim()),
+    };
+  }
+
   return {
     agent: {
       id: agent.id,
@@ -350,6 +374,7 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
       startingPriceCents: agent.starting_price_cents ?? null,
       riskLevel: agent.risk_level,
       version,
+      latestAdminReview,
     },
     creatorProfileMissing: false,
     error: null,

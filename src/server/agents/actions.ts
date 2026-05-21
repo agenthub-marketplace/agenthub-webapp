@@ -249,12 +249,17 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     "pricing_type",
     "starting_price_eur",
     "risk_level",
+    "changes_summary",
   ] as const;
   const values = Object.fromEntries(editableFields.map((field) => [field, readText(formData, field)]));
   const missingRequiredField = editableFields.some((field) => values[field].length === 0);
 
   if (missingRequiredField) {
     redirectWithEditError(locale, agentId, "required");
+  }
+
+  if (values.changes_summary.length < 10) {
+    redirectWithEditError(locale, agentId, "changes-summary-required");
   }
 
   if (!isPricingType(values.pricing_type)) {
@@ -305,8 +310,6 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     required_inputs: readLines(values.required_inputs),
     deliverables: readLines(values.deliverables),
     limitations: readLines(values.known_limits),
-    data_handling_notes: `Risk level declared by creator: ${values.risk_level}`,
-    changelog: "Creator resubmission after admin feedback.",
   };
 
   if (!agent.active_version_id) {
@@ -326,6 +329,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     p_required_inputs: versionPayload.required_inputs,
     p_deliverables: versionPayload.deliverables,
     p_limitations: versionPayload.limitations,
+    p_changelog: values.changes_summary,
   });
 
   if (resubmitError) {

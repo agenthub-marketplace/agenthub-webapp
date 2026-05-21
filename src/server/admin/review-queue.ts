@@ -13,6 +13,7 @@ export type AdminReviewQueueItem = {
   categoryName: string | null;
   creatorName: string | null;
   createdAt: string;
+  resubmissionChangelog: string | null;
   latestAdminReview: {
     decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
     notes: string | null;
@@ -28,9 +29,15 @@ type AgentQueueRow = {
   status: "submitted" | "in_review";
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   pricing_type: "task" | "project";
+  active_version_id: string | null;
   created_at: string;
   agent_categories: { name: string } | { name: string }[] | null;
   creator_profiles: { public_name: string } | { public_name: string }[] | null;
+};
+
+type AgentVersionReviewRow = {
+  id: string;
+  changelog: string | null;
 };
 
 type AdminReviewFeedbackRow = {
@@ -59,7 +66,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
   const { data, error } = await supabase
     .from("agents")
     .select(
-      "id,name,summary,description,status,risk_level,pricing_type,created_at,agent_categories(name),creator_profiles(public_name)",
+      "id,name,summary,description,status,risk_level,pricing_type,active_version_id,created_at,agent_categories(name),creator_profiles(public_name)",
     )
     .in("status", ["submitted", "in_review"])
     .order("created_at", { ascending: true })
@@ -71,7 +78,24 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
 
   const agentRows = data ?? [];
   const agentIds = agentRows.map((agent) => agent.id);
+  const activeVersionIds = agentRows
+    .map((agent) => agent.active_version_id)
+    .filter((versionId): versionId is string => Boolean(versionId));
   const latestReviewsByAgent = new Map<string, AdminReviewQueueItem["latestAdminReview"]>();
+  const changelogByVersion = new Map<string, string | null>();
+
+  const uniqueActiveVersionIds = Array.from(new Set(activeVersionIds));
+
+  if (uniqueActiveVersionIds.length > 0) {
+    const { data: versionsData } = await supabase.rpc("get_admin_agent_version_changelogs", {
+      p_version_ids: uniqueActiveVersionIds,
+    });
+    const versions = Array.isArray(versionsData) ? (versionsData as AgentVersionReviewRow[]) : [];
+
+    for (const version of versions) {
+      changelogByVersion.set(version.id, version.changelog);
+    }
+  }
 
   if (agentIds.length > 0) {
     const { data: reviews } = await supabase
@@ -104,6 +128,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       categoryName: readSingle(agent.agent_categories)?.name ?? null,
       creatorName: readSingle(agent.creator_profiles)?.public_name ?? null,
       createdAt: agent.created_at,
+      resubmissionChangelog: agent.active_version_id ? changelogByVersion.get(agent.active_version_id) ?? null : null,
       latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
     })),
     error: null,

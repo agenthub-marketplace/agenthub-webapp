@@ -47,6 +47,10 @@ function cleanAdminNotes(notes) {
     .trim();
 }
 
+function isCreatorResubmissionNote(note) {
+  return Boolean(note && note !== 'Initial creator submission.' && note !== 'Creator resubmission after admin feedback.');
+}
+
 function statusLabel(agent) {
   if (hasChangesRequest(agent)) {
     return 'MODIFS DEMANDÉES';
@@ -167,6 +171,12 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                   <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Détails de validation</p>
                   <pre className="text-xs bg-[#0A0816] border border-[#251A40] rounded-lg p-3 text-[#D6C5E8] overflow-x-auto font-mono">Version de validation créée. Les capacités, inputs et livrables seront détaillés dans la prochaine étape admin.</pre>
                 </div>
+                {isCreatorResubmissionNote(activeSelection.resubmissionChangelog) && (
+                  <div className="mb-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
+                    <p className="font-label mb-1 text-[10px] text-[#10B981]">Modifications apportées par le créateur</p>
+                    <p className="whitespace-pre-line leading-relaxed">{activeSelection.resubmissionChangelog}</p>
+                  </div>
+                )}
                 {activeSelection.status === 'in_review' && (
                   <div className={`mb-4 rounded-xl border p-3 text-sm ${hasChangesRequest(activeSelection) ? 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]' : 'border-[#8B5CF6]/35 bg-[#8B5CF6]/10 text-[#C4B5FD]'}`}>
                     <p className="font-label mb-1 text-[10px]">
