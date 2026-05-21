@@ -53,18 +53,19 @@ function buildRequestBrief(input: {
 }
 
 export async function createBetaRentalAction(locale: Locale, formData: FormData) {
-  const profile = await requireAuth(locale);
-  const supabase = await createSupabaseServerClient();
-
-  if (!supabase) {
-    redirect(localizedPath("/auth/login", locale));
-  }
-
   const agentId = formData.get("agent_id");
   const slug = formData.get("slug");
 
   if (typeof agentId !== "string" || typeof slug !== "string" || !agentId || !slug) {
     redirect(localizedPath("/marketplace", locale));
+  }
+
+  const agentPath = localizedPath(`/agents/${slug}`, locale);
+  const profile = await requireAuth(locale, agentPath);
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    redirect(`${localizedPath("/auth/login", locale)}?next=${encodeURIComponent(agentPath)}&error=missing-config`);
   }
 
   const rentalInput = {
@@ -110,7 +111,7 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
     agent_id: agent.id,
     user_id: profile.id,
     creator_id: agent.creator_id,
-    status: "pending",
+    status: "accepted",
     pricing_type: agent.pricing_type,
     quoted_price_cents: agent.starting_price_cents,
     currency: agent.currency,
@@ -133,9 +134,7 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
 }
 
 const rentalTransitions = {
-  accept: { from: "pending", to: "accepted" },
-  reject: { from: "pending", to: "rejected" },
-  start: { from: "accepted", to: "in_progress" },
+  start: { from: ["pending", "accepted"], to: "in_progress" },
 } as const;
 
 function redirectWithCreatorRentalError(locale: Locale, error: string): never {
@@ -143,7 +142,7 @@ function redirectWithCreatorRentalError(locale: Locale, error: string): never {
 }
 
 export async function updateCreatorRentalStatusAction(locale: Locale, formData: FormData) {
-  await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale, localizedPath("/creator/dashboard", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -174,7 +173,7 @@ export async function updateCreatorRentalStatusAction(locale: Locale, formData: 
     .update({ status: transition.to })
     .eq("id", rentalId)
     .eq("creator_id", creatorProfile.id)
-    .eq("status", transition.from)
+    .in("status", transition.from)
     .select("id")
     .maybeSingle<{ id: string }>();
 
@@ -188,7 +187,7 @@ export async function updateCreatorRentalStatusAction(locale: Locale, formData: 
 }
 
 export async function deliverCreatorRentalResultAction(locale: Locale, formData: FormData) {
-  await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale, localizedPath("/creator/dashboard", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {

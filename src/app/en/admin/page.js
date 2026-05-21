@@ -5,7 +5,7 @@ import AdminContent from '../../admin/admin-content';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage({ searchParams }) {
-  const profile = await requireAdminAccess('en');
+  const profile = await requireAdminAccess('en', '/en/admin');
   const reviewQueue = await getAdminReviewQueue();
   const params = searchParams ? await searchParams : {};
 

@@ -187,7 +187,7 @@ export default async function Page({ params, searchParams }) {
                 </div>
               )}
               <p className="text-sm text-[#9B72CF] mb-5">
-                Paiement Stripe non activé. Cette location beta est créée sans paiement réel ; le créateur confirmera les détails pendant la beta.
+                Paiement Stripe non activé. Cette location beta est activée automatiquement sans paiement réel ; le créateur reçoit votre brief pour traiter la demande.
               </p>
               <form action={createBetaRentalAction.bind(null, 'fr')} className="space-y-3">
                 <input type="hidden" name="agent_id" value={agent.id} />

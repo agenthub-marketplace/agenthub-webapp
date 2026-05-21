@@ -141,7 +141,12 @@ export default function Navbar({ profile = null }) {
   ];
   const links = [
     { href: `${routePrefix}/search`, label: t('nav.discoveragents'), icon: Search },
-    { href: '/workspace', label: t('nav.workspace'), icon: MessageSquare },
+    {
+      href: `${routePrefix}/dashboard`,
+      label: t('nav.workspace'),
+      icon: MessageSquare,
+      activePrefix: `${routePrefix}/dashboard`,
+    },
     { href: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy },
     ...roleLinks,
   ];
@@ -394,6 +399,10 @@ export default function Navbar({ profile = null }) {
                         <Link href="/profile" onClick={() => setUserOpen(false)} className="flex items-center gap-3 bg-[#1A152F] px-3 py-2.5 text-sm text-[#F5F1FA] transition-colors hover:bg-[#251A40]">
                           <User className="h-4 w-4" />
                           {t('nav.myprofile')}
+                        </Link>
+                        <Link href={`${routePrefix}/dashboard`} onClick={() => setUserOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#A78BCF] transition-colors hover:bg-[#251A40] hover:text-[#F5F1FA]">
+                          <MessageSquare className="h-4 w-4" />
+                          {t('nav.workspace')}
                         </Link>
                         <Link href="/settings" onClick={() => setUserOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#A78BCF] transition-colors hover:bg-[#251A40] hover:text-[#F5F1FA]">
                           <SettingsIcon className="h-4 w-4" />

@@ -79,7 +79,7 @@ function readPriceCents(value: string) {
 }
 
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
-  await requireCreatorAccess(locale);
+  await requireCreatorAccess(locale, localizedPath("/creator/agents/new", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {

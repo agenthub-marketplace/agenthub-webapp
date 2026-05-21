@@ -35,7 +35,7 @@ function redirectWithError(locale: Locale, error: string): never {
 
 export async function reviewAgentAction(formData: FormData) {
   const locale = readLocale(formData);
-  const profile = await requireAdminAccess(locale);
+  const profile = await requireAdminAccess(locale, localizedPath("/admin", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {

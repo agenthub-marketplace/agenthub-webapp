@@ -6,7 +6,7 @@ import CreatorDashboardContent from '../../../creator/dashboard/creator-dashboar
 export const dynamic = 'force-dynamic';
 
 export default async function CreatorDashboardPage({ searchParams }) {
-  const profile = await requireCreatorAccess('en');
+  const profile = await requireCreatorAccess('en', '/en/creator/dashboard');
   const creatorAgentsResult = await getCreatorAgentsForUser();
   const creatorRentalsResult = await getCreatorRentalsForUser();
   const params = searchParams ? await searchParams : {};

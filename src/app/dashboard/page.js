@@ -3,7 +3,7 @@ import { getUserRentals } from '@/server/rentals/user-rentals';
 import DashboardContent from './dashboard-content';
 
 export default async function DashboardPage({ searchParams }) {
-  const profile = await requireAuth('fr');
+  const profile = await requireAuth('fr', '/dashboard');
   const { rentals, error } = await getUserRentals(profile.id);
   const params = searchParams ? await searchParams : {};
 

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getRoleHomePath } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env";
-import { localizedPath, type Locale } from "@/lib/i18n/config";
+import { localizedPath, stripLocalePrefix, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/user";
 
@@ -25,13 +25,51 @@ function isStrongPassword(password: string) {
 
 function authRedirect(
   locale: Locale,
-  page: "login" | "signup",
+  page: "login" | "signup" | "reset-password",
   key: "error" | "status",
   value: string,
 ): never {
   const path = localizedPath(`/auth/${page}`, locale);
   const params = new URLSearchParams({ [key]: value });
   redirect(`${path}?${params.toString()}`);
+}
+
+function isEmailSendFailure(error: { code?: string; message?: string; status?: number } | null) {
+  if (!error) {
+    return null;
+  }
+
+  const errorText = `${error.code ?? ""} ${error.message ?? ""}`.toLowerCase();
+
+  if (
+    error.status === 429 ||
+    errorText.includes("rate limit") ||
+    errorText.includes("too many") ||
+    errorText.includes("over_email_send_rate_limit") ||
+    errorText.includes("email rate limit")
+  ) {
+    return "email-rate-limit";
+  }
+
+  if (
+    (error.status && error.status >= 500) ||
+    errorText.includes("smtp") ||
+    errorText.includes("email provider") ||
+    errorText.includes("send email") ||
+    errorText.includes("failed to send")
+  ) {
+    return "email-send-failed";
+  }
+
+  return null;
+}
+
+function safeNextPath(value: string, locale: Locale) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "";
+  }
+
+  return localizedPath(stripLocalePrefix(value), locale);
 }
 
 function getAppUrl() {
@@ -79,6 +117,7 @@ export async function loginAction(locale: Locale, formData: FormData) {
 
   const email = readText(formData, "email");
   const password = readText(formData, "password");
+  const next = safeNextPath(readText(formData, "next"), locale);
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -90,6 +129,10 @@ export async function loginAction(locale: Locale, formData: FormData) {
   }
 
   const role = await getSignedInRole("user");
+  if (next) {
+    redirect(next);
+  }
+
   redirect(getRoleHomePath(role, locale));
 }
 
@@ -151,6 +194,94 @@ export async function signupAction(locale: Locale, formData: FormData) {
   }
 
   authRedirect(locale, "signup", "status", "check-email");
+}
+
+export async function requestPasswordResetAction(locale: Locale, formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    authRedirect(locale, "login", "error", "missing-config");
+  }
+
+  const email = readText(formData, "email");
+
+  if (!email) {
+    authRedirect(locale, "login", "error", "invalid-credentials");
+  }
+
+  const callbackPath = localizedPath("/auth/callback", locale);
+  const resetPath = localizedPath("/auth/reset-password", locale);
+  const redirectTo = `${getAppUrl()}${callbackPath}?next=${encodeURIComponent(resetPath)}`;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  const emailSendFailure = isEmailSendFailure(error);
+  if (emailSendFailure) {
+    authRedirect(locale, "login", "error", emailSendFailure);
+  }
+
+  authRedirect(locale, "login", "status", "password-reset-email-sent");
+}
+
+export async function resendConfirmationEmailAction(locale: Locale, formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    authRedirect(locale, "login", "error", "missing-config");
+  }
+
+  const email = readText(formData, "email");
+
+  if (!email) {
+    authRedirect(locale, "login", "error", "invalid-credentials");
+  }
+
+  const dashboardPath = localizedPath("/dashboard", locale);
+  const callbackPath = localizedPath("/auth/callback", locale);
+  const emailRedirectTo = `${getAppUrl()}${callbackPath}?next=${encodeURIComponent(dashboardPath)}`;
+
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo },
+  });
+
+  const emailSendFailure = isEmailSendFailure(error);
+  if (emailSendFailure) {
+    authRedirect(locale, "login", "error", emailSendFailure);
+  }
+
+  authRedirect(locale, "login", "status", "confirmation-email-sent");
+}
+
+export async function updatePasswordAction(locale: Locale, formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    authRedirect(locale, "reset-password", "error", "missing-config");
+  }
+
+  const password = readText(formData, "password");
+
+  if (!isStrongPassword(password)) {
+    authRedirect(locale, "reset-password", "error", "password-policy");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    authRedirect(locale, "login", "error", "session-expired");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    authRedirect(locale, "reset-password", "error", "invalid-credentials");
+  }
+
+  authRedirect(locale, "login", "status", "password-updated");
 }
 
 export async function logoutAction(locale: Locale) {

@@ -24,6 +24,29 @@ function statusBadgeClass(status) {
   );
 }
 
+function rentalStatusLabel(status, lang) {
+  const labels = {
+    fr: {
+      pending: 'À traiter',
+      accepted: 'Active',
+      in_progress: 'En cours',
+      delivered: 'Livrée',
+      rejected: 'Refusée',
+      cancelled: 'Annulée',
+    },
+    en: {
+      pending: 'To process',
+      accepted: 'Active',
+      in_progress: 'In progress',
+      delivered: 'Delivered',
+      rejected: 'Rejected',
+      cancelled: 'Cancelled',
+    },
+  };
+
+  return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
+}
+
 function StructuredBrief({ inputs, lang }) {
   if (!inputs || typeof inputs !== 'object') {
     return null;
@@ -176,8 +199,8 @@ function DashboardPage({
         {rentalCreated && (
           <div className="mb-5 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
             {lang === 'en'
-              ? 'Your beta rental has been created. Follow its status from this dashboard.'
-              : 'Votre location beta a bien été créée. Suivez son statut depuis ce tableau de bord.'}
+              ? 'Your beta rental is active. Find it anytime from My rentals.'
+              : 'Votre location beta est active. Retrouvez-la à tout moment dans Mes locations.'}
           </div>
         )}
 
@@ -267,7 +290,7 @@ function DashboardPage({
                       </div>
                       <div className="flex items-center justify-between mb-4">
                         <span className={`rounded-full border px-2.5 py-1 text-[10px] font-label ${statusBadgeClass(rental.status)}`}>
-                          {rental.status}
+                          {rentalStatusLabel(rental.status, lang)}
                         </span>
                         <span className="font-stat text-[#F5F1FA]">
                           €{Math.round((rental.priceCents ?? 0) / 100)}

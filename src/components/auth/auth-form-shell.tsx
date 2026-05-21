@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n/config";
 import { localizedPath } from "@/lib/i18n/config";
-import { loginAction, signupAction } from "@/lib/auth/actions";
+import {
+  loginAction,
+  requestPasswordResetAction,
+  resendConfirmationEmailAction,
+  signupAction,
+} from "@/lib/auth/actions";
 import { PasswordInput } from "@/components/auth/password-input";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -36,12 +41,29 @@ const copy = {
     signupLink: "Créer un compte",
     loginLink: "Se connecter",
     checkEmail: "Compte créé. Confirmez votre email avant de vous connecter.",
+    confirmationEmailSent:
+      "Si ce compte attend une confirmation, un nouvel email vient d’être envoyé.",
+    passwordResetEmailSent:
+      "Si ce compte existe, un email de réinitialisation vient d’être envoyé.",
+    passwordUpdated: "Mot de passe mis à jour. Vous pouvez vous connecter.",
     invalid: "Identifiants invalides ou inscription impossible.",
     emailUsed: "Cet email est déjà utilisé. Connectez-vous ou utilisez une autre adresse.",
     missingConfig: "Configuration Supabase manquante.",
     callback: "La confirmation email a échoué. Réessayez.",
+    sessionExpired: "Votre session a expiré. Reconnectez-vous pour continuer.",
+    emailRateLimit: "Trop d’emails envoyés. Attendez quelques minutes puis réessayez.",
+    emailSendFailed:
+      "L’email n’a pas pu être envoyé pour le moment. Réessayez ou contactez l’équipe.",
     passwordPolicy:
       "Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.",
+    forgotTitle: "Mot de passe oublié ?",
+    forgotDescription: "Entrez votre email pour recevoir un lien de réinitialisation.",
+    forgotSubmit: "Envoyer le lien",
+    resendTitle: "Email de confirmation non reçu ?",
+    resendDescription:
+      "Entrez l’email utilisé à l’inscription pour renvoyer la confirmation.",
+    resendLimit: "Si rien n’arrive, attendez quelques minutes : Supabase limite les emails répétés.",
+    resendSubmit: "Renvoyer l’email",
     note: "L’authentification Supabase est active. Les rôles admin restent attribués manuellement.",
   },
   en: {
@@ -67,12 +89,26 @@ const copy = {
     signupLink: "Create account",
     loginLink: "Sign in",
     checkEmail: "Account created. Confirm your email before signing in.",
+    confirmationEmailSent:
+      "If this account is waiting for confirmation, a new email has been sent.",
+    passwordResetEmailSent: "If this account exists, a password reset email has been sent.",
+    passwordUpdated: "Password updated. You can sign in.",
     invalid: "Invalid credentials or signup failed.",
     emailUsed: "This email is already in use. Sign in or use another address.",
     missingConfig: "Missing Supabase configuration.",
     callback: "Email confirmation failed. Try again.",
+    sessionExpired: "Your session expired. Sign in again to continue.",
+    emailRateLimit: "Too many emails sent. Wait a few minutes, then try again.",
+    emailSendFailed: "The email could not be sent right now. Try again or contact the team.",
     passwordPolicy:
       "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character.",
+    forgotTitle: "Forgot your password?",
+    forgotDescription: "Enter your email to receive a reset link.",
+    forgotSubmit: "Send reset link",
+    resendTitle: "No confirmation email?",
+    resendDescription: "Enter the email used at signup to resend confirmation.",
+    resendLimit: "If nothing arrives, wait a few minutes: Supabase rate-limits repeated emails.",
+    resendSubmit: "Resend email",
     note: "Supabase Auth is active. Admin roles are still assigned manually.",
   },
 } as const;
@@ -91,6 +127,18 @@ function statusMessage(searchParams: SearchParams | undefined, locale: Locale) {
     return { tone: "success" as const, text: dictionary.checkEmail };
   }
 
+  if (status === "confirmation-email-sent") {
+    return { tone: "success" as const, text: dictionary.confirmationEmailSent };
+  }
+
+  if (status === "password-reset-email-sent") {
+    return { tone: "success" as const, text: dictionary.passwordResetEmailSent };
+  }
+
+  if (status === "password-updated") {
+    return { tone: "success" as const, text: dictionary.passwordUpdated };
+  }
+
   if (error === "missing-config") {
     return { tone: "error" as const, text: dictionary.missingConfig };
   }
@@ -107,6 +155,18 @@ function statusMessage(searchParams: SearchParams | undefined, locale: Locale) {
     return { tone: "error" as const, text: dictionary.emailUsed };
   }
 
+  if (error === "session-expired") {
+    return { tone: "error" as const, text: dictionary.sessionExpired };
+  }
+
+  if (error === "email-rate-limit") {
+    return { tone: "error" as const, text: dictionary.emailRateLimit };
+  }
+
+  if (error === "email-send-failed") {
+    return { tone: "error" as const, text: dictionary.emailSendFailed };
+  }
+
   if (error) {
     return { tone: "error" as const, text: dictionary.invalid };
   }
@@ -119,6 +179,7 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
   const isLogin = mode === "login";
   const message = statusMessage(searchParams, locale);
   const action = isLogin ? loginAction.bind(null, locale) : signupAction.bind(null, locale);
+  const nextPath = getParam(searchParams, "next") ?? "";
 
   return (
     <main className="min-h-screen bg-[#080612] text-[#F5F1FA]">
@@ -148,6 +209,8 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
           )}
 
           <form action={action} className="mt-6 space-y-4">
+            {isLogin && nextPath && <input type="hidden" name="next" value={nextPath} />}
+
             {!isLogin && (
               <label className="block">
                 <span className="font-label mb-1.5 block text-xs text-[#A78BCF]">{dictionary.name}</span>
@@ -225,6 +288,59 @@ export function AuthFormShell({ mode, locale, searchParams }: AuthFormShellProps
               {isLogin ? dictionary.signupLink : dictionary.loginLink}
             </Link>
           </p>
+
+          {isLogin && (
+            <div className="mt-6 grid gap-3 border-t border-[#251A40] pt-5">
+              <form
+                action={requestPasswordResetAction.bind(null, locale)}
+                className="rounded-2xl border border-[#251A40] bg-[#080612]/60 p-4"
+              >
+                <h2 className="font-display text-sm font-bold text-[#F5F1FA]">{dictionary.forgotTitle}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-[#A78BCF]">{dictionary.forgotDescription}</p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder={dictionary.email}
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-[#251A40] bg-[#080612] px-3 text-sm text-[#F5F1FA] outline-none transition-colors focus:border-[#8B5CF6]"
+                  />
+                  <button
+                    type="submit"
+                    className="h-10 shrink-0 rounded-xl border border-[#8B5CF6]/50 px-4 text-xs font-semibold text-[#F5F1FA] transition-colors hover:bg-[#8B5CF6]/15"
+                  >
+                    {dictionary.forgotSubmit}
+                  </button>
+                </div>
+              </form>
+
+              <form
+                action={resendConfirmationEmailAction.bind(null, locale)}
+                className="rounded-2xl border border-[#251A40] bg-[#080612]/60 p-4"
+              >
+                <h2 className="font-display text-sm font-bold text-[#F5F1FA]">{dictionary.resendTitle}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-[#A78BCF]">{dictionary.resendDescription}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#8A7CA0]">{dictionary.resendLimit}</p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder={dictionary.email}
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-[#251A40] bg-[#080612] px-3 text-sm text-[#F5F1FA] outline-none transition-colors focus:border-[#8B5CF6]"
+                  />
+                  <button
+                    type="submit"
+                    className="h-10 shrink-0 rounded-xl border border-[#8B5CF6]/50 px-4 text-xs font-semibold text-[#F5F1FA] transition-colors hover:bg-[#8B5CF6]/15"
+                  >
+                    {dictionary.resendSubmit}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </section>
 
         <p className="mt-5 text-xs leading-relaxed text-[#8A7CA0]">{dictionary.note}</p>

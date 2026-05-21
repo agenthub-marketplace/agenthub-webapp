@@ -24,7 +24,7 @@ const copy = {
     loadError: 'Impossible de charger vos agents pour le moment.',
     rentalsTitle: 'Locations reçues',
     rentalsEmptyTitle: 'Aucune location reçue',
-    rentalsEmptyText: 'Les locations beta apparaîtront ici lorsqu’un user louera un de vos agents approuvés.',
+    rentalsEmptyText: 'Les locations beta apparaîtront ici dès qu’un user louera un de vos agents approuvés. Elles sont activées automatiquement.',
     rentalsLoadError: 'Impossible de charger vos locations reçues.',
     rentalUpdated: 'Statut de location mis à jour.',
     rentalDelivered: 'Résultat livré. La location est maintenant marquée comme livrée.',
@@ -53,17 +53,15 @@ const copy = {
       suspended: 'Suspendu',
     },
     rentalStatuses: {
-      pending: 'En attente',
-      accepted: 'Acceptée',
+      pending: 'À traiter',
+      accepted: 'À traiter',
       in_progress: 'En cours',
       delivered: 'Livrée',
       rejected: 'Refusée',
       cancelled: 'Annulée',
     },
     actions: {
-      accept: 'Accepter',
-      reject: 'Refuser',
-      start: 'Marquer en cours',
+      start: 'Démarrer le traitement',
     },
   },
   en: {
@@ -80,7 +78,7 @@ const copy = {
     loadError: 'Could not load your agents right now.',
     rentalsTitle: 'Received beta rentals',
     rentalsEmptyTitle: 'No received rentals',
-    rentalsEmptyText: 'Beta rentals will appear here when a user rents one of your approved agents.',
+    rentalsEmptyText: 'Beta rentals will appear here as soon as a user rents one of your approved agents. They are activated automatically.',
     rentalsLoadError: 'Could not load your received rentals.',
     rentalUpdated: 'Rental status updated.',
     rentalDelivered: 'Result delivered. The rental is now marked as delivered.',
@@ -109,17 +107,15 @@ const copy = {
       suspended: 'Suspended',
     },
     rentalStatuses: {
-      pending: 'Pending',
-      accepted: 'Accepted',
+      pending: 'To process',
+      accepted: 'To process',
       in_progress: 'In progress',
       delivered: 'Delivered',
       rejected: 'Rejected',
       cancelled: 'Cancelled',
     },
     actions: {
-      accept: 'Accept',
-      reject: 'Reject',
-      start: 'Mark in progress',
+      start: 'Start processing',
     },
   },
 };
@@ -334,8 +330,8 @@ export default function CreatorDashboardContent({
                   <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.rentalsTitle}</h2>
                   <p className="mt-1 text-xs text-[#9B72CF]">
                     {locale === 'en'
-                      ? 'Private beta rentals are unpaid until Stripe is connected.'
-                      : 'Les locations beta privées ne sont pas payées tant que Stripe n’est pas connecté.'}
+                      ? 'Private beta rentals are activated automatically. Stripe is not connected yet.'
+                      : 'Les locations beta privées sont activées automatiquement. Stripe n’est pas encore connecté.'}
                   </p>
                 </div>
                 <span className="font-stat text-sm text-[#9B72CF]">{rentals.length}</span>
@@ -368,21 +364,7 @@ export default function CreatorDashboardContent({
                         <StructuredBrief inputs={rental.requiredInputs} locale={locale} />
                       </div>
                       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-                        {rental.status === 'pending' && (
-                          <>
-                            <form action={updateRentalAction}>
-                              <input type="hidden" name="rental_id" value={rental.id} />
-                              <input type="hidden" name="action" value="accept" />
-                              <Button size="sm" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">{t.actions.accept}</Button>
-                            </form>
-                            <form action={updateRentalAction}>
-                              <input type="hidden" name="rental_id" value={rental.id} />
-                              <input type="hidden" name="action" value="reject" />
-                              <Button size="sm" variant="outline" className="border-[#EF4444]/40 bg-transparent text-[#FCA5A5] hover:bg-[#EF4444]/10">{t.actions.reject}</Button>
-                            </form>
-                          </>
-                        )}
-                        {rental.status === 'accepted' && (
+                        {(rental.status === 'pending' || rental.status === 'accepted') && (
                           <form action={updateRentalAction}>
                             <input type="hidden" name="rental_id" value={rental.id} />
                             <input type="hidden" name="action" value="start" />

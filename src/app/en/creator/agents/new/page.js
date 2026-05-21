@@ -5,7 +5,7 @@ import NewAgentContent from '../../../../creator/agents/new/new-agent-content';
 export const dynamic = 'force-dynamic';
 
 export default async function NewAgentPage({ searchParams }) {
-  const profile = await requireCreatorAccess('en');
+  const profile = await requireCreatorAccess('en', '/en/creator/agents/new');
   const creatorProfile = await getCreatorProfileForUser();
   const categories = await getAgentCategoryOptions();
   const params = searchParams ? await searchParams : {};

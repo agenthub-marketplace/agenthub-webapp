@@ -54,18 +54,33 @@ export async function getCurrentProfile(): Promise<AuthProfile | null> {
   return data ? mapProfile(data) : null;
 }
 
-export async function requireAuth(locale: Locale) {
+function loginPath(locale: Locale, nextPath?: string) {
+  const path = localizedPath("/auth/login", locale);
+
+  if (!nextPath) {
+    return path;
+  }
+
+  const params = new URLSearchParams({
+    error: "session-expired",
+    next: nextPath,
+  });
+
+  return `${path}?${params.toString()}`;
+}
+
+export async function requireAuth(locale: Locale, nextPath?: string) {
   const profile = await getCurrentProfile();
 
   if (!profile) {
-    redirect(localizedPath("/auth/login", locale));
+    redirect(loginPath(locale, nextPath));
   }
 
   return profile;
 }
 
-export async function requireCreatorAccess(locale: Locale) {
-  const profile = await requireAuth(locale);
+export async function requireCreatorAccess(locale: Locale, nextPath?: string) {
+  const profile = await requireAuth(locale, nextPath);
 
   if (!canAccessCreatorArea(profile.role)) {
     redirect(localizedPath("/dashboard", locale));
@@ -74,8 +89,8 @@ export async function requireCreatorAccess(locale: Locale) {
   return profile;
 }
 
-export async function requireAdminAccess(locale: Locale) {
-  const profile = await requireAuth(locale);
+export async function requireAdminAccess(locale: Locale, nextPath?: string) {
+  const profile = await requireAuth(locale, nextPath);
 
   if (!canAccessAdminArea(profile.role)) {
     redirect(localizedPath("/dashboard", locale));

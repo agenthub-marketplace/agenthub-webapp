@@ -24,7 +24,7 @@ function redirectWithReviewError(locale: Locale, rentalId: string, error: string
 }
 
 export async function submitRentalReviewAction(locale: Locale, formData: FormData) {
-  const profile = await requireAuth(locale);
+  const profile = await requireAuth(locale, localizedPath("/dashboard", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {

@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Star, Award, Heart, ArrowRight, Settings } from 'lucide-react';
+import { Star, Award, Heart, ArrowRight, Settings, MessageSquare } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentCard from '@/components/AgentCard';
@@ -42,6 +42,11 @@ function ProfilePage({ profile }) {
               </div>
               <p className="text-sm text-[#A78BCF] mb-3">{email ? `${email} · ` : ''}{memberSince}</p>
               <div className="flex gap-3">
+                <Link href="/dashboard">
+                  <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]" size="sm">
+                    <MessageSquare className="w-3.5 h-3.5 mr-2"/>{t('nav.workspace')}
+                  </Button>
+                </Link>
                 <Link href="/settings">
                   <Button variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F] hover:text-[#F5F1FA]" size="sm">
                     <Settings className="w-3.5 h-3.5 mr-2"/>{t('profile.edit')}
