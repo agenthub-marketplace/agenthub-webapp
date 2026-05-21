@@ -7,6 +7,8 @@ import { useT } from '@/lib/i18n';
 export default function AgentCard({ agent, variant = 'dark' }) {
   const { t } = useT();
   const ratingLabel = agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'New';
+  const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
+  const priceModeLabel = agent.priceMode === 'project' ? t('g.perproject') : t('g.pertask');
   const isLight = variant === 'light';
   const card = isLight
     ? 'bg-white border border-[#E8DFCB] shadow-[0_4px_24px_rgba(107,63,160,0.08)]'
@@ -45,8 +47,16 @@ export default function AgentCard({ agent, variant = 'dark' }) {
             <span className={`text-xs ${muted}`}>{agent.creator.name}</span>
           </div>
           <div className="text-right">
-            <span className={`font-stat text-base ${title}`}>{t('g.from')} €{agent.fromPrice}</span>
-            <span className={`text-xs ${muted}`}>/{agent.priceMode}</span>
+            {hasPrice ? (
+              <>
+                <span className={`font-stat text-base ${title}`}>{t('g.from')} €{agent.fromPrice}</span>
+                <span className={`block text-xs ${muted}`}>{priceModeLabel}</span>
+              </>
+            ) : (
+              <span className={`block max-w-28 text-xs font-label leading-tight ${muted}`}>
+                {t('g.pricepending')}
+              </span>
+            )}
           </div>
         </div>
       </div>

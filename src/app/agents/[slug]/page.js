@@ -105,6 +105,7 @@ export default async function Page({ params, searchParams }) {
   }
 
   const priceModeLabel = agent.pricingType === 'project' ? 'projet' : 'tâche';
+  const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
 
   return (
     <div className="min-h-screen">
@@ -168,17 +169,21 @@ export default async function Page({ params, searchParams }) {
           <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-6 glow-soft">
               <p className="font-label text-xs text-[#9B72CF] mb-1">Prix beta</p>
-              <p className="font-stat text-4xl text-[#F4EFFA] glow-text mb-1">
-                €{agent.fromPrice}
-                <span className="text-base text-[#9B72CF] ml-1">/ {priceModeLabel}</span>
-              </p>
+              {hasPrice ? (
+                <p className="font-stat text-4xl text-[#F4EFFA] glow-text mb-1">
+                  €{agent.fromPrice}
+                  <span className="text-base text-[#9B72CF] ml-1">/ {priceModeLabel}</span>
+                </p>
+              ) : (
+                <p className="font-display text-2xl font-bold text-[#F4EFFA] mb-2">Prix à confirmer</p>
+              )}
               {rentalError && (
                 <div className="mb-4 rounded-xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-3 text-xs text-[#FCA5A5]">
                   {rentalErrors[rentalError] || 'Impossible de créer cette location beta.'}
                 </div>
               )}
               <p className="text-sm text-[#9B72CF] mb-5">
-                Paiement Stripe non activé. Cette location beta est créée sans paiement réel.
+                Paiement Stripe non activé. Cette location beta est créée sans paiement réel ; le créateur confirmera les détails pendant la beta.
               </p>
               <form action={createBetaRentalAction.bind(null, 'fr')}>
                 <input type="hidden" name="agent_id" value={agent.id} />

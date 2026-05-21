@@ -41,7 +41,7 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
       result = result.filter((agent) => selectedCats.includes(agent.categoryId));
     }
 
-    result = result.filter((agent) => agent.fromPrice <= maxPrice[0]);
+    result = result.filter((agent) => agent.fromPrice === null || agent.fromPrice <= maxPrice[0]);
 
     if (modes.length) {
       result = result.filter((agent) => modes.includes(agent.priceMode));
@@ -60,8 +60,8 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
     }
 
     if (sort === 'rating') result.sort((a, b) => b.rating - a.rating);
-    else if (sort === 'priceAsc') result.sort((a, b) => a.fromPrice - b.fromPrice);
-    else if (sort === 'priceDesc') result.sort((a, b) => b.fromPrice - a.fromPrice);
+    else if (sort === 'priceAsc') result.sort((a, b) => (a.fromPrice ?? Number.MAX_SAFE_INTEGER) - (b.fromPrice ?? Number.MAX_SAFE_INTEGER));
+    else if (sort === 'priceDesc') result.sort((a, b) => (b.fromPrice ?? -1) - (a.fromPrice ?? -1));
     else if (sort === 'rentals') result.sort((a, b) => b.rentals - a.rentals);
 
     return result;

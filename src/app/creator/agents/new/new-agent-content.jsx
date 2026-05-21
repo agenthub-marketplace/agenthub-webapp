@@ -25,7 +25,12 @@ const copy = {
     deliverables: 'Livrables',
     sampleOutput: 'Exemple de sortie',
     pricingType: 'Type de prix',
-    pricingHint: 'Indication de prix',
+    startingPrice: 'Prix beta affiché',
+    pricingHint: 'Détails de prix et conditions',
+    priceHint:
+      'Montant de départ en euros, visible dans la marketplace. Pendant la beta, aucun paiement n’est encaissé par AgentHub : vous gérez le cadrage final et la livraison avec le client.',
+    pricingDetailsHint:
+      'Expliquez ce qui est inclus, les limites, et les cas où vous ajusterez le prix avant livraison.',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Méthode d’exécution',
     knownLimits: 'Limites connues',
@@ -43,6 +48,7 @@ const copy = {
       'missing-config': 'Configuration Supabase manquante.',
       required: 'Tous les champs sont requis.',
       'invalid-pricing': 'Le type de prix est invalide.',
+      'invalid-price': 'Le prix beta doit être un montant supérieur à 0.',
       'invalid-risk': 'Le niveau de risque est invalide.',
       'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être soumis directement.',
       'creator-profile-error': 'Impossible de lire votre profil créateur.',
@@ -70,7 +76,12 @@ const copy = {
     deliverables: 'Deliverables',
     sampleOutput: 'Sample output',
     pricingType: 'Pricing type',
-    pricingHint: 'Pricing hint',
+    startingPrice: 'Displayed beta price',
+    pricingHint: 'Pricing details and terms',
+    priceHint:
+      'Starting amount in euros, shown in the marketplace. During beta, AgentHub does not collect payments: you handle final scoping and delivery with the customer.',
+    pricingDetailsHint:
+      'Explain what is included, limits, and when you may adjust the price before delivery.',
     riskLevel: 'Risk level',
     executionMethod: 'Execution method',
     knownLimits: 'Known limits',
@@ -88,6 +99,7 @@ const copy = {
       'missing-config': 'Supabase configuration is missing.',
       required: 'All fields are required.',
       'invalid-pricing': 'Invalid pricing type.',
+      'invalid-price': 'The beta price must be greater than 0.',
       'invalid-risk': 'Invalid risk level.',
       'forbidden-risk': 'forbidden_beta agents cannot be submitted directly.',
       'creator-profile-error': 'Could not read your creator profile.',
@@ -232,6 +244,18 @@ export default function NewAgentContent({
                     <option value="project">{t.project}</option>
                   </select>
                 </Field>
+                <Field label={t.startingPrice} hint={t.priceHint}>
+                  <input
+                    name="starting_price_eur"
+                    required
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="99"
+                    className={inputClass}
+                  />
+                </Field>
                 <Field label={t.riskLevel}>
                   <select name="risk_level" required className={inputClass} defaultValue="low">
                     <option value="low">low</option>
@@ -240,8 +264,8 @@ export default function NewAgentContent({
                     <option value="forbidden_beta">forbidden_beta</option>
                   </select>
                 </Field>
-                <Field label={t.pricingHint}>
-                  <input name="pricing_hint" required placeholder="From EUR 99 per task" className={inputClass} />
+                <Field label={t.pricingHint} hint={t.pricingDetailsHint}>
+                  <input name="pricing_hint" required placeholder="Ex: includes one deliverable and one revision" className={inputClass} />
                 </Field>
                 <Field label={t.executionMethod}>
                   <input name="execution_method" required placeholder="Manual beta delivery via verified endpoint" className={inputClass} />

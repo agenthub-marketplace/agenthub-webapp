@@ -24,6 +24,7 @@ const requiredFields = [
   "deliverables",
   "sample_output",
   "pricing_type",
+  "starting_price_eur",
   "pricing_hint",
   "risk_level",
   "execution_method",
@@ -66,6 +67,17 @@ function isRiskLevel(value: string): value is RiskLevel {
   return (RISK_LEVELS as readonly string[]).includes(value);
 }
 
+function readPriceCents(value: string) {
+  const normalizedValue = value.replace(",", ".");
+  const price = Number(normalizedValue);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  return Math.round(price * 100);
+}
+
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
   await requireCreatorAccess(locale);
   const supabase = await createSupabaseServerClient();
@@ -83,6 +95,12 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
 
   if (!isPricingType(values.pricing_type)) {
     redirectWithError(locale, "invalid-pricing");
+  }
+
+  const startingPriceCents = readPriceCents(values.starting_price_eur);
+
+  if (!startingPriceCents) {
+    redirectWithError(locale, "invalid-price");
   }
 
   if (!isRiskLevel(values.risk_level)) {
@@ -119,6 +137,7 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
       description: values.long_description,
       status: "draft",
       pricing_type: values.pricing_type,
+      starting_price_cents: startingPriceCents,
       risk_level: values.risk_level,
       currency: "eur",
     });
@@ -134,6 +153,7 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
   const limitations = [...readLines(values.does_not_do), ...readLines(values.known_limits)];
   const modelNotes = [
     `Target user: ${values.target_user}`,
+    `Beta starting price: ${values.starting_price_eur} EUR`,
     `Pricing hint: ${values.pricing_hint}`,
     `Execution method: ${values.execution_method}`,
     `Sample output: ${values.sample_output}`,

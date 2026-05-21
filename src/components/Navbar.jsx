@@ -25,6 +25,10 @@ function getDisplayName(profile) {
   return profile?.displayName || profile?.email?.replace(/@.*$/, '') || 'AgentHub';
 }
 
+function getNotificationStorageKey(profile) {
+  return profile?.email ? `agenthub:read-notifications:${profile.email}` : null;
+}
+
 /**
  * @param {{
  *   profile?: {
@@ -94,6 +98,7 @@ export default function Navbar({ profile = null }) {
   const displayName = getDisplayName(resolvedProfile);
   const routePrefix = pathname === '/en' || pathname.startsWith('/en/') ? '/en' : '';
   const currentLang = languages.find((l) => l.code === lang) || languages[0];
+  const notificationStorageEmail = resolvedProfile?.email ?? null;
   const notificationCopy = lang === 'en'
     ? {
         title: 'Notifications',
@@ -150,6 +155,43 @@ export default function Navbar({ profile = null }) {
         ]
       : []),
   ];
+
+  useEffect(() => {
+    const storageKey = notificationStorageEmail ? `agenthub:read-notifications:${notificationStorageEmail}` : null;
+    const frame = window.requestAnimationFrame(() => {
+      if (!storageKey) {
+        setReadNotificationIds([]);
+        return;
+      }
+
+      try {
+        const storedValue = window.localStorage.getItem(storageKey);
+        const storedIds = storedValue ? JSON.parse(storedValue) : [];
+        setReadNotificationIds(Array.isArray(storedIds) ? storedIds.filter((id) => typeof id === 'string') : []);
+      } catch {
+        setReadNotificationIds([]);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [notificationStorageEmail]);
+
+  const markNotificationsRead = () => {
+    const nextIds = [...new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)])];
+    setReadNotificationIds(nextIds);
+
+    const storageKey = getNotificationStorageKey(resolvedProfile);
+    if (!storageKey) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(nextIds));
+    } catch {
+      // Non-blocking: if localStorage is unavailable, the badge still clears
+      // for the current render and will recover on the next successful read.
+    }
+  };
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -267,9 +309,7 @@ export default function Navbar({ profile = null }) {
                       const nextOpen = !notificationsOpen;
                       setNotificationsOpen(nextOpen);
                       if (nextOpen) {
-                        setReadNotificationIds((current) => [
-                          ...new Set([...current, ...notifications.map((notification) => notification.id)]),
-                        ]);
+                        markNotificationsRead();
                       }
                       setUserOpen(false);
                       setLangOpen(false);

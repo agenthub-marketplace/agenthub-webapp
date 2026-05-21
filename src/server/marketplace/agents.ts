@@ -12,7 +12,7 @@ export type MarketplaceAgent = {
   categoryId: string;
   rating: number;
   reviews: number;
-  fromPrice: number;
+  fromPrice: number | null;
   priceMode: "task" | "project";
   creator: {
     name: string;
@@ -127,7 +127,10 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     categoryId: category?.slug ?? "business-agents",
     rating,
     reviews: reviews.length,
-    fromPrice: Math.max(0, Math.round((row.starting_price_cents ?? 0) / 100)),
+    fromPrice:
+      typeof row.starting_price_cents === "number" && row.starting_price_cents > 0
+        ? Math.round(row.starting_price_cents / 100)
+        : null,
     priceMode: row.pricing_type,
     creator: {
       name: creatorName,
