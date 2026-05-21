@@ -49,7 +49,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
           <div className="text-right">
             {hasPrice ? (
               <>
-                <span className={`font-stat text-base ${title}`}>{t('g.from')} €{agent.fromPrice}</span>
+                <span className={`font-stat text-base ${title}`}>{agent.priceLabel ?? `€${agent.fromPrice}`}</span>
                 <span className={`block text-xs ${muted}`}>{priceModeLabel}</span>
               </>
             ) : (

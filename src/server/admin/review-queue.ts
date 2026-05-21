@@ -13,6 +13,11 @@ export type AdminReviewQueueItem = {
   categoryName: string | null;
   creatorName: string | null;
   createdAt: string;
+  latestAdminReview: {
+    decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+    notes: string | null;
+    createdAt: string;
+  } | null;
 };
 
 type AgentQueueRow = {
@@ -26,6 +31,13 @@ type AgentQueueRow = {
   created_at: string;
   agent_categories: { name: string } | { name: string }[] | null;
   creator_profiles: { public_name: string } | { public_name: string }[] | null;
+};
+
+type AdminReviewFeedbackRow = {
+  agent_id: string;
+  decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+  notes: string | null;
+  created_at: string;
 };
 
 export type AdminReviewQueueResult = {
@@ -57,8 +69,31 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
     return { queue: [], error: "queue-load-failed" };
   }
 
+  const agentRows = data ?? [];
+  const agentIds = agentRows.map((agent) => agent.id);
+  const latestReviewsByAgent = new Map<string, AdminReviewQueueItem["latestAdminReview"]>();
+
+  if (agentIds.length > 0) {
+    const { data: reviews } = await supabase
+      .from("admin_reviews")
+      .select("agent_id,decision,notes,created_at")
+      .in("agent_id", agentIds)
+      .order("created_at", { ascending: false })
+      .returns<AdminReviewFeedbackRow[]>();
+
+    for (const review of reviews ?? []) {
+      if (!latestReviewsByAgent.has(review.agent_id)) {
+        latestReviewsByAgent.set(review.agent_id, {
+          decision: review.decision,
+          notes: review.notes,
+          createdAt: review.created_at,
+        });
+      }
+    }
+  }
+
   return {
-    queue: (data ?? []).map((agent) => ({
+    queue: agentRows.map((agent) => ({
       id: agent.id,
       name: agent.name,
       summary: agent.summary,
@@ -69,6 +104,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       categoryName: readSingle(agent.agent_categories)?.name ?? null,
       creatorName: readSingle(agent.creator_profiles)?.public_name ?? null,
       createdAt: agent.created_at,
+      latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
     })),
     error: null,
   };

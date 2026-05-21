@@ -2,25 +2,157 @@
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit3 } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { resubmitAgentChangesAction } from '@/server/agents/actions';
+import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 
-function EditAgentPage({ profile }) {
-  const { id } = useParams();
+const inputClass =
+  'w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none transition-colors placeholder:text-[#6F5B8F] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20';
+
+const errorMessages = {
+  required: 'Tous les champs sont requis.',
+  'invalid-pricing': 'Le type de prix est invalide.',
+  'invalid-price': 'Le prix fixe doit être supérieur à 0.',
+  'invalid-risk': 'Le niveau de risque est invalide.',
+  'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être soumis directement.',
+  'creator-profile-error': 'Impossible de lire votre profil créateur.',
+  'creator-profile-missing': 'Aucun profil créateur n’est lié à ce compte.',
+  'agent-not-found': 'Agent introuvable.',
+  'agent-not-editable': 'Cet agent ne peut pas être modifié dans son état actuel.',
+  'agent-load-failed': 'Impossible de charger cet agent.',
+  'version-update-failed': 'Impossible de mettre à jour la version de validation.',
+  'agent-update-failed': 'Impossible de resoumettre l’agent.',
+  'missing-config': 'Configuration Supabase manquante.',
+};
+
+function Field({ children, hint, label, wide = false }) {
+  return (
+    <label className={`block ${wide ? 'md:col-span-2' : ''}`}>
+      <span className="font-label mb-1.5 block text-xs text-[#9B72CF]">{label}</span>
+      {children}
+      {hint && <span className="mt-1.5 block text-xs text-[#7F6B9C]">{hint}</span>}
+    </label>
+  );
+}
+
+function lines(values) {
+  return (values || []).join('\n');
+}
+
+function euros(cents) {
+  if (typeof cents !== 'number' || cents <= 0) {
+    return '';
+  }
+
+  return String(cents / 100);
+}
+
+function EditAgentPage({ agentResult, categories = [], error, profile }) {
+  const agent = agentResult?.agent;
+
   return (
     <div className="min-h-screen">
       <Navbar profile={profile} />
-      <div className="container py-10 max-w-3xl">
-        <Link href="/creator/dashboard" className="inline-flex items-center gap-1.5 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-6"><ArrowLeft className="w-4 h-4"/>Retour au tableau de bord</Link>
-        <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-10 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#532B88] to-[#7C3AED] flex items-center justify-center mx-auto mb-4 glow-primary">
-            <Edit3 className="w-8 h-8 text-white"/>
-          </div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">Modifier l’agent</h1>
-          <p className="text-[#C8B1E4] mb-6">Vous éditez : <span className="text-[#F4EFFA] font-display font-semibold">{id}</span></p>
-          <p className="text-sm text-[#9B72CF] mb-6">L’éditeur réutilise le même formulaire en 7 étapes que la création, avec les valeurs actuelles pré-remplies.</p>
-          <Link href="/creator/agents/new"><Button className="bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-soft">Ouvrir l’éditeur</Button></Link>
+      <div className="container py-10 max-w-5xl">
+        <Link href="/creator/dashboard" className="inline-flex items-center gap-1.5 text-sm text-[#9B72CF] hover:text-[#F4EFFA] mb-6">
+          <ArrowLeft className="w-4 h-4" />
+          Retour au tableau de bord
+        </Link>
+
+        <div className="mb-8">
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">Correction créateur</p>
+          <h1 className="font-display text-4xl font-bold text-[#F4EFFA]">Modifier l’agent</h1>
+          <p className="mt-3 max-w-2xl text-[#C8B1E4]">
+            Appliquez les retours admin puis resoumettez l’agent. Il repassera en file de validation.
+          </p>
         </div>
+
+        {!agent && (
+          <div className="rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-5 text-sm text-[#FCA5A5]">
+            Impossible de charger cet agent.
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-5 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
+            {errorMessages[error] || 'Impossible de resoumettre l’agent.'}
+          </div>
+        )}
+
+        {agent && (
+          <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
+            <input type="hidden" name="agent_id" value={agent.id} />
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">Informations principales</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Nom">
+                  <input name="name" required defaultValue={agent.name} className={inputClass} />
+                </Field>
+                <Field label="Catégorie">
+                  <select name="category_id" required className={inputClass} defaultValue={agent.categoryId ?? ''}>
+                    <option value="" disabled />
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Description courte" wide>
+                  <input name="short_description" required defaultValue={agent.summary} className={inputClass} />
+                </Field>
+                <Field label="Description détaillée" wide>
+                  <textarea name="long_description" required rows={5} defaultValue={agent.description} className={inputClass} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">Capacités et limites</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Ce que l’agent fait" hint="Une ligne par élément.">
+                  <textarea name="does" required rows={5} defaultValue={lines(agent.version?.capabilities)} className={inputClass} />
+                </Field>
+                <Field label="Inputs requis" hint="Une ligne par élément.">
+                  <textarea name="required_inputs" required rows={5} defaultValue={lines(agent.version?.requiredInputs)} className={inputClass} />
+                </Field>
+                <Field label="Livrables" hint="Une ligne par élément.">
+                  <textarea name="deliverables" required rows={5} defaultValue={lines(agent.version?.deliverables)} className={inputClass} />
+                </Field>
+                <Field label="Limites connues" hint="Une ligne par élément.">
+                  <textarea name="known_limits" required rows={5} defaultValue={lines(agent.version?.limitations)} className={inputClass} />
+                </Field>
+                <Field label="Type de prix">
+                  <select name="pricing_type" required className={inputClass} defaultValue={agent.pricingType}>
+                    <option value="task">À la tâche</option>
+                    <option value="project">Au projet</option>
+                  </select>
+                </Field>
+                <Field label="Prix fixe affiché">
+                  <input name="starting_price_eur" required type="number" min="1" step="0.01" defaultValue={euros(agent.startingPriceCents)} className={inputClass} />
+                </Field>
+                <Field label="Niveau de risque">
+                  <select name="risk_level" required className={inputClass} defaultValue={agent.riskLevel}>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="forbidden_beta">forbidden_beta</option>
+                  </select>
+                </Field>
+              </div>
+            </section>
+
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="h-5 w-5 shrink-0" />
+                <p>Après resoumission, l’admin devra reprendre la validation avant publication.</p>
+              </div>
+              <Button type="submit" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                <Send className="mr-2 h-4 w-4" />
+                Resoumettre
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

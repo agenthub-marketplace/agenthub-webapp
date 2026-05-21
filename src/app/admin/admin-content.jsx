@@ -30,10 +30,30 @@ const reviewErrors = {
   'invalid-review': 'Décision de validation invalide.',
   'agent-not-found': 'Agent introuvable.',
   'agent-not-reviewable': 'Cet agent n’est plus en attente de validation.',
+  'agent-must-be-in-review': 'Prenez d’abord cet agent en revue avant de décider.',
+  'changes-notes-required': 'Ajoutez une demande de modification claire avant l’envoi.',
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être approuvés en beta.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
 };
+
+function hasChangesRequest(agent) {
+  return agent?.latestAdminReview?.decision === 'in_review' && Boolean(agent.latestAdminReview.notes?.trim());
+}
+
+function cleanAdminNotes(notes) {
+  return (notes || '')
+    .replace(/^\s*Modifications demandées\s*:\s*/i, '')
+    .trim();
+}
+
+function statusLabel(agent) {
+  if (hasChangesRequest(agent)) {
+    return 'MODIFS DEMANDÉES';
+  }
+
+  return agent.status;
+}
 
 function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
   const [tab, setTab] = useState('queue');
@@ -122,7 +142,7 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                   <p className="text-xs text-[#A78BCF]">par {p.creatorName || 'Créateur inconnu'}</p>
                   <p className="text-xs text-[#D6C5E8] mt-2">{p.summary}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-label">
-                    <span className="rounded-full border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-2 py-1 text-[#F59E0B]">{p.status}</span>
+                    <span className="rounded-full border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-2 py-1 text-[#F59E0B]">{statusLabel(p)}</span>
                     <span className="rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-2 py-1 text-[#C4B5FD]">{p.riskLevel}</span>
                   </div>
                 </button>
@@ -147,6 +167,18 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                   <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Détails de validation</p>
                   <pre className="text-xs bg-[#0A0816] border border-[#251A40] rounded-lg p-3 text-[#D6C5E8] overflow-x-auto font-mono">Version de validation créée. Les capacités, inputs et livrables seront détaillés dans la prochaine étape admin.</pre>
                 </div>
+                {activeSelection.status === 'in_review' && (
+                  <div className={`mb-4 rounded-xl border p-3 text-sm ${hasChangesRequest(activeSelection) ? 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]' : 'border-[#8B5CF6]/35 bg-[#8B5CF6]/10 text-[#C4B5FD]'}`}>
+                    <p className="font-label mb-1 text-[10px]">
+                      {hasChangesRequest(activeSelection) ? 'Demande de modification en cours' : 'Agent en revue'}
+                    </p>
+                    <p className="leading-relaxed">
+                      {hasChangesRequest(activeSelection)
+                        ? cleanAdminNotes(activeSelection.latestAdminReview.notes)
+                        : 'Vous pouvez maintenant approuver, demander des modifications ou refuser cet agent.'}
+                    </p>
+                  </div>
+                )}
                 {actionType === null && (
                   <div className="space-y-2">
                     {activeSelection.status === 'submitted' && (
@@ -160,16 +192,40 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
                         </Button>
                       </form>
                     )}
-                    <div className="flex gap-2">
-                    <form action={reviewAgentAction} className="flex-1">
-                      <input type="hidden" name="agent_id" value={activeSelection.id} />
-                      <input type="hidden" name="decision" value="approve" />
-                      <input type="hidden" name="locale" value={locale} />
-                      <Button type="submit" size="sm" className="w-full bg-[#10B981] hover:bg-[#059669] text-white border-0"><Check className="w-4 h-4 mr-1"/>Approuver</Button>
-                    </form>
-                    <Button size="sm" onClick={()=>setActionType('changes')} variant="outline" className="flex-1 bg-transparent border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10"><Edit className="w-4 h-4 mr-1"/>Modifications</Button>
-                    <Button size="sm" onClick={()=>setActionType('reject')} variant="outline" className="flex-1 bg-transparent border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10"><X className="w-4 h-4 mr-1"/>Refuser</Button>
-                    </div>
+                    {activeSelection.status === 'in_review' && (
+                      <div className="flex gap-2">
+                        <form action={reviewAgentAction} className="flex-1">
+                          <input type="hidden" name="agent_id" value={activeSelection.id} />
+                          <input type="hidden" name="decision" value="approve" />
+                          <input type="hidden" name="locale" value={locale} />
+                          <Button type="submit" size="sm" className="w-full bg-[#10B981] hover:bg-[#059669] text-white border-0"><Check className="w-4 h-4 mr-1"/>Approuver</Button>
+                        </form>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setActionText(hasChangesRequest(activeSelection) ? cleanAdminNotes(activeSelection.latestAdminReview.notes) : '');
+                            setActionType('changes');
+                          }}
+                          variant="outline"
+                          className="flex-1 bg-transparent border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10"
+                        >
+                          <Edit className="w-4 h-4 mr-1"/>
+                          {hasChangesRequest(activeSelection) ? 'Modifier la demande' : 'Modifications'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setActionText('');
+                            setActionType('reject');
+                          }}
+                          variant="outline"
+                          className="flex-1 bg-transparent border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444]/10"
+                        >
+                          <X className="w-4 h-4 mr-1"/>
+                          Refuser
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
                 {actionType !== null && actionType !== 'approve' && (

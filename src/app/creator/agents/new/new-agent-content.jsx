@@ -25,12 +25,12 @@ const copy = {
     deliverables: 'Livrables',
     sampleOutput: 'Exemple de sortie',
     pricingType: 'Type de prix',
-    startingPrice: 'Prix beta affiché',
+    startingPrice: 'Prix fixe affiché',
     pricingHint: 'Détails de prix et conditions',
     priceHint:
-      'Montant de départ en euros, visible dans la marketplace. Pendant la beta, aucun paiement n’est encaissé par AgentHub : vous gérez le cadrage final et la livraison avec le client.',
+      'Prix fixe en euros, visible dans la marketplace pour ce mode de location. Pendant la beta, aucun paiement n’est encaissé par AgentHub ; Stripe prendra ensuite le relais.',
     pricingDetailsHint:
-      'Expliquez ce qui est inclus, les limites, et les cas où vous ajusterez le prix avant livraison.',
+      'Expliquez clairement ce qui est inclus dans ce prix fixe et les limites de l’accès.',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Méthode d’exécution',
     knownLimits: 'Limites connues',
@@ -76,12 +76,12 @@ const copy = {
     deliverables: 'Deliverables',
     sampleOutput: 'Sample output',
     pricingType: 'Pricing type',
-    startingPrice: 'Displayed beta price',
+    startingPrice: 'Displayed fixed price',
     pricingHint: 'Pricing details and terms',
     priceHint:
-      'Starting amount in euros, shown in the marketplace. During beta, AgentHub does not collect payments: you handle final scoping and delivery with the customer.',
+      'Fixed amount in euros, shown in the marketplace for this rental mode. During beta, AgentHub does not collect payments; Stripe will replace this later.',
     pricingDetailsHint:
-      'Explain what is included, limits, and when you may adjust the price before delivery.',
+      'Explain what is included in this fixed price and the limits of the access.',
     riskLevel: 'Risk level',
     executionMethod: 'Execution method',
     knownLimits: 'Known limits',

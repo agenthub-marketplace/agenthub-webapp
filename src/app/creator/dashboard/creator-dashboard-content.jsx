@@ -136,7 +136,13 @@ function StatusBadge({ label, status }) {
 }
 
 function isChangesRequest(review) {
-  return review?.decision === 'in_review' && review?.notes?.toLowerCase().includes('modifications demand');
+  return review?.isChangesRequest || (review?.decision === 'in_review' && Boolean(review?.notes?.trim()));
+}
+
+function cleanAdminNotes(notes) {
+  return (notes || '')
+    .replace(/^\s*Modifications demandées\s*:\s*/i, '')
+    .trim();
 }
 
 function getAdminReviewLabel(review, t) {
@@ -149,6 +155,14 @@ function getAdminReviewLabel(review, t) {
   }
 
   return t.adminReviewLabels[review.decision] || review.decision;
+}
+
+function getAgentStatusLabel(agent, t) {
+  if (agent.status === 'in_review' && isChangesRequest(agent.latestAdminReview)) {
+    return t.adminReviewLabels.changes_requested;
+  }
+
+  return t.statuses[agent.status] || agent.status;
 }
 
 function Panel({ children, className = '' }) {
@@ -200,6 +214,7 @@ export default function CreatorDashboardContent({
   const rentals = creatorRentalsResult?.rentals ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/creator/agents/new';
+  const editAgentPath = (agentId) => `/creator/agents/${agentId}/edit`;
 
   useEffect(() => {
     const refresh = () => {
@@ -366,7 +381,7 @@ export default function CreatorDashboardContent({
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{agent.name}</h3>
-                        <StatusBadge status={agent.status} label={t.statuses[agent.status] || agent.status} />
+                        <StatusBadge status={agent.status} label={getAgentStatusLabel(agent, t)} />
                       </div>
                       <p className="text-sm text-[#C8B1E4]">{agent.summary}</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#9B72CF]">
@@ -387,8 +402,15 @@ export default function CreatorDashboardContent({
                             </span>
                           </div>
                           <p className="text-sm leading-relaxed text-[#C8B1E4]">
-                            {agent.latestAdminReview.notes || t.adminFeedbackEmpty}
+                            {cleanAdminNotes(agent.latestAdminReview.notes) || t.adminFeedbackEmpty}
                           </p>
+                          {agent.status === 'in_review' && isChangesRequest(agent.latestAdminReview) && (
+                            <Link href={editAgentPath(agent.id)} className="mt-3 inline-flex">
+                              <Button size="sm" variant="outline" className="bg-transparent border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10">
+                                Modifier l’agent
+                              </Button>
+                            </Link>
+                          )}
                         </div>
                       )}
                     </div>

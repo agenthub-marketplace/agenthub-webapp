@@ -13,6 +13,7 @@ export type MarketplaceAgent = {
   rating: number;
   reviews: number;
   fromPrice: number | null;
+  priceLabel: string | null;
   priceMode: "task" | "project";
   creator: {
     name: string;
@@ -109,6 +110,19 @@ function initials(name: string) {
     .join("");
 }
 
+function formatEuroPrice(cents: number | null) {
+  if (typeof cents !== "number" || cents <= 0) {
+    return null;
+  }
+
+  return new Intl.NumberFormat("fr-FR", {
+    currency: "EUR",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    style: "currency",
+  }).format(cents / 100);
+}
+
 function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
   const category = readSingle(row.agent_categories);
   const creator = readSingle(row.creator_profiles);
@@ -129,8 +143,9 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     reviews: reviews.length,
     fromPrice:
       typeof row.starting_price_cents === "number" && row.starting_price_cents > 0
-        ? Math.round(row.starting_price_cents / 100)
+        ? row.starting_price_cents / 100
         : null,
+    priceLabel: formatEuroPrice(row.starting_price_cents),
     priceMode: row.pricing_type,
     creator: {
       name: creatorName,

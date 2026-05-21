@@ -22,35 +22,6 @@ function redirectWithAgentError(locale: Locale, slug: string, error: string): ne
   redirect(`${localizedPath(`/agents/${slug}`, locale)}?error=${encodeURIComponent(error)}`);
 }
 
-function readText(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeMultiline(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildRequestBrief(input: {
-  constraints: string;
-  context: string;
-  deadline: string;
-  objective: string;
-  outputFormat: string;
-}) {
-  return [
-    `Objectif: ${input.objective}`,
-    `Contexte: ${input.context}`,
-    `Deadline souhaitée: ${input.deadline}`,
-    `Format attendu: ${input.outputFormat}`,
-    `Contraintes importantes: ${input.constraints}`,
-  ].join("\n\n");
-}
-
 export async function createBetaRentalAction(locale: Locale, formData: FormData) {
   return createAgentAccessAction(locale, formData);
 }
@@ -71,24 +42,6 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirect(`${localizedPath("/auth/login", locale)}?next=${encodeURIComponent(agentPath)}&error=missing-config`);
   }
 
-  const rentalInput = {
-    objective: readText(formData, "objective"),
-    context: readText(formData, "context"),
-    deadline: readText(formData, "deadline"),
-    outputFormat: readText(formData, "output_format"),
-    constraints: normalizeMultiline(readText(formData, "constraints")),
-  };
-
-  if (
-    rentalInput.objective.length < 5 ||
-    rentalInput.context.length < 10 ||
-    rentalInput.deadline.length < 2 ||
-    rentalInput.outputFormat.length < 3 ||
-    rentalInput.constraints.length < 3
-  ) {
-    redirectWithAgentError(locale, slug, "rental-inputs-required");
-  }
-
   const { data: agent, error: agentError } = await supabase
     .from("agents")
     .select("id,creator_id,slug,status,pricing_type,starting_price_cents,currency")
@@ -102,6 +55,10 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
 
   if (!agent) {
     redirectWithAgentError(locale, slug, "agent-unavailable");
+  }
+
+  if (typeof agent.starting_price_cents !== "number" || agent.starting_price_cents <= 0) {
+    redirectWithAgentError(locale, slug, "price-not-configured");
   }
 
   const creatorProfile = await getCreatorProfileForUser();
@@ -120,13 +77,10 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
       pricing_type: agent.pricing_type,
       quoted_price_cents: agent.starting_price_cents,
       currency: agent.currency,
-      request_brief: buildRequestBrief(rentalInput),
+      request_brief: `Direct AgentHub access activated for ${agent.slug}.`,
       required_inputs: {
-        objective: rentalInput.objective,
-        context: rentalInput.context,
-        deadline: rentalInput.deadline,
-        output_format: rentalInput.outputFormat,
-        constraints: rentalInput.constraints,
+        access_type: "direct_agent_access",
+        pricing_type: agent.pricing_type,
       },
     })
     .select("id")

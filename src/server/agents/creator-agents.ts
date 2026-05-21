@@ -21,6 +21,25 @@ export type CreatorAgentListItem = {
     decision: AgentStatus;
     notes: string | null;
     createdAt: string;
+    isChangesRequest: boolean;
+  } | null;
+};
+
+export type CreatorAgentEditItem = {
+  id: string;
+  categoryId: string | null;
+  name: string;
+  summary: string;
+  description: string;
+  status: AgentStatus;
+  pricingType: PricingType;
+  startingPriceCents: number | null;
+  riskLevel: "low" | "medium" | "high" | "forbidden_beta";
+  version: {
+    capabilities: string[];
+    requiredInputs: string[];
+    deliverables: string[];
+    limitations: string[];
   } | null;
 };
 
@@ -35,13 +54,24 @@ type CreatorProfileRow = {
 
 type CreatorAgentRow = {
   id: string;
+  category_id?: string | null;
   name: string;
   summary: string;
   status: AgentStatus;
+  description?: string;
   pricing_type: PricingType;
+  starting_price_cents?: number | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
+  active_version_id?: string | null;
   created_at: string;
   agent_categories: { name: string } | { name: string }[] | null;
+};
+
+type AgentVersionEditRow = {
+  capabilities: string[] | null;
+  required_inputs: string[] | null;
+  deliverables: string[] | null;
+  limitations: string[] | null;
 };
 
 type AdminReviewFeedbackRow = {
@@ -221,23 +251,106 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
           decision: review.decision,
           notes: review.notes,
           createdAt: review.created_at,
+          isChangesRequest: review.decision === "in_review" && Boolean(review.notes?.trim()),
         });
       }
     }
   }
 
   return {
-    agents: agentRows.map((agent) => ({
+    agents: agentRows.map((agent) => {
+      const latestAdminReview = latestReviewsByAgent.get(agent.id) ?? null;
+
+      return {
+        id: agent.id,
+        name: agent.name,
+        summary: agent.summary,
+        status: agent.status,
+        pricingType: agent.pricing_type,
+        riskLevel: agent.risk_level,
+        categoryName: readCategoryName(agent.agent_categories),
+        createdAt: agent.created_at,
+        latestAdminReview: latestAdminReview
+          ? {
+              ...latestAdminReview,
+              isChangesRequest: agent.status === "in_review" && latestAdminReview.isChangesRequest,
+            }
+          : null,
+      };
+    }),
+    creatorProfileMissing: false,
+    error: null,
+  };
+}
+
+export async function getCreatorAgentForEdit(agentId: string): Promise<{
+  agent: CreatorAgentEditItem | null;
+  creatorProfileMissing: boolean;
+  error: string | null;
+}> {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { agent: null, creatorProfileMissing: false, error: "missing-config" };
+  }
+
+  const creatorProfileLookup = await getCreatorProfileForUser();
+
+  if (creatorProfileLookup.error) {
+    return { agent: null, creatorProfileMissing: false, error: creatorProfileLookup.error };
+  }
+
+  if (creatorProfileLookup.creatorProfileMissing || !creatorProfileLookup.id) {
+    return { agent: null, creatorProfileMissing: true, error: null };
+  }
+
+  const { data: agent, error: agentError } = await supabase
+    .from("agents")
+    .select("id,category_id,name,summary,description,status,pricing_type,starting_price_cents,risk_level,active_version_id,created_at,agent_categories(name)")
+    .eq("id", agentId)
+    .eq("creator_id", creatorProfileLookup.id)
+    .maybeSingle<CreatorAgentRow>();
+
+  if (agentError) {
+    return { agent: null, creatorProfileMissing: false, error: "agent-load-failed" };
+  }
+
+  if (!agent) {
+    return { agent: null, creatorProfileMissing: false, error: "agent-not-found" };
+  }
+
+  let version: CreatorAgentEditItem["version"] = null;
+
+  if (agent.active_version_id) {
+    const { data: versionRow } = await supabase
+      .from("agent_versions")
+      .select("capabilities,required_inputs,deliverables,limitations")
+      .eq("id", agent.active_version_id)
+      .maybeSingle<AgentVersionEditRow>();
+
+    if (versionRow) {
+      version = {
+        capabilities: versionRow.capabilities ?? [],
+        requiredInputs: versionRow.required_inputs ?? [],
+        deliverables: versionRow.deliverables ?? [],
+        limitations: versionRow.limitations ?? [],
+      };
+    }
+  }
+
+  return {
+    agent: {
       id: agent.id,
+      categoryId: agent.category_id ?? null,
       name: agent.name,
       summary: agent.summary,
+      description: agent.description ?? "",
       status: agent.status,
       pricingType: agent.pricing_type,
+      startingPriceCents: agent.starting_price_cents ?? null,
       riskLevel: agent.risk_level,
-      categoryName: readCategoryName(agent.agent_categories),
-      createdAt: agent.created_at,
-      latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
-    })),
+      version,
+    },
     creatorProfileMissing: false,
     error: null,
   };

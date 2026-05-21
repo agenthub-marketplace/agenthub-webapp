@@ -47,7 +47,13 @@ function toneForDecision(decision: AdminReviewNotificationRow["decision"]): Noti
 }
 
 function hasChangesRequest(notes: string | null) {
-  return notes?.toLowerCase().includes("modifications demand") ?? false;
+  return Boolean(notes?.trim());
+}
+
+function cleanAdminNotes(notes: string | null) {
+  return (notes || "")
+    .replace(/^\s*Modifications demandées\s*:\s*/i, "")
+    .trim();
 }
 
 function titleForDecision(decision: AdminReviewNotificationRow["decision"], notes: string | null = null) {
@@ -103,6 +109,7 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
         .select("id,name,status,updated_at")
         .eq("creator_id", creatorProfile.id)
         .returns<CreatorAgentNotificationRow[]>();
+      const agentById = new Map((agents ?? []).map((agent) => [agent.id, agent]));
       const agentNameById = new Map((agents ?? []).map((agent) => [agent.id, agent.name]));
       const reviewedAgentIds = new Set<string>();
       const agentIds = [...agentNameById.keys()];
@@ -117,12 +124,18 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
           .returns<AdminReviewNotificationRow[]>();
 
         for (const review of reviews ?? []) {
+          const agent = agentById.get(review.agent_id);
+
+          if (review.decision === "in_review" && agent?.status !== "in_review") {
+            continue;
+          }
+
           reviewedAgentIds.add(review.agent_id);
           const agentName = agentNameById.get(review.agent_id) ?? "Votre agent";
           notifications.push({
             id: review.id,
             title: titleForDecision(review.decision, review.notes),
-            body: `${agentName} - ${review.notes || "Le statut admin a été mis à jour."}`,
+            body: `${agentName} - ${cleanAdminNotes(review.notes) || "Le statut admin a été mis à jour."}`,
             href: "/creator/dashboard",
             tone: toneForDecision(review.decision),
             createdAt: review.created_at,

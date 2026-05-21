@@ -64,8 +64,20 @@ export async function reviewAgentAction(formData: FormData) {
     redirectWithError(locale, "agent-not-reviewable");
   }
 
+  if (decision === "start_review" && agent.status !== "submitted") {
+    redirectWithError(locale, "agent-not-reviewable");
+  }
+
+  if (decision !== "start_review" && agent.status !== "in_review") {
+    redirectWithError(locale, "agent-must-be-in-review");
+  }
+
   if (decision === "approve" && agent.risk_level === "forbidden_beta") {
     redirectWithError(locale, "forbidden-risk");
+  }
+
+  if (decision === "changes" && notes.length < 10) {
+    redirectWithError(locale, "changes-notes-required");
   }
 
   const nextStatus =
@@ -74,18 +86,18 @@ export async function reviewAgentAction(formData: FormData) {
       : decision === "reject"
         ? "rejected"
         : "in_review";
-  const reviewNotes =
-    decision === "changes"
-      ? `Modifications demandées : ${notes || "Aucun détail fourni."}`
-      : notes || null;
+  const reviewNotes = notes || null;
+  const expectedStatus = decision === "start_review" ? "submitted" : "in_review";
 
-  const { error: updateError } = await supabase
+  const { data: updatedAgent, error: updateError } = await supabase
     .from("agents")
     .update({ status: nextStatus })
     .eq("id", agent.id)
-    .in("status", ["submitted", "in_review"]);
+    .eq("status", expectedStatus)
+    .select("id")
+    .maybeSingle<{ id: string }>();
 
-  if (updateError) {
+  if (updateError || !updatedAgent) {
     redirectWithError(locale, "agent-update-failed");
   }
 

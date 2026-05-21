@@ -8,31 +8,6 @@ import { requireAuth } from '@/lib/auth/session';
 import { ACCESS_COMPATIBLE_STATUSES, getUserRentalById } from '@/server/rentals/user-rentals';
 import { ArrowLeft, Bot, Check, Clock, Send } from 'lucide-react';
 
-function BriefGrid({ inputs }) {
-  const rows = [
-    ['Objectif', inputs?.objective],
-    ['Contexte', inputs?.context],
-    ['Deadline', inputs?.deadline],
-    ['Format attendu', inputs?.output_format],
-    ['Contraintes', inputs?.constraints],
-  ].filter(([, value]) => typeof value === 'string' && value.trim());
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {rows.map(([label, value]) => (
-        <div key={label} className="rounded-xl border border-[#2F184B] bg-[#080612] p-3">
-          <p className="font-label mb-1 text-[10px] text-[#9B72CF]">{label}</p>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]">{value}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default async function WorkspaceRentalPage({ params, searchParams }) {
   const { rentalId } = await params;
   const query = searchParams ? await searchParams : {};
@@ -89,8 +64,11 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
 
           <section className="space-y-6">
             <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <p className="font-label mb-2 text-xs text-[#9B72CF]">Votre brief</p>
-              <BriefGrid inputs={rental.requiredInputs} />
+              <p className="font-label mb-2 text-xs text-[#9B72CF]">Accès direct</p>
+              <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Agent loué</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">
+                Cet agent est disponible dans votre espace beta. Aucun brief client n’est nécessaire pour ouvrir l’accès.
+              </p>
             </div>
 
             <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
