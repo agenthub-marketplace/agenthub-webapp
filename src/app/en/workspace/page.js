@@ -9,19 +9,19 @@ import { ArrowRight, Bot, Clock } from 'lucide-react';
 
 function statusLabel(status) {
   return {
-    active: 'Actif',
-    accepted: 'Actif',
-    in_progress: 'Actif',
-    delivered: 'Terminé',
-    expired: 'Expiré',
-    pending: 'En attente',
-    rejected: 'Refusé',
-    cancelled: 'Annulé',
+    active: 'Active',
+    accepted: 'Active',
+    in_progress: 'Active',
+    delivered: 'Completed',
+    expired: 'Expired',
+    pending: 'Pending',
+    rejected: 'Rejected',
+    cancelled: 'Cancelled',
   }[status] ?? status;
 }
 
 export default async function WorkspacePage() {
-  const profile = await requireAuth('fr', '/workspace');
+  const profile = await requireAuth('en', '/en/workspace');
   const { rentals, error } = await getUserRentals(profile.id);
   const activeRentals = rentals.filter((rental) => ACCESS_COMPATIBLE_STATUSES.includes(rental.status));
 
@@ -30,16 +30,16 @@ export default async function WorkspacePage() {
       <Navbar profile={profile} />
       <main className="container py-10">
         <div className="mb-8">
-          <p className="font-label mb-2 text-xs text-[#9B72CF]">Mes locations</p>
-          <h1 className="font-display text-4xl font-bold text-[#F4EFFA] md:text-5xl">Vos agents accessibles</h1>
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">My rentals</p>
+          <h1 className="font-display text-4xl font-bold text-[#F4EFFA] md:text-5xl">Your accessible agents</h1>
           <p className="mt-2 max-w-2xl text-[#C8B1E4]">
-            Retrouvez ici les agents déjà activés sur votre compte beta.
+            Find every beta agent currently active on your account.
           </p>
         </div>
 
         {error && (
           <div className="mb-6 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
-            Impossible de charger vos accès pour le moment.
+            Could not load your access records right now.
           </div>
         )}
 
@@ -48,13 +48,13 @@ export default async function WorkspacePage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
               <Bot className="h-7 w-7" />
             </div>
-            <h2 className="font-display text-2xl font-bold text-[#F4EFFA]">Aucun agent actif</h2>
+            <h2 className="font-display text-2xl font-bold text-[#F4EFFA]">No active agent</h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-[#C8B1E4]">
-              Louez un agent approuvé depuis la marketplace pour l’ouvrir ici.
+              Rent an approved agent from the marketplace to open it here.
             </p>
-            <Link href="/marketplace" className="mt-6 inline-flex">
+            <Link href="/en/marketplace" className="mt-6 inline-flex">
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
-                Découvrir les agents
+                Discover agents
               </Button>
             </Link>
           </div>
@@ -80,9 +80,9 @@ export default async function WorkspacePage() {
                     Beta
                   </span>
                 </div>
-                <Link href={`/workspace/${rental.id}`}>
+                <Link href={`/en/workspace/${rental.id}`}>
                   <Button className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
-                    Ouvrir l’agent
+                    Open agent
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>

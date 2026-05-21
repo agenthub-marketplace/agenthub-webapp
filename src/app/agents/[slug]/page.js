@@ -5,7 +5,7 @@ import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { getCurrentProfile } from '@/lib/auth/session';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
-import { createBetaRentalAction } from '@/server/rentals/actions';
+import { createAgentAccessAction } from '@/server/rentals/actions';
 import { AlertTriangle, ArrowLeft, Check, Clock, ShieldCheck, Star } from 'lucide-react';
 
 function ListSection({ title, items, icon: Icon, tone = 'default' }) {
@@ -67,9 +67,9 @@ function ReviewSection({ reviews }) {
 
 const rentalErrors = {
   'agent-load-failed': 'Impossible de charger cet agent pour le moment.',
-  'agent-unavailable': 'Cet agent n’est plus disponible à la location beta.',
-  'rental-inputs-required': 'Décrivez votre besoin avant de créer la location beta.',
-  'rental-create-failed': 'Impossible de créer cette location beta pour le moment.',
+  'agent-unavailable': 'Cet agent n’est plus disponible à l’accès beta.',
+  'rental-inputs-required': 'Décrivez votre besoin avant d’activer l’accès beta.',
+  'rental-create-failed': 'Impossible d’activer cet accès beta pour le moment.',
   'self-rental-not-allowed': 'Vous ne pouvez pas louer votre propre agent en beta.',
 };
 
@@ -183,13 +183,13 @@ export default async function Page({ params, searchParams }) {
               )}
               {rentalError && (
                 <div className="mb-4 rounded-xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-3 text-xs text-[#FCA5A5]">
-                  {rentalErrors[rentalError] || 'Impossible de créer cette location beta.'}
+                  {rentalErrors[rentalError] || 'Impossible d’activer cet accès beta.'}
                 </div>
               )}
               <p className="text-sm text-[#9B72CF] mb-5">
-                Paiement Stripe non activé. Cette location beta est activée automatiquement sans paiement réel ; le créateur reçoit votre brief pour traiter la demande.
+                Paiement Stripe non activé. L’accès beta est activé immédiatement sans paiement réel ; Stripe remplacera cette étape plus tard.
               </p>
-              <form action={createBetaRentalAction.bind(null, 'fr')} className="space-y-3">
+              <form action={createAgentAccessAction.bind(null, 'fr')} className="space-y-3">
                 <input type="hidden" name="agent_id" value={agent.id} />
                 <input type="hidden" name="slug" value={agent.slug} />
                 <div>
@@ -215,7 +215,7 @@ export default async function Page({ params, searchParams }) {
                   <textarea name="constraints" required minLength={3} maxLength={1200} rows={3} placeholder="Budget, ton, pays, outils, points à éviter..." className={inputClass} />
                 </div>
                 <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12">
-                  Louer cet agent en beta
+                  Louer cet agent
                 </Button>
               </form>
               <p className="mt-3 text-xs text-[#9B72CF]">

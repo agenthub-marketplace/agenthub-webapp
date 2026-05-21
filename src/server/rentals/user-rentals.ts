@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UserRental = {
   id: string;
-  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled";
+  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled" | "active" | "expired";
   pricingType: "task" | "project";
   priceCents: number | null;
   currency: string;
@@ -33,6 +33,8 @@ export type UserRental = {
     body: string | null;
   } | null;
 };
+
+export const ACCESS_COMPATIBLE_STATUSES = ["active", "accepted", "in_progress", "delivered"] as const;
 
 type UserRentalRow = {
   id: string;
@@ -118,5 +120,14 @@ export async function getUserRentals(userId: string) {
       })(),
     })),
     error: null,
+  };
+}
+
+export async function getUserRentalById(userId: string, rentalId: string) {
+  const result = await getUserRentals(userId);
+
+  return {
+    rental: result.rentals.find((rental) => rental.id === rentalId) ?? null,
+    error: result.error,
   };
 }

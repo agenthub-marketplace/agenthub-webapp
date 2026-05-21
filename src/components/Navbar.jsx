@@ -142,10 +142,10 @@ export default function Navbar({ profile = null }) {
   const links = [
     { href: `${routePrefix}/search`, label: t('nav.discoveragents'), icon: Search },
     {
-      href: `${routePrefix}/dashboard`,
+      href: `${routePrefix}/workspace`,
       label: t('nav.workspace'),
       icon: MessageSquare,
-      activePrefix: `${routePrefix}/dashboard`,
+      activePrefix: `${routePrefix}/workspace`,
     },
     { href: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy },
     ...roleLinks,
@@ -400,7 +400,7 @@ export default function Navbar({ profile = null }) {
                           <User className="h-4 w-4" />
                           {t('nav.myprofile')}
                         </Link>
-                        <Link href={`${routePrefix}/dashboard`} onClick={() => setUserOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#A78BCF] transition-colors hover:bg-[#251A40] hover:text-[#F5F1FA]">
+                        <Link href={`${routePrefix}/workspace`} onClick={() => setUserOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm text-[#A78BCF] transition-colors hover:bg-[#251A40] hover:text-[#F5F1FA]">
                           <MessageSquare className="h-4 w-4" />
                           {t('nav.workspace')}
                         </Link>

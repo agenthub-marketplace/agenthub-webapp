@@ -5,7 +5,7 @@ import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 
 export type CreatorRental = {
   id: string;
-  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled";
+  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled" | "active" | "expired";
   pricingType: "task" | "project";
   priceCents: number | null;
   currency: string;

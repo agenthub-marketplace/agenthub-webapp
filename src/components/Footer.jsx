@@ -11,7 +11,7 @@ export default function Footer() {
       links: [
         { label: t('nav.discoveragents'), href: '/search' },
         { label: t('nav.leaderboard'), href: '/leaderboard' },
-        { label: t('nav.workspace'), href: '/dashboard' },
+        { label: t('nav.workspace'), href: '/workspace' },
         { label: t('nav.creatormode'), href: '/creator' },
       ],
     },

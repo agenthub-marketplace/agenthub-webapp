@@ -11,7 +11,7 @@ import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 type ReviewRow = {
   id: string;
   user_id: string;
-  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled";
+  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled" | "active" | "expired";
   agent_id: string;
   creator_id: string;
   agents: { slug: string } | { slug: string }[] | null;
@@ -77,8 +77,8 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     ? rental.agents[0]?.slug ?? ""
     : rental.agents?.slug ?? "";
 
-  if (rental.status !== "delivered") {
-    redirectWithReviewError(locale, rentalId, "rental-not-delivered");
+  if (!["active", "expired", "delivered"].includes(rental.status)) {
+    redirectWithReviewError(locale, rentalId, "rental-not-reviewable");
   }
 
   const creatorProfile = await getCreatorProfileForUser();

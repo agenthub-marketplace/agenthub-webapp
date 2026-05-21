@@ -19,6 +19,8 @@ export const RENTAL_REQUEST_STATUSES = [
   "delivered",
   "rejected",
   "cancelled",
+  "active",
+  "expired",
 ] as const;
 
 export const RISK_LEVELS = ["low", "medium", "high", "forbidden_beta"] as const;

@@ -17,9 +17,6 @@ export default async function CreatorDashboardPage({ searchParams }) {
       creatorRentalsResult={creatorRentalsResult}
       locale="en"
       profile={profile}
-      rentalDelivered={typeof params?.rentalDelivered === 'string' ? params.rentalDelivered : null}
-      rentalError={typeof params?.rentalError === 'string' ? params.rentalError : null}
-      rentalUpdated={typeof params?.rentalUpdated === 'string' ? params.rentalUpdated : null}
       submittedSlug={typeof params?.submitted === 'string' ? params.submitted : null}
     />
   );

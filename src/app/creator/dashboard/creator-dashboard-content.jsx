@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-import { deliverCreatorRentalResultAction, updateCreatorRentalStatusAction } from '@/server/rentals/actions';
 import { AlertTriangle, Bot, CheckCircle2, Clock, Plus, ShieldAlert } from 'lucide-react';
 
 const copy = {
@@ -22,14 +21,10 @@ const copy = {
     missingText:
       'Ce compte a accès à l’espace créateur, mais aucun creator_profile ne lui est lié. Un admin peut accéder à cette page, mais il ne peut lister ou créer que ses propres agents.',
     loadError: 'Impossible de charger vos agents pour le moment.',
-    rentalsTitle: 'Locations reçues',
-    rentalsEmptyTitle: 'Aucune location reçue',
-    rentalsEmptyText: 'Les locations beta apparaîtront ici dès qu’un user louera un de vos agents approuvés. Elles sont activées automatiquement.',
-    rentalsLoadError: 'Impossible de charger vos locations reçues.',
-    rentalUpdated: 'Statut de location mis à jour.',
-    rentalDelivered: 'Résultat livré. La location est maintenant marquée comme livrée.',
-    rentalActionError: 'Impossible de mettre à jour cette location.',
-    deliveryPlaceholder: 'Résumez le travail effectué, les liens utiles et les prochaines étapes pour le client.',
+    rentalsTitle: 'Accès à mes agents',
+    rentalsEmptyTitle: 'Aucun accès actif',
+    rentalsEmptyText: 'Les accès beta apparaîtront ici dès qu’un utilisateur louera un de vos agents approuvés.',
+    rentalsLoadError: 'Impossible de charger les accès à vos agents.',
     submitted: 'Agent soumis pour validation. Il apparaît maintenant dans votre espace créateur.',
     adminFeedbackTitle: 'Retour admin',
     adminFeedbackEmpty: 'Aucun commentaire ajouté.',
@@ -54,14 +49,13 @@ const copy = {
     },
     rentalStatuses: {
       pending: 'À traiter',
-      accepted: 'À traiter',
-      in_progress: 'En cours',
+      accepted: 'Actif',
+      in_progress: 'Legacy',
       delivered: 'Livrée',
       rejected: 'Refusée',
       cancelled: 'Annulée',
-    },
-    actions: {
-      start: 'Démarrer le traitement',
+      active: 'Actif',
+      expired: 'Expiré',
     },
   },
   en: {
@@ -76,14 +70,10 @@ const copy = {
     missingText:
       'This account can access the creator area, but no creator_profile is linked to it. An admin can access this page, but can only list or create their own agents.',
     loadError: 'Could not load your agents right now.',
-    rentalsTitle: 'Received beta rentals',
-    rentalsEmptyTitle: 'No received rentals',
-    rentalsEmptyText: 'Beta rentals will appear here as soon as a user rents one of your approved agents. They are activated automatically.',
-    rentalsLoadError: 'Could not load your received rentals.',
-    rentalUpdated: 'Rental status updated.',
-    rentalDelivered: 'Result delivered. The rental is now marked as delivered.',
-    rentalActionError: 'Could not update this rental.',
-    deliveryPlaceholder: 'Summarize the completed work, useful links, and next steps for the client.',
+    rentalsTitle: 'Access to my agents',
+    rentalsEmptyTitle: 'No active access yet',
+    rentalsEmptyText: 'Beta accesses will appear here as soon as a user rents one of your approved agents.',
+    rentalsLoadError: 'Could not load access analytics for your agents.',
     submitted: 'Agent submitted for review. It now appears in your creator workspace.',
     adminFeedbackTitle: 'Admin feedback',
     adminFeedbackEmpty: 'No comment added.',
@@ -108,14 +98,13 @@ const copy = {
     },
     rentalStatuses: {
       pending: 'To process',
-      accepted: 'To process',
-      in_progress: 'In progress',
+      accepted: 'Active',
+      in_progress: 'Legacy',
       delivered: 'Delivered',
       rejected: 'Rejected',
       cancelled: 'Cancelled',
-    },
-    actions: {
-      start: 'Start processing',
+      active: 'Active',
+      expired: 'Expired',
     },
   },
 };
@@ -131,8 +120,12 @@ const statusTone = {
   accepted: 'border-[#8B5CF6]/40 bg-[#8B5CF6]/10 text-[#C4B5FD]',
   in_progress: 'border-[#0EA5E9]/40 bg-[#0EA5E9]/10 text-[#7DD3FC]',
   delivered: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#6EE7B7]',
+  active: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#6EE7B7]',
+  expired: 'border-[#6B7280]/40 bg-[#6B7280]/10 text-[#D1D5DB]',
   cancelled: 'border-[#6B7280]/40 bg-[#6B7280]/10 text-[#D1D5DB]',
 };
+
+const accessAnalyticsStatuses = ['active', 'accepted', 'in_progress', 'delivered'];
 
 function StatusBadge({ label, status }) {
   return (
@@ -199,9 +192,6 @@ export default function CreatorDashboardContent({
   creatorRentalsResult,
   locale = 'fr',
   profile,
-  rentalError,
-  rentalDelivered,
-  rentalUpdated,
   submittedSlug,
 }) {
   const t = copy[locale] || copy.fr;
@@ -210,8 +200,6 @@ export default function CreatorDashboardContent({
   const rentals = creatorRentalsResult?.rentals ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/creator/agents/new';
-  const updateRentalAction = updateCreatorRentalStatusAction.bind(null, locale);
-  const deliverRentalAction = deliverCreatorRentalResultAction.bind(null, locale);
 
   useEffect(() => {
     const refresh = () => {
@@ -230,6 +218,8 @@ export default function CreatorDashboardContent({
     { label: t.statuses.approved, value: agents.filter((agent) => agent.status === 'approved').length },
     { label: t.statuses.rejected, value: agents.filter((agent) => agent.status === 'rejected').length },
   ];
+  const activeAccessRentals = rentals.filter((rental) => accessAnalyticsStatuses.includes(rental.status));
+  const estimatedRevenueCents = activeAccessRentals.reduce((sum, rental) => sum + (rental.priceCents ?? 0), 0);
 
   return (
     <div className="min-h-screen">
@@ -263,33 +253,6 @@ export default function CreatorDashboardContent({
               {t.submitted}
             </div>
           </div>
-        )}
-
-        {rentalUpdated && (
-          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              {t.rentalUpdated}
-            </div>
-          </div>
-        )}
-
-        {rentalDelivered && (
-          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              {t.rentalDelivered}
-            </div>
-          </div>
-        )}
-
-        {rentalError && (
-          <Panel className="mb-6 border-[#EF4444]/35 bg-[#EF4444]/10">
-            <div className="flex items-center gap-2 text-sm text-[#FCA5A5]">
-              <AlertTriangle className="h-4 w-4" />
-              {t.rentalActionError}
-            </div>
-          </Panel>
         )}
 
         {creatorAgentsResult?.creatorProfileMissing && (
@@ -330,11 +293,14 @@ export default function CreatorDashboardContent({
                   <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.rentalsTitle}</h2>
                   <p className="mt-1 text-xs text-[#9B72CF]">
                     {locale === 'en'
-                      ? 'Private beta rentals are activated automatically. Stripe is not connected yet.'
-                      : 'Les locations beta privées sont activées automatiquement. Stripe n’est pas encore connecté.'}
+                      ? 'Beta accesses are activated automatically. Stripe is not connected yet.'
+                      : 'Les accès beta sont activés automatiquement. Stripe n’est pas encore connecté.'}
                   </p>
                 </div>
-                <span className="font-stat text-sm text-[#9B72CF]">{rentals.length}</span>
+                <div className="text-right">
+                  <span className="block font-stat text-sm text-[#9B72CF]">{activeAccessRentals.length}</span>
+                  <span className="text-xs text-[#6F5B8F]">€{Math.round(estimatedRevenueCents / 100)}</span>
+                </div>
               </div>
 
               {creatorRentalsResult?.error && (
@@ -364,30 +330,14 @@ export default function CreatorDashboardContent({
                         <StructuredBrief inputs={rental.requiredInputs} locale={locale} />
                       </div>
                       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-                        {(rental.status === 'pending' || rental.status === 'accepted') && (
-                          <form action={updateRentalAction}>
-                            <input type="hidden" name="rental_id" value={rental.id} />
-                            <input type="hidden" name="action" value="start" />
-                            <Button size="sm" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">{t.actions.start}</Button>
-                          </form>
-                        )}
-                        {rental.status === 'in_progress' && (
-                          <form action={deliverRentalAction} className="w-full max-w-md space-y-3">
-                            <input type="hidden" name="rental_id" value={rental.id} />
-                            <textarea
-                              name="summary"
-                              required
-                              minLength={10}
-                              maxLength={8000}
-                              rows={4}
-                              placeholder={t.deliveryPlaceholder}
-                              className="w-full rounded-xl border border-[#2F184B] bg-[#07040F] px-3 py-2 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED]"
-                            />
-                            <Button size="sm" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
-                              {locale === 'en' ? 'Deliver result' : 'Livrer le résultat'}
-                            </Button>
-                          </form>
-                        )}
+                        <div className="rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2 text-right">
+                          <p className="font-label text-[10px] text-[#9B72CF]">
+                            {locale === 'en' ? 'Direct access' : 'Accès direct'}
+                          </p>
+                          <p className="text-xs text-[#C8B1E4]">
+                            {locale === 'en' ? 'No creator action required' : 'Aucune action créateur requise'}
+                          </p>
+                        </div>
                       </div>
                     </article>
                   ))}

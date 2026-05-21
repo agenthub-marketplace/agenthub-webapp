@@ -42,7 +42,7 @@ function ProfilePage({ profile }) {
               </div>
               <p className="text-sm text-[#A78BCF] mb-3">{email ? `${email} · ` : ''}{memberSince}</p>
               <div className="flex gap-3">
-                <Link href="/dashboard">
+                <Link href="/workspace">
                   <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]" size="sm">
                     <MessageSquare className="w-3.5 h-3.5 mr-2"/>{t('nav.workspace')}
                   </Button>

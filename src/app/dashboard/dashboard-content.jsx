@@ -18,6 +18,8 @@ function statusBadgeClass(status) {
       accepted: 'bg-[#1A152F] border-[#8B5CF6]/30 text-[#C4B5FD]',
       in_progress: 'bg-[#1A152F] border-[#0EA5E9]/30 text-[#7DD3FC]',
       delivered: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      active: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      expired: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
       rejected: 'bg-[#1A152F] border-[#EF4444]/30 text-[#FCA5A5]',
       cancelled: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
     }[status] ?? 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]'
@@ -27,18 +29,22 @@ function statusBadgeClass(status) {
 function rentalStatusLabel(status, lang) {
   const labels = {
     fr: {
-      pending: 'À traiter',
+      pending: 'En attente',
       accepted: 'Active',
       in_progress: 'En cours',
       delivered: 'Livrée',
+      active: 'Active',
+      expired: 'Expirée',
       rejected: 'Refusée',
       cancelled: 'Annulée',
     },
     en: {
-      pending: 'To process',
+      pending: 'Pending',
       accepted: 'Active',
       in_progress: 'In progress',
       delivered: 'Delivered',
+      active: 'Active',
+      expired: 'Expired',
       rejected: 'Rejected',
       cancelled: 'Cancelled',
     },
@@ -46,6 +52,8 @@ function rentalStatusLabel(status, lang) {
 
   return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
 }
+
+const accessCompatibleStatuses = ['active', 'accepted', 'in_progress', 'delivered'];
 
 function StructuredBrief({ inputs, lang }) {
   if (!inputs || typeof inputs !== 'object') {
@@ -112,9 +120,10 @@ function DashboardPage({
   const effectiveLocale = (locale ?? lang ?? 'fr') === 'en' ? 'en' : 'fr';
   const reviewAction = submitRentalReviewAction.bind(null, effectiveLocale);
   const marketplacePath = effectiveLocale === 'en' ? '/en/marketplace' : '/marketplace';
+  const workspacePath = effectiveLocale === 'en' ? '/en/workspace' : '/workspace';
 
   const historyRows = betaRentals
-    .filter((rental) => ['delivered', 'rejected', 'cancelled'].includes(rental.status))
+    .filter((rental) => ['delivered', 'rejected', 'cancelled', 'expired'].includes(rental.status))
     .map((rental) => ({
       id: rental.id,
       agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'AgentHub agent'),
@@ -152,10 +161,10 @@ function DashboardPage({
       return lang === 'en' ? 'The rating must be between 1 and 5.' : 'La note doit être comprise entre 1 et 5.';
     }
 
-    if (reviewError === 'rental-not-delivered') {
+    if (reviewError === 'rental-not-reviewable' || reviewError === 'rental-not-delivered') {
       return lang === 'en'
-        ? 'This beta rental can be reviewed only after it is delivered.'
-        : 'Cette location beta doit être livrée avant de pouvoir être notée.';
+        ? 'You can review only an agent you have accessed.'
+        : 'Vous pouvez noter uniquement un agent auquel vous avez accès.';
     }
 
     if (reviewError === 'review-already-exists') {
@@ -199,8 +208,8 @@ function DashboardPage({
         {rentalCreated && (
           <div className="mb-5 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
             {lang === 'en'
-              ? 'Your beta rental is active. Find it anytime from My rentals.'
-              : 'Votre location beta est active. Retrouvez-la à tout moment dans Mes locations.'}
+              ? 'Your beta access is active. Find it anytime from My rentals.'
+              : 'Votre accès beta est actif. Retrouvez-le à tout moment dans Mes locations.'}
           </div>
         )}
 
@@ -277,7 +286,7 @@ function DashboardPage({
 
             {betaRentals.length > 0 && (
               <div className="mb-6">
-                <p className="font-label text-xs text-[#A78BCF] mb-3">{lang === 'en' ? 'BETA RENTALS' : 'LOCATIONS BETA'}</p>
+                <p className="font-label text-xs text-[#A78BCF] mb-3">{lang === 'en' ? 'RENTED AGENTS' : 'AGENTS LOUÉS'}</p>
                 <div className="grid md:grid-cols-3 gap-5">
                   {betaRentals.map((rental) => (
                     <div key={rental.id} className="bg-[#110D24] border border-[#251A40] rounded-2xl p-5 card-hover">
@@ -298,8 +307,8 @@ function DashboardPage({
                       </div>
                       <p className="text-xs text-[#A78BCF] mb-4">
                         {lang === 'en'
-                          ? 'Created without payment during the private beta.'
-                          : 'Créée sans paiement pendant la beta privée.'}
+                          ? 'Active without payment during the private beta.'
+                          : 'Actif sans paiement pendant la beta privée.'}
                       </p>
                       <StructuredBrief inputs={rental.requiredInputs} lang={lang} />
                       {rental.result && (
@@ -312,11 +321,11 @@ function DashboardPage({
                       )}
                       {!rental.result && rental.status === 'delivered' && (
                         <div className="mb-4 rounded-xl border border-[#2F184B] bg-[#07050F] p-3 text-xs text-[#C8B1E4]">
-                          {lang === 'en' ? 'Result is pending creation by the creator.' : 'Le résultat est en préparation côté créateur.'}
+                          {lang === 'en' ? 'Legacy delivered rental without stored result.' : 'Ancienne location livrée sans résultat enregistré.'}
                         </div>
                       )}
 
-                      {rental.status === 'delivered' && rental.result && !rental.review && (
+                      {['active', 'expired', 'delivered'].includes(rental.status) && !rental.review && (
                         <form action={reviewAction} className="mt-4 space-y-2">
                           <input type="hidden" name="rental_id" value={rental.id} />
                           <div>
@@ -349,7 +358,7 @@ function DashboardPage({
                             minLength={5}
                             maxLength={1200}
                             rows={4}
-                            placeholder={lang === 'en' ? 'Your feedback on the delivery' : 'Votre avis sur la livraison'}
+                            placeholder={lang === 'en' ? 'Your feedback on this agent' : 'Votre avis sur cet agent'}
                             className="w-full rounded-lg bg-[#07050F] border border-[#2F184B] px-3 py-2 text-sm text-[#F5F1FA]"
                           />
                           <Button type="submit" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
@@ -373,12 +382,18 @@ function DashboardPage({
                         </div>
                       )}
 
-                      {rental.agent?.slug && (
-                        <Link href={`/agents/${rental.agent.slug}`}>
+                      {accessCompatibleStatuses.includes(rental.status) ? (
+                        <Link href={`${workspacePath}/${rental.id}`}>
                           <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
-                            {lang === 'en' ? 'View agent' : 'Voir l’agent'}
+                            {lang === 'en' ? 'Open agent' : 'Ouvrir l’agent'}
                           </Button>
                         </Link>
+                      ) : (
+                        <p className="rounded-xl border border-[#2F184B] bg-[#07050F] px-3 py-2 text-center text-xs text-[#9B72CF]">
+                          {lang === 'en'
+                            ? 'This access is not currently open.'
+                            : 'Cet accès n’est pas ouvert pour le moment.'}
+                        </p>
                       )}
                     </div>
                   ))}
@@ -389,12 +404,12 @@ function DashboardPage({
             {!betaRentalsError && betaRentals.length === 0 && (
               <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-8 text-center">
                 <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
-                  {lang === 'en' ? 'No beta rentals yet' : 'Aucune location beta pour l’instant'}
+                  {lang === 'en' ? 'No rented agents yet' : 'Aucun agent loué pour l’instant'}
                 </h3>
                 <p className="mx-auto mt-2 max-w-md text-sm text-[#A78BCF]">
                   {lang === 'en'
-                    ? 'Rent an approved agent from the marketplace to track it here.'
-                    : 'Louez un agent approuvé depuis la marketplace pour le suivre ici.'}
+                    ? 'Rent an approved agent from the marketplace to access it here.'
+                    : 'Louez un agent approuvé depuis la marketplace pour y accéder ici.'}
                 </p>
                 <Link href={marketplacePath} className="mt-5 inline-flex">
                   <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
@@ -502,8 +517,8 @@ function DashboardPage({
             </h3>
             <p className="mt-2 max-w-2xl text-sm text-[#A78BCF]">
               {lang === 'en'
-                ? 'Beta rentals are currently created without Stripe checkout, stored payment methods, invoices, or charges.'
-                : 'Les locations beta sont actuellement créées sans checkout Stripe, moyen de paiement enregistré, facture ou débit.'}
+                ? 'Beta access is currently activated without Stripe checkout, stored payment methods, invoices, or charges.'
+                : 'Les accès beta sont actuellement activés sans checkout Stripe, moyen de paiement enregistré, facture ou débit.'}
             </p>
           </div>
         )}
