@@ -68,9 +68,13 @@ function ReviewSection({ reviews }) {
 const rentalErrors = {
   'agent-load-failed': 'Impossible de charger cet agent pour le moment.',
   'agent-unavailable': 'Cet agent n’est plus disponible à la location beta.',
+  'rental-inputs-required': 'Décrivez votre besoin avant de créer la location beta.',
   'rental-create-failed': 'Impossible de créer cette location beta pour le moment.',
   'self-rental-not-allowed': 'Vous ne pouvez pas louer votre propre agent en beta.',
 };
+
+const inputClass =
+  'w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20';
 
 export default async function Page({ params, searchParams }) {
   const { slug } = await params;
@@ -185,14 +189,36 @@ export default async function Page({ params, searchParams }) {
               <p className="text-sm text-[#9B72CF] mb-5">
                 Paiement Stripe non activé. Cette location beta est créée sans paiement réel ; le créateur confirmera les détails pendant la beta.
               </p>
-              <form action={createBetaRentalAction.bind(null, 'fr')}>
+              <form action={createBetaRentalAction.bind(null, 'fr')} className="space-y-3">
                 <input type="hidden" name="agent_id" value={agent.id} />
                 <input type="hidden" name="slug" value={agent.slug} />
-                <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12 mb-3">
+                <div>
+                  <label className="font-label mb-1.5 block text-xs text-[#9B72CF]">Objectif</label>
+                  <input name="objective" required minLength={5} maxLength={240} placeholder="Ex: analyser un contrat fournisseur" className={inputClass} />
+                </div>
+                <div>
+                  <label className="font-label mb-1.5 block text-xs text-[#9B72CF]">Contexte</label>
+                  <textarea name="context" required minLength={10} maxLength={1200} rows={3} placeholder="Décrivez la situation, les documents ou les éléments déjà disponibles." className={inputClass} />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="font-label mb-1.5 block text-xs text-[#9B72CF]">Deadline souhaitée</label>
+                    <input name="deadline" required maxLength={120} placeholder="Ex: vendredi soir" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="font-label mb-1.5 block text-xs text-[#9B72CF]">Format attendu</label>
+                    <input name="output_format" required maxLength={160} placeholder="Ex: synthèse + checklist" className={inputClass} />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-label mb-1.5 block text-xs text-[#9B72CF]">Contraintes importantes</label>
+                  <textarea name="constraints" required minLength={3} maxLength={1200} rows={3} placeholder="Budget, ton, pays, outils, points à éviter..." className={inputClass} />
+                </div>
+                <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12">
                   Louer cet agent en beta
                 </Button>
               </form>
-              <p className="text-xs text-[#9B72CF]">
+              <p className="mt-3 text-xs text-[#9B72CF]">
                 Aucun paiement réel n’est traité pendant la beta privée.
               </p>
             </div>

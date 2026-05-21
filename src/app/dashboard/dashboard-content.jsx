@@ -24,6 +24,38 @@ function statusBadgeClass(status) {
   );
 }
 
+function StructuredBrief({ inputs, lang }) {
+  if (!inputs || typeof inputs !== 'object') {
+    return null;
+  }
+
+  const rows = [
+    [lang === 'en' ? 'Goal' : 'Objectif', inputs.objective],
+    [lang === 'en' ? 'Context' : 'Contexte', inputs.context],
+    [lang === 'en' ? 'Deadline' : 'Deadline', inputs.deadline],
+    [lang === 'en' ? 'Expected format' : 'Format attendu', inputs.output_format],
+    [lang === 'en' ? 'Constraints' : 'Contraintes', inputs.constraints],
+  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-[#2F184B] bg-[#07050F] p-3 text-xs text-[#C8B1E4]">
+      <p className="font-label mb-2 text-[10px] text-[#9B72CF]">{lang === 'en' ? 'YOUR BRIEF' : 'VOTRE BESOIN'}</p>
+      <div className="space-y-2">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <p className="font-label text-[10px] text-[#7F6B9C]">{label}</p>
+            <p className="whitespace-pre-line leading-relaxed">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage({
   profile,
   betaRentals = [],
@@ -246,6 +278,7 @@ function DashboardPage({
                           ? 'Created without payment during the private beta.'
                           : 'Créée sans paiement pendant la beta privée.'}
                       </p>
+                      <StructuredBrief inputs={rental.requiredInputs} lang={lang} />
                       {rental.result && (
                         <div className="mb-4 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-3 text-xs text-[#D6C5E8]">
                           <p className="font-label mb-1 text-[10px] text-[#6EE7B7]">

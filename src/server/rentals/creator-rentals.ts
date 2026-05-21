@@ -10,6 +10,13 @@ export type CreatorRental = {
   priceCents: number | null;
   currency: string;
   requestBrief: string;
+  requiredInputs: {
+    constraints?: string;
+    context?: string;
+    deadline?: string;
+    objective?: string;
+    output_format?: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   agent: {
@@ -26,6 +33,7 @@ type CreatorRentalRow = {
   quoted_price_cents: number | null;
   currency: string;
   request_brief: string;
+  required_inputs: CreatorRental["requiredInputs"];
   created_at: string;
   updated_at: string;
   agents: CreatorRental["agent"] | CreatorRental["agent"][] | null;
@@ -64,7 +72,7 @@ export async function getCreatorRentalsForUser(): Promise<CreatorRentalsResult> 
 
   const { data, error } = await supabase
     .from("rental_requests")
-    .select("id,status,pricing_type,quoted_price_cents,currency,request_brief,created_at,updated_at,agents!rental_requests_agent_id_fkey(name,slug,summary)")
+    .select("id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,updated_at,agents!rental_requests_agent_id_fkey(name,slug,summary)")
     .eq("creator_id", creatorProfile.id)
     .order("created_at", { ascending: false })
     .returns<CreatorRentalRow[]>();
@@ -85,6 +93,7 @@ export async function getCreatorRentalsForUser(): Promise<CreatorRentalsResult> 
       priceCents: rental.quoted_price_cents,
       currency: rental.currency,
       requestBrief: rental.request_brief,
+      requiredInputs: rental.required_inputs,
       createdAt: rental.created_at,
       updatedAt: rental.updated_at,
       agent: readSingle(rental.agents),

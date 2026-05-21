@@ -8,6 +8,14 @@ export type UserRental = {
   pricingType: "task" | "project";
   priceCents: number | null;
   currency: string;
+  requestBrief: string;
+  requiredInputs: {
+    constraints?: string;
+    context?: string;
+    deadline?: string;
+    objective?: string;
+    output_format?: string;
+  } | null;
   createdAt: string;
   agent: {
     name: string;
@@ -32,6 +40,8 @@ type UserRentalRow = {
   pricing_type: "task" | "project";
   quoted_price_cents: number | null;
   currency: string;
+  request_brief: string;
+  required_inputs: UserRental["requiredInputs"];
   created_at: string;
   agents: { name: string; slug: string; summary: string } | { name: string; slug: string; summary: string }[] | null;
   rental_results: { summary: string; delivered_at: string | null } | { summary: string; delivered_at: string | null }[] | null;
@@ -65,7 +75,7 @@ export async function getUserRentals(userId: string) {
   const { data, error } = await supabase
     .from("rental_requests")
     .select(
-      "id,status,pricing_type,quoted_price_cents,currency,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)",
+      "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)",
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -82,6 +92,8 @@ export async function getUserRentals(userId: string) {
       pricingType: rental.pricing_type,
       priceCents: rental.quoted_price_cents,
       currency: rental.currency,
+      requestBrief: rental.request_brief,
+      requiredInputs: rental.required_inputs,
       createdAt: rental.created_at,
       agent: readSingle(rental.agents),
       result: (() => {

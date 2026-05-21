@@ -166,6 +166,38 @@ function Panel({ children, className = '' }) {
   return <div className={`rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5 ${className}`}>{children}</div>;
 }
 
+function StructuredBrief({ inputs, locale }) {
+  if (!inputs || typeof inputs !== 'object') {
+    return null;
+  }
+
+  const rows = [
+    [locale === 'en' ? 'Goal' : 'Objectif', inputs.objective],
+    [locale === 'en' ? 'Context' : 'Contexte', inputs.context],
+    [locale === 'en' ? 'Deadline' : 'Deadline', inputs.deadline],
+    [locale === 'en' ? 'Expected format' : 'Format attendu', inputs.output_format],
+    [locale === 'en' ? 'Constraints' : 'Contraintes', inputs.constraints],
+  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+      <p className="font-label mb-2 text-[10px] text-[#9B72CF]">{locale === 'en' ? 'CLIENT BRIEF' : 'BRIEF CLIENT'}</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <p className="font-label text-[10px] text-[#7F6B9C]">{label}</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CreatorDashboardContent({
   creatorAgentsResult,
   creatorRentalsResult,
@@ -333,6 +365,7 @@ export default function CreatorDashboardContent({
                           <span>€{Math.round((rental.priceCents ?? 0) / 100)}</span>
                           <span>{new Date(rental.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}</span>
                         </div>
+                        <StructuredBrief inputs={rental.requiredInputs} locale={locale} />
                       </div>
                       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
                         {rental.status === 'pending' && (

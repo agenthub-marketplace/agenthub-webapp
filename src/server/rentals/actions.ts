@@ -23,6 +23,35 @@ function redirectWithAgentError(locale: Locale, slug: string, error: string): ne
   redirect(`${localizedPath(`/agents/${slug}`, locale)}?error=${encodeURIComponent(error)}`);
 }
 
+function readText(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeMultiline(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildRequestBrief(input: {
+  constraints: string;
+  context: string;
+  deadline: string;
+  objective: string;
+  outputFormat: string;
+}) {
+  return [
+    `Objectif: ${input.objective}`,
+    `Contexte: ${input.context}`,
+    `Deadline souhaitée: ${input.deadline}`,
+    `Format attendu: ${input.outputFormat}`,
+    `Contraintes importantes: ${input.constraints}`,
+  ].join("\n\n");
+}
+
 export async function createBetaRentalAction(locale: Locale, formData: FormData) {
   const profile = await requireAuth(locale);
   const supabase = await createSupabaseServerClient();
@@ -36,6 +65,24 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
 
   if (typeof agentId !== "string" || typeof slug !== "string" || !agentId || !slug) {
     redirect(localizedPath("/marketplace", locale));
+  }
+
+  const rentalInput = {
+    objective: readText(formData, "objective"),
+    context: readText(formData, "context"),
+    deadline: readText(formData, "deadline"),
+    outputFormat: readText(formData, "output_format"),
+    constraints: normalizeMultiline(readText(formData, "constraints")),
+  };
+
+  if (
+    rentalInput.objective.length < 5 ||
+    rentalInput.context.length < 10 ||
+    rentalInput.deadline.length < 2 ||
+    rentalInput.outputFormat.length < 3 ||
+    rentalInput.constraints.length < 3
+  ) {
+    redirectWithAgentError(locale, slug, "rental-inputs-required");
   }
 
   const { data: agent, error: agentError } = await supabase
@@ -67,8 +114,14 @@ export async function createBetaRentalAction(locale: Locale, formData: FormData)
     pricing_type: agent.pricing_type,
     quoted_price_cents: agent.starting_price_cents,
     currency: agent.currency,
-    request_brief: "Beta rental created without payment. Stripe checkout will replace this step later.",
-    required_inputs: {},
+    request_brief: buildRequestBrief(rentalInput),
+    required_inputs: {
+      objective: rentalInput.objective,
+      context: rentalInput.context,
+      deadline: rentalInput.deadline,
+      output_format: rentalInput.outputFormat,
+      constraints: rentalInput.constraints,
+    },
   });
 
   if (insertError) {
