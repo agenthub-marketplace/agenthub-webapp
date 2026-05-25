@@ -4,7 +4,7 @@ import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
-import { getUserRentals, ACCESS_COMPATIBLE_STATUSES } from '@/server/rentals/user-rentals';
+import { getUserRentals } from '@/server/rentals/user-rentals';
 import { ArrowRight, Bot, Clock } from 'lucide-react';
 
 function statusLabel(status) {
@@ -23,7 +23,7 @@ function statusLabel(status) {
 export default async function WorkspacePage() {
   const profile = await requireAuth('en', '/en/workspace');
   const { rentals, error } = await getUserRentals(profile.id);
-  const activeRentals = rentals.filter((rental) => ACCESS_COMPATIBLE_STATUSES.includes(rental.status));
+  const activeRentals = rentals.filter((rental) => rental.accessOpen);
 
   return (
     <div className="min-h-screen">

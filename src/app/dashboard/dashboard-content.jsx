@@ -53,8 +53,6 @@ function rentalStatusLabel(status, lang) {
   return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
 }
 
-const accessCompatibleStatuses = ['active', 'accepted', 'in_progress', 'delivered'];
-
 function StructuredBrief({ inputs, lang }) {
   if (!inputs || typeof inputs !== 'object') {
     return null;
@@ -382,7 +380,7 @@ function DashboardPage({
                         </div>
                       )}
 
-                      {accessCompatibleStatuses.includes(rental.status) ? (
+                      {rental.accessOpen ? (
                         <Link href={`${workspacePath}/${rental.id}`}>
                           <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
                             {lang === 'en' ? 'Open agent' : 'Ouvrir l’agent'}

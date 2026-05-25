@@ -21,7 +21,9 @@ export type UserRental = {
     name: string;
     slug: string;
     summary: string;
+    status: string;
   } | null;
+  accessOpen: boolean;
   result: {
     summary: string;
     deliveredAt: string | null;
@@ -45,7 +47,10 @@ type UserRentalRow = {
   request_brief: string;
   required_inputs: UserRental["requiredInputs"];
   created_at: string;
-  agents: { name: string; slug: string; summary: string } | { name: string; slug: string; summary: string }[] | null;
+  agents:
+    | { name: string; slug: string; summary: string; status: string }
+    | { name: string; slug: string; summary: string; status: string }[]
+    | null;
   rental_results: { summary: string; delivered_at: string | null } | { summary: string; delivered_at: string | null }[] | null;
   agent_reviews:
     | {
@@ -77,7 +82,7 @@ export async function getUserRentals(userId: string) {
   const { data, error } = await supabase
     .from("rental_requests")
     .select(
-      "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)",
+      "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,status),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)",
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -88,17 +93,21 @@ export async function getUserRentals(userId: string) {
   }
 
   return {
-    rentals: (data ?? []).map((rental) => ({
-      id: rental.id,
-      status: rental.status,
-      pricingType: rental.pricing_type,
-      priceCents: rental.quoted_price_cents,
-      currency: rental.currency,
-      requestBrief: rental.request_brief,
-      requiredInputs: rental.required_inputs,
-      createdAt: rental.created_at,
-      agent: readSingle(rental.agents),
-      result: (() => {
+    rentals: (data ?? []).map((rental) => {
+      const agent = readSingle(rental.agents);
+
+      return {
+        id: rental.id,
+        status: rental.status,
+        pricingType: rental.pricing_type,
+        priceCents: rental.quoted_price_cents,
+        currency: rental.currency,
+        requestBrief: rental.request_brief,
+        requiredInputs: rental.required_inputs,
+        createdAt: rental.created_at,
+        agent,
+        accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && agent?.status === "approved",
+        result: (() => {
         const result = readSingle(rental.rental_results);
         return result
           ? {
@@ -106,8 +115,8 @@ export async function getUserRentals(userId: string) {
               deliveredAt: result.delivered_at,
             }
           : null;
-      })(),
-      review: (() => {
+        })(),
+        review: (() => {
         const review = readSingle(rental.agent_reviews);
         return review
           ? {
@@ -117,8 +126,9 @@ export async function getUserRentals(userId: string) {
               body: review.body,
             }
           : null;
-      })(),
-    })),
+        })(),
+      };
+    }),
     error: null,
   };
 }

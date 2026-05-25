@@ -8,12 +8,20 @@ import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ReviewDecision = "approve" | "reject" | "changes" | "start_review";
+type ModerationAction = "suspend" | "restore";
 
 type AgentReviewRow = {
   id: string;
   active_version_id: string | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   status: "submitted" | "in_review" | "approved" | "rejected" | "suspended" | "draft";
+};
+
+type AgentModerationRow = {
+  id: string;
+  active_version_id: string | null;
+  risk_level: "low" | "medium" | "high" | "forbidden_beta";
+  status: "approved" | "suspended" | "submitted" | "in_review" | "rejected" | "draft";
 };
 
 function readText(formData: FormData, key: string) {
@@ -25,12 +33,20 @@ function isReviewDecision(value: string): value is ReviewDecision {
   return value === "approve" || value === "reject" || value === "changes" || value === "start_review";
 }
 
+function isModerationAction(value: string): value is ModerationAction {
+  return value === "suspend" || value === "restore";
+}
+
 function readLocale(formData: FormData): Locale {
   return readText(formData, "locale") === "en" ? "en" : "fr";
 }
 
 function redirectWithError(locale: Locale, error: string): never {
   redirect(`${localizedPath("/admin", locale)}?error=${encodeURIComponent(error)}`);
+}
+
+function redirectWithAgentsError(locale: Locale, error: string): never {
+  redirect(`${localizedPath("/admin", locale)}?error=${encodeURIComponent(error)}#agents`);
 }
 
 export async function reviewAgentAction(formData: FormData) {
@@ -134,4 +150,76 @@ export async function reviewAgentAction(formData: FormData) {
   revalidatePath("/search");
 
   redirect(`${localizedPath("/admin", locale)}?reviewed=${encodeURIComponent(agent.id)}`);
+}
+
+export async function moderateAgentPublicationAction(formData: FormData) {
+  const locale = readLocale(formData);
+  const profile = await requireAdminAccess(locale, localizedPath("/admin", locale));
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    redirectWithAgentsError(locale, "missing-config");
+  }
+
+  const agentId = readText(formData, "agent_id");
+  const action = readText(formData, "moderation_action");
+  const reason = readText(formData, "reason");
+
+  if (!agentId || !isModerationAction(action)) {
+    redirectWithAgentsError(locale, "invalid-moderation");
+  }
+
+  const expectedStatus = action === "suspend" ? "approved" : "suspended";
+  const nextStatus = action === "suspend" ? "suspended" : "approved";
+
+  const { data: agent, error: agentError } = await supabase
+    .from("agents")
+    .select("id,active_version_id,risk_level,status")
+    .eq("id", agentId)
+    .maybeSingle<AgentModerationRow>();
+
+  if (agentError || !agent || agent.status !== expectedStatus) {
+    redirectWithAgentsError(locale, "agent-moderation-failed");
+  }
+
+  if (action === "restore" && (!agent.active_version_id || agent.risk_level === "forbidden_beta")) {
+    redirectWithAgentsError(locale, "agent-moderation-failed");
+  }
+
+  const { data: updatedAgent, error: updateError } = await supabase
+    .from("agents")
+    .update({ status: nextStatus })
+    .eq("id", agentId)
+    .eq("status", expectedStatus)
+    .select("id,status")
+    .maybeSingle<{ id: string; status: string }>();
+
+  if (updateError || !updatedAgent) {
+    redirectWithAgentsError(locale, "agent-moderation-failed");
+  }
+
+  await supabase.from("audit_logs").insert({
+    actor_id: profile.id,
+    action: `agent.${action}`,
+    entity_type: "agent",
+    entity_id: updatedAgent.id,
+    metadata: {
+      previous_status: expectedStatus,
+      next_status: nextStatus,
+      reason: reason || null,
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/en/admin");
+  revalidatePath("/search");
+  revalidatePath("/en/search");
+  revalidatePath("/marketplace");
+  revalidatePath("/en/marketplace");
+  revalidatePath("/creator");
+  revalidatePath("/creator/dashboard");
+  revalidatePath("/en/creator");
+  revalidatePath("/en/creator/dashboard");
+
+  redirect(`${localizedPath("/admin", locale)}?moderated=${encodeURIComponent(updatedAgent.id)}#agents`);
 }

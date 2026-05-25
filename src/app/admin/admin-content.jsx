@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X, Edit, Lock, Search, Eye, Ban, Trash2, Flag, BarChart3 } from 'lucide-react';
 import { adminStats } from '@/lib/mock-data';
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { reviewAgentAction } from '@/server/admin/actions';
+import { moderateAgentPublicationAction, reviewAgentAction } from '@/server/admin/actions';
 
 const USERS = [
   { name: 'Marie Dupont', email: 'marie.dupont@example.com', type: 'Utilisateur', joined: '12 août 2025', rentals: 14, status: 'Actif' },
@@ -35,6 +35,26 @@ const reviewErrors = {
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être approuvés en beta.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
+  'invalid-moderation': 'Action de modération invalide.',
+  'agent-moderation-failed': 'Impossible de modifier la publication de cet agent.',
+};
+
+const agentStatusLabels = {
+  draft: 'Brouillon',
+  submitted: 'Soumis',
+  in_review: 'En revue',
+  approved: 'Publié',
+  rejected: 'Rejeté',
+  suspended: 'Suspendu',
+};
+
+const agentStatusClasses = {
+  draft: 'border-[#6B7280]/30 bg-[#6B7280]/10 text-[#D1D5DB]',
+  submitted: 'border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#F59E0B]',
+  in_review: 'border-[#8B5CF6]/30 bg-[#8B5CF6]/10 text-[#C4B5FD]',
+  approved: 'border-[#10B981]/30 bg-[#10B981]/10 text-[#6EE7B7]',
+  rejected: 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#FCA5A5]',
+  suspended: 'border-[#F97316]/30 bg-[#F97316]/10 text-[#FDBA74]',
 };
 
 function hasChangesRequest(agent) {
@@ -59,13 +79,15 @@ function statusLabel(agent) {
   return agent.status;
 }
 
-function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
-  const [tab, setTab] = useState('queue');
+function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, reviewed, reviewQueue }) {
+  const [tab, setTab] = useState(moderated ? 'agents' : 'queue');
   const [selected, setSelected] = useState(null);
   const [actionType, setActionType] = useState(null);
   const [actionText, setActionText] = useState('');
   const queue = reviewQueue?.queue ?? [];
   const queueError = reviewQueue?.error;
+  const managedAgents = agentManagement?.agents ?? [];
+  const managedAgentsError = agentManagement?.error;
   const activeSelection = selected && queue.some((item) => item.id === selected.id) ? selected : queue[0] ?? null;
 
   return (
@@ -114,6 +136,12 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
         {reviewed && (
           <div className="mb-6 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
             Décision admin enregistrée.
+          </div>
+        )}
+
+        {moderated && (
+          <div className="mb-6 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+            Publication agent mise à jour.
           </div>
         )}
 
@@ -289,9 +317,77 @@ function AdminPage({ error, locale = 'fr', profile, reviewed, reviewQueue }) {
         )}
 
         {tab === 'agents' && (
-          <div className="bg-[#110D24] border border-[#251A40] rounded-2xl p-5 text-center text-[#A78BCF]">
-            <p className="font-display font-semibold mb-1">Liste des agents</p>
-            <p className="text-xs">{adminStats.activeRentalsNow} agents publiés. Recherche, filtres et toggle « Mis en avant » disponibles. <span className="text-[#F59E0B]">7/10 emplacements vedette utilisés.</span></p>
+          <div id="agents" className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-hidden">
+            <div className="border-b border-[#251A40] p-5">
+              <p className="font-display text-xl font-bold text-[#F5F1FA]">Tous les agents</p>
+              <p className="mt-1 text-xs text-[#A78BCF]">
+                Backup sécurité : suspendez temporairement un agent publié pour le retirer de la marketplace, puis remettez-le en ligne après vérification.
+              </p>
+            </div>
+            {managedAgentsError && (
+              <div className="m-5 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
+                Impossible de charger les agents.
+              </div>
+            )}
+            {!managedAgentsError && managedAgents.length === 0 && (
+              <div className="p-8 text-center text-sm text-[#A78BCF]">Aucun agent trouvé.</div>
+            )}
+            {!managedAgentsError && managedAgents.length > 0 && (
+              <div className="divide-y divide-[#251A40]">
+                {managedAgents.map((agent) => (
+                  <div key={agent.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <p className="font-display font-bold text-[#F5F1FA]">{agent.name}</p>
+                        <span className={`rounded-full border px-2 py-1 text-[10px] font-label ${agentStatusClasses[agent.status]}`}>
+                          {agentStatusLabels[agent.status] || agent.status}
+                        </span>
+                        {agent.categoryName && (
+                          <span className="rounded-full bg-[#1A152F] px-2 py-1 text-[10px] font-label text-[#A78BCF]">
+                            {agent.categoryName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="max-w-3xl text-sm text-[#D6C5E8]">{agent.summary}</p>
+                      <p className="mt-2 text-xs text-[#A78BCF]">
+                        Créateur : {agent.creatorName || 'Créateur inconnu'} · {agent.pricingType} · {agent.riskLevel} · {formatSubmittedAt(agent.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      {agent.status === 'approved' && (
+                        <form action={moderateAgentPublicationAction}>
+                          <input type="hidden" name="agent_id" value={agent.id} />
+                          <input type="hidden" name="moderation_action" value="suspend" />
+                          <input type="hidden" name="locale" value={locale} />
+                          <input type="hidden" name="reason" value="Temporary admin safety suspension" />
+                          <Button type="submit" size="sm" variant="outline" className="bg-transparent border-[#F97316] text-[#FDBA74] hover:bg-[#F97316]/10">
+                            <Ban className="mr-1 h-4 w-4" />
+                            Retirer temporairement
+                          </Button>
+                        </form>
+                      )}
+                      {agent.status === 'suspended' && (
+                        <form action={moderateAgentPublicationAction}>
+                          <input type="hidden" name="agent_id" value={agent.id} />
+                          <input type="hidden" name="moderation_action" value="restore" />
+                          <input type="hidden" name="locale" value={locale} />
+                          <input type="hidden" name="reason" value="Admin restored publication after safety review" />
+                          <Button type="submit" size="sm" className="border-0 bg-[#10B981] text-white hover:bg-[#059669]">
+                            <Check className="mr-1 h-4 w-4" />
+                            Remettre en ligne
+                          </Button>
+                        </form>
+                      )}
+                      {!['approved', 'suspended'].includes(agent.status) && (
+                        <span className="rounded-lg border border-[#251A40] px-3 py-2 text-xs text-[#7F6B9C]">
+                          Action publication indisponible
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

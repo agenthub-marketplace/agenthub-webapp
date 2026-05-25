@@ -21,6 +21,18 @@ export type AdminReviewQueueItem = {
   } | null;
 };
 
+export type AdminAgentManagementItem = {
+  id: string;
+  name: string;
+  summary: string;
+  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+  riskLevel: "low" | "medium" | "high" | "forbidden_beta";
+  pricingType: "task" | "project";
+  categoryName: string | null;
+  creatorName: string | null;
+  createdAt: string;
+};
+
 type AgentQueueRow = {
   id: string;
   name: string;
@@ -30,6 +42,18 @@ type AgentQueueRow = {
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   pricing_type: "task" | "project";
   active_version_id: string | null;
+  created_at: string;
+  agent_categories: { name: string } | { name: string }[] | null;
+  creator_profiles: { public_name: string } | { public_name: string }[] | null;
+};
+
+type AgentManagementRow = {
+  id: string;
+  name: string;
+  summary: string;
+  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+  risk_level: "low" | "medium" | "high" | "forbidden_beta";
+  pricing_type: "task" | "project";
   created_at: string;
   agent_categories: { name: string } | { name: string }[] | null;
   creator_profiles: { public_name: string } | { public_name: string }[] | null;
@@ -49,6 +73,11 @@ type AdminReviewFeedbackRow = {
 
 export type AdminReviewQueueResult = {
   queue: AdminReviewQueueItem[];
+  error: string | null;
+};
+
+export type AdminAgentManagementResult = {
+  agents: AdminAgentManagementItem[];
   error: string | null;
 };
 
@@ -130,6 +159,40 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       createdAt: agent.created_at,
       resubmissionChangelog: agent.active_version_id ? changelogByVersion.get(agent.active_version_id) ?? null : null,
       latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
+    })),
+    error: null,
+  };
+}
+
+export async function getAdminAgentManagementList(): Promise<AdminAgentManagementResult> {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { agents: [], error: "missing-config" };
+  }
+
+  const { data, error } = await supabase
+    .from("agents")
+    .select("id,name,summary,status,risk_level,pricing_type,created_at,agent_categories(name),creator_profiles(public_name)")
+    .order("updated_at", { ascending: false })
+    .limit(100)
+    .returns<AgentManagementRow[]>();
+
+  if (error) {
+    return { agents: [], error: "agents-load-failed" };
+  }
+
+  return {
+    agents: (data ?? []).map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      summary: agent.summary,
+      status: agent.status,
+      riskLevel: agent.risk_level,
+      pricingType: agent.pricing_type,
+      categoryName: readSingle(agent.agent_categories)?.name ?? null,
+      creatorName: readSingle(agent.creator_profiles)?.public_name ?? null,
+      createdAt: agent.created_at,
     })),
     error: null,
   };

@@ -5,7 +5,7 @@ import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
-import { ACCESS_COMPATIBLE_STATUSES, getUserRentalById } from '@/server/rentals/user-rentals';
+import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { ArrowLeft, Bot, Check, Clock, Send } from 'lucide-react';
 
 export default async function WorkspaceRentalPage({ params, searchParams }) {
@@ -14,7 +14,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const profile = await requireAuth('en', `/en/workspace/${rentalId}`);
   const { rental, error } = await getUserRentalById(profile.id, rentalId);
 
-  if (error || !rental || !ACCESS_COMPATIBLE_STATUSES.includes(rental.status)) {
+  if (error || !rental || !rental.accessOpen) {
     notFound();
   }
 
