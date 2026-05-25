@@ -131,9 +131,35 @@ add column if not exists agent_version_id uuid references public.agent_versions(
 create index if not exists rental_requests_payment_id_idx on public.rental_requests(payment_id);
 create index if not exists rental_requests_agent_version_id_idx on public.rental_requests(agent_version_id);
 
-create unique index if not exists rental_requests_one_open_access_per_user_agent_idx
-on public.rental_requests(user_id, agent_id)
-where status in ('active', 'accepted', 'in_progress', 'delivered');
+create or replace function public.prevent_duplicate_open_rental_access()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.status in ('active', 'accepted', 'in_progress', 'delivered')
+    and exists (
+      select 1
+      from public.rental_requests rr
+      where rr.user_id = new.user_id
+        and rr.agent_id = new.agent_id
+        and rr.status in ('active', 'accepted', 'in_progress', 'delivered')
+        and rr.id <> new.id
+    )
+  then
+    raise exception 'User already has an open access for this agent' using errcode = '23505';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists rental_requests_prevent_duplicate_open_access on public.rental_requests;
+create trigger rental_requests_prevent_duplicate_open_access
+before insert or update of user_id, agent_id, status
+on public.rental_requests
+for each row
+execute function public.prevent_duplicate_open_rental_access();
 
 drop function if exists public.resubmit_creator_agent_changes(
   uuid,
