@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AdminReviewQueueItem = {
@@ -14,6 +15,7 @@ export type AdminReviewQueueItem = {
   creatorName: string | null;
   createdAt: string;
   resubmissionChangelog: string | null;
+  contract: AgentContract;
   latestAdminReview: {
     decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
     notes: string | null;
@@ -62,6 +64,11 @@ type AgentManagementRow = {
 type AgentVersionReviewRow = {
   id: string;
   changelog: string | null;
+  workspace_mode: string | null;
+  setup_requirements: unknown;
+  output_promise: unknown;
+  execution_mode: string | null;
+  data_policy: unknown;
 };
 
 type AdminReviewFeedbackRow = {
@@ -112,17 +119,29 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
     .filter((versionId): versionId is string => Boolean(versionId));
   const latestReviewsByAgent = new Map<string, AdminReviewQueueItem["latestAdminReview"]>();
   const changelogByVersion = new Map<string, string | null>();
+  const contractByVersion = new Map<string, AgentContract>();
 
   const uniqueActiveVersionIds = Array.from(new Set(activeVersionIds));
 
   if (uniqueActiveVersionIds.length > 0) {
-    const { data: versionsData } = await supabase.rpc("get_admin_agent_version_changelogs", {
-      p_version_ids: uniqueActiveVersionIds,
-    });
-    const versions = Array.isArray(versionsData) ? (versionsData as AgentVersionReviewRow[]) : [];
+    const { data: versions } = await supabase
+      .from("agent_versions")
+      .select("id,changelog,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy")
+      .in("id", uniqueActiveVersionIds)
+      .returns<AgentVersionReviewRow[]>();
 
-    for (const version of versions) {
+    for (const version of versions ?? []) {
       changelogByVersion.set(version.id, version.changelog);
+      contractByVersion.set(
+        version.id,
+        normalizeAgentContract({
+          workspaceMode: version.workspace_mode,
+          setupRequirements: version.setup_requirements,
+          outputPromise: version.output_promise,
+          executionMode: version.execution_mode,
+          dataPolicy: version.data_policy,
+        }),
+      );
     }
   }
 
@@ -158,6 +177,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       creatorName: readSingle(agent.creator_profiles)?.public_name ?? null,
       createdAt: agent.created_at,
       resubmissionChangelog: agent.active_version_id ? changelogByVersion.get(agent.active_version_id) ?? null : null,
+      contract: agent.active_version_id ? contractByVersion.get(agent.active_version_id) ?? normalizeAgentContract({}) : normalizeAgentContract({}),
       latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
     })),
     error: null,

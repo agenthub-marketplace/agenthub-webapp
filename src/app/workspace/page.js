@@ -3,6 +3,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
+import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
 import { getUserRentals } from '@/server/rentals/user-rentals';
 import { ArrowRight, Bot, Clock } from 'lucide-react';
@@ -18,6 +19,19 @@ function statusLabel(status) {
     rejected: 'Refusé',
     cancelled: 'Annulé',
   }[status] ?? status;
+}
+
+function formatPrice(cents, currency = 'eur') {
+  if (typeof cents !== 'number' || cents <= 0) {
+    return 'Prix non renseigné';
+  }
+
+  return new Intl.NumberFormat('fr-FR', {
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    style: 'currency',
+  }).format(cents / 100);
 }
 
 export default async function WorkspacePage() {
@@ -77,9 +91,12 @@ export default async function WorkspacePage() {
                   </span>
                   <span className="flex items-center gap-1 text-xs text-[#9B72CF]">
                     <Clock className="h-3.5 w-3.5" />
-                    Beta
+                    {formatPrice(rental.priceCents, rental.currency)}
                   </span>
                 </div>
+                <p className="mb-5 text-xs text-[#9B72CF]">
+                  {WORKSPACE_MODE_LABELS[rental.agent?.contract?.workspaceMode] || 'Accès immédiat'}
+                </p>
                 <Link href={`/workspace/${rental.id}`}>
                   <Button className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
                     Ouvrir l’agent

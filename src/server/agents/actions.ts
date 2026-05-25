@@ -6,6 +6,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireCreatorAccess } from "@/lib/auth/session";
+import {
+  buildDataPolicy,
+  buildOutputPromise,
+  buildSetupRequirements,
+  isExecutionMode,
+  isSetupRequirementType,
+  isWorkspaceMode,
+  readLines,
+} from "@/lib/agent-contract";
 import { PRICING_TYPES, RISK_LEVELS, type RiskLevel } from "@/lib/domain/status";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -56,13 +65,6 @@ function slugify(value: string) {
   return slug || "agent";
 }
 
-function readLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 function isPricingType(value: string): value is PricingType {
   return (PRICING_TYPES as readonly string[]).includes(value);
 }
@@ -80,6 +82,42 @@ function readPriceCents(value: string) {
   }
 
   return Math.round(price * 100);
+}
+
+function getSupabaseErrorText(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return "";
+  }
+
+  const maybeError = error as { code?: string; message?: string; details?: string; hint?: string };
+  return [maybeError.code, maybeError.message, maybeError.details, maybeError.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isMissingAgentContractSchemaError(error: unknown) {
+  const errorText = getSupabaseErrorText(error);
+
+  return (
+    errorText.includes("workspace_mode") ||
+    errorText.includes("setup_requirements") ||
+    errorText.includes("output_promise") ||
+    errorText.includes("execution_mode") ||
+    errorText.includes("data_policy") ||
+    (errorText.includes("schema cache") && errorText.includes("agent_versions"))
+  );
+}
+
+function isMissingAgentContractRpcError(error: unknown) {
+  const errorText = getSupabaseErrorText(error);
+
+  return (
+    isMissingAgentContractSchemaError(error) ||
+    errorText.includes("resubmit_creator_agent_changes") ||
+    errorText.includes("could not find the function") ||
+    errorText.includes("function public.resubmit_creator_agent_changes")
+  );
 }
 
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
@@ -114,6 +152,18 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
   if (values.risk_level === "forbidden_beta") {
     redirectWithError(locale, "forbidden-risk");
   }
+
+  const workspaceMode = readText(formData, "workspace_mode") || "instant";
+  const setupType = readText(formData, "setup_type") || "none";
+  const executionMode = readText(formData, "execution_mode") || "guided_workspace";
+
+  if (!isWorkspaceMode(workspaceMode) || !isSetupRequirementType(setupType) || !isExecutionMode(executionMode)) {
+    redirectWithError(locale, "invalid-contract");
+  }
+
+  const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
+  const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
+  const dataPolicy = buildDataPolicy(workspaceMode);
 
   const creatorProfile = await getCreatorProfileForUser();
 
@@ -163,20 +213,40 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     `Sample output: ${values.sample_output}`,
   ].join("\n\n");
 
-  const { error: versionError } = await supabase
+  const versionPayload = {
+    id: versionId,
+    agent_id: agentId,
+    version_number: 1,
+    model_notes: modelNotes,
+    capabilities: readLines(values.does),
+    required_inputs: readLines(values.required_inputs),
+    deliverables: readLines(values.deliverables),
+    limitations,
+    data_handling_notes: `Risk level declared by creator: ${values.risk_level}`,
+    changelog: "Initial creator submission.",
+  };
+
+  const versionPayloadWithContract = {
+    ...versionPayload,
+    workspace_mode: workspaceMode,
+    setup_requirements: setupRequirements,
+    output_promise: outputPromise,
+    execution_mode: executionMode,
+    data_policy: dataPolicy,
+  };
+
+  let { error: versionError } = await supabase
     .from("agent_versions")
-    .insert({
-      id: versionId,
-      agent_id: agentId,
-      version_number: 1,
-      model_notes: modelNotes,
-      capabilities: readLines(values.does),
-      required_inputs: readLines(values.required_inputs),
-      deliverables: readLines(values.deliverables),
-      limitations,
-      data_handling_notes: `Risk level declared by creator: ${values.risk_level}`,
-      changelog: "Initial creator submission.",
+    .insert(versionPayloadWithContract);
+
+  if (versionError && isMissingAgentContractSchemaError(versionError)) {
+    console.warn("Agent contract columns unavailable; retrying legacy agent version insert", {
+      code: versionError.code,
+      message: versionError.message,
     });
+
+    ({ error: versionError } = await supabase.from("agent_versions").insert(versionPayload));
+  }
 
   if (versionError) {
     console.error("Agent version insert failed", {
@@ -280,6 +350,18 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     redirectWithEditError(locale, agentId, "forbidden-risk");
   }
 
+  const workspaceMode = readText(formData, "workspace_mode") || "instant";
+  const setupType = readText(formData, "setup_type") || "none";
+  const executionMode = readText(formData, "execution_mode") || "guided_workspace";
+
+  if (!isWorkspaceMode(workspaceMode) || !isSetupRequirementType(setupType) || !isExecutionMode(executionMode)) {
+    redirectWithEditError(locale, agentId, "invalid-contract");
+  }
+
+  const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
+  const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
+  const dataPolicy = buildDataPolicy(workspaceMode);
+
   const creatorProfile = await getCreatorProfileForUser();
 
   if (creatorProfile.error) {
@@ -316,7 +398,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     redirectWithEditError(locale, agentId, "version-update-failed");
   }
 
-  const { error: resubmitError } = await supabase.rpc("resubmit_creator_agent_changes", {
+  const resubmitPayload = {
     p_agent_id: agent.id,
     p_category_id: values.category_id,
     p_name: values.name,
@@ -330,7 +412,39 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     p_deliverables: versionPayload.deliverables,
     p_limitations: versionPayload.limitations,
     p_changelog: values.changes_summary,
-  });
+    p_workspace_mode: workspaceMode,
+    p_setup_requirements: setupRequirements,
+    p_output_promise: outputPromise,
+    p_execution_mode: executionMode,
+    p_data_policy: dataPolicy,
+  };
+
+  const legacyResubmitPayload = {
+    p_agent_id: agent.id,
+    p_category_id: values.category_id,
+    p_name: values.name,
+    p_summary: values.short_description,
+    p_description: values.long_description,
+    p_pricing_type: values.pricing_type,
+    p_starting_price_cents: startingPriceCents,
+    p_risk_level: values.risk_level,
+    p_capabilities: versionPayload.capabilities,
+    p_required_inputs: versionPayload.required_inputs,
+    p_deliverables: versionPayload.deliverables,
+    p_limitations: versionPayload.limitations,
+    p_changelog: values.changes_summary,
+  };
+
+  let { error: resubmitError } = await supabase.rpc("resubmit_creator_agent_changes", resubmitPayload);
+
+  if (resubmitError && isMissingAgentContractRpcError(resubmitError)) {
+    console.warn("Agent contract resubmit RPC unavailable; retrying legacy resubmission RPC", {
+      code: resubmitError.code,
+      message: resubmitError.message,
+    });
+
+    ({ error: resubmitError } = await supabase.rpc("resubmit_creator_agent_changes", legacyResubmitPayload));
+  }
 
   if (resubmitError) {
     redirectWithEditError(locale, agentId, "agent-update-failed");

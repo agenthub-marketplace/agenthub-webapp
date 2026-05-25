@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AgentStatus, PricingType } from "@/types/agent";
 
@@ -40,7 +41,7 @@ export type CreatorAgentEditItem = {
     requiredInputs: string[];
     deliverables: string[];
     limitations: string[];
-  } | null;
+  } & AgentContract | null;
   latestAdminReview: {
     decision: AgentStatus;
     notes: string | null;
@@ -78,6 +79,11 @@ type AgentVersionEditRow = {
   required_inputs: string[] | null;
   deliverables: string[] | null;
   limitations: string[] | null;
+  workspace_mode: string | null;
+  setup_requirements: unknown;
+  output_promise: unknown;
+  execution_mode: string | null;
+  data_policy: unknown;
 };
 
 type AdminReviewFeedbackRow = {
@@ -331,16 +337,25 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
   if (agent.active_version_id) {
     const { data: versionRow } = await supabase
       .from("agent_versions")
-      .select("capabilities,required_inputs,deliverables,limitations")
+      .select("capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy")
       .eq("id", agent.active_version_id)
       .maybeSingle<AgentVersionEditRow>();
 
     if (versionRow) {
+      const contract = normalizeAgentContract({
+        workspaceMode: versionRow.workspace_mode,
+        setupRequirements: versionRow.setup_requirements,
+        outputPromise: versionRow.output_promise,
+        executionMode: versionRow.execution_mode,
+        dataPolicy: versionRow.data_policy,
+      });
+
       version = {
         capabilities: versionRow.capabilities ?? [],
         requiredInputs: versionRow.required_inputs ?? [],
         deliverables: versionRow.deliverables ?? [],
         limitations: versionRow.limitations ?? [],
+        ...contract,
       };
     }
   }

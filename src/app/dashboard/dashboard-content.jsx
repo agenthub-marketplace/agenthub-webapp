@@ -53,6 +53,36 @@ function rentalStatusLabel(status, lang) {
   return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
 }
 
+function paymentStatusLabel(status, lang, hasAccess = false) {
+  const labels = {
+    fr: {
+      pending: 'Paiement en attente',
+      paid: hasAccess ? 'Accès activé' : 'Activation en cours',
+      failed: 'Paiement échoué',
+      cancelled: 'Paiement annulé',
+    },
+    en: {
+      pending: 'Payment pending',
+      paid: hasAccess ? 'Access active' : 'Activation pending',
+      failed: 'Payment failed',
+      cancelled: 'Payment cancelled',
+    },
+  };
+
+  return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
+}
+
+function paymentStatusClass(status) {
+  return (
+    {
+      pending: 'bg-[#1A152F] border-[#F59E0B]/30 text-[#F59E0B]',
+      paid: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      failed: 'bg-[#1A152F] border-[#EF4444]/30 text-[#FCA5A5]',
+      cancelled: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
+    }[status] ?? 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]'
+  );
+}
+
 function StructuredBrief({ inputs, lang }) {
   if (!inputs || typeof inputs !== 'object') {
     return null;
@@ -89,6 +119,8 @@ function DashboardPage({
   profile,
   betaRentals = [],
   betaRentalsError = null,
+  paymentOrders = [],
+  paymentOrdersError = null,
   reviewSubmitted = null,
   reviewError = null,
   rentalCreated = false,
@@ -508,16 +540,73 @@ function DashboardPage({
         )}
 
         {tab === 'payments' && (
-          <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6">
-            <p className="font-label text-xs text-[#A78BCF] mb-2">{t('db.pm')}</p>
-            <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
-              {lang === 'en' ? 'Payments are not active during the private beta.' : 'Les paiements ne sont pas actifs pendant la beta privée.'}
-            </h3>
-            <p className="mt-2 max-w-2xl text-sm text-[#A78BCF]">
-              {lang === 'en'
-                ? 'Beta access is currently activated without Stripe checkout, stored payment methods, invoices, or charges.'
-                : 'Les accès beta sont actuellement activés sans checkout Stripe, moyen de paiement enregistré, facture ou débit.'}
-            </p>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6">
+              <p className="font-label text-xs text-[#A78BCF] mb-2">{t('db.pm')}</p>
+              <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
+                {lang === 'en' ? 'Order status' : 'État de vos commandes'}
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm text-[#A78BCF]">
+                {lang === 'en'
+                  ? 'Track pending payments, cancelled checkouts, and activations waiting for Stripe webhook confirmation.'
+                  : 'Suivez les paiements en attente, les checkouts annulés et les activations en attente de confirmation Stripe.'}
+              </p>
+            </div>
+
+            {paymentOrdersError && (
+              <div className="rounded-2xl border border-[#F59E0B]/40 bg-[#110D24] px-4 py-3 text-sm text-[#F59E0B]">
+                {lang === 'en' ? 'Payment status is temporarily unavailable.' : 'Les états de paiement sont temporairement indisponibles.'}
+              </div>
+            )}
+
+            {!paymentOrdersError && paymentOrders.length === 0 ? (
+              <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6 text-sm text-[#A78BCF]">
+                {lang === 'en'
+                  ? 'No Stripe checkout has been started yet.'
+                  : 'Aucun checkout Stripe n’a encore été démarré.'}
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {paymentOrders.map((payment) => (
+                  <article key={payment.id} className="rounded-2xl border border-[#251A40] bg-[#110D24] p-5">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#F5F1FA]">
+                          {payment.agent?.name ?? 'AgentHub agent'}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-xs text-[#A78BCF]">{payment.agent?.summary}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-label ${paymentStatusClass(payment.status)}`}>
+                        {paymentStatusLabel(payment.status, lang, Boolean(payment.rentalRequestId))}
+                      </span>
+                    </div>
+                    <div className="mb-4 flex items-center justify-between text-sm text-[#D6C5E8]">
+                      <span>{new Date(payment.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR')}</span>
+                      <span className="font-stat text-[#F5F1FA]">€{Math.round((payment.amountCents ?? 0) / 100)}</span>
+                    </div>
+                    {payment.rentalRequestId ? (
+                      <Link href={`${workspacePath}/${payment.rentalRequestId}`}>
+                        <Button size="sm" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                          {lang === 'en' ? 'Open access' : 'Ouvrir l’accès'}
+                        </Button>
+                      </Link>
+                    ) : payment.status === 'paid' && payment.checkoutSessionId ? (
+                      <Link href={`${effectiveLocale === 'en' ? '/en' : ''}/checkout/success?session_id=${encodeURIComponent(payment.checkoutSessionId)}`}>
+                        <Button size="sm" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                          {lang === 'en' ? 'Check activation' : 'Vérifier l’activation'}
+                        </Button>
+                      </Link>
+                    ) : payment.agent?.slug ? (
+                      <Link href={`/agents/${payment.agent.slug}`}>
+                        <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
+                          {lang === 'en' ? 'View agent' : 'Voir l’agent'}
+                        </Button>
+                      </Link>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
 import { submitAgentForReviewAction } from '@/server/agents/actions';
 import { ArrowLeft, Check, Send, ShieldAlert } from 'lucide-react';
 
@@ -31,6 +32,13 @@ const copy = {
       'Prix fixe en euros, visible dans la marketplace pour ce mode de location. Pendant la beta, aucun paiement n’est encaissé par AgentHub ; Stripe prendra ensuite le relais.',
     pricingDetailsHint:
       'Expliquez clairement ce qui est inclus dans ce prix fixe et les limites de l’accès.',
+    contract: 'Expérience workspace',
+    workspaceMode: 'Type d’accès',
+    setupType: 'Setup après activation',
+    setupItems: 'Éléments demandés dans le workspace',
+    outputPromiseSummary: 'Promesse de résultat',
+    outputPromiseExamples: 'Exemples d’utilisation',
+    executionMode: 'Mode d’exécution beta',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Méthode d’exécution',
     knownLimits: 'Limites connues',
@@ -50,6 +58,7 @@ const copy = {
       'invalid-pricing': 'Le type de prix est invalide.',
       'invalid-price': 'Le prix beta doit être un montant supérieur à 0.',
       'invalid-risk': 'Le niveau de risque est invalide.',
+      'invalid-contract': 'Le contrat d’agent est invalide.',
       'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être soumis directement.',
       'creator-profile-error': 'Impossible de lire votre profil créateur.',
       'creator-profile-missing': 'Aucun profil créateur n’est lié à ce compte.',
@@ -82,6 +91,13 @@ const copy = {
       'Fixed amount in euros, shown in the marketplace for this rental mode. During beta, AgentHub does not collect payments; Stripe will replace this later.',
     pricingDetailsHint:
       'Explain what is included in this fixed price and the limits of the access.',
+    contract: 'Workspace experience',
+    workspaceMode: 'Access type',
+    setupType: 'Setup after activation',
+    setupItems: 'Items requested in the workspace',
+    outputPromiseSummary: 'Output promise',
+    outputPromiseExamples: 'Usage examples',
+    executionMode: 'Beta execution mode',
     riskLevel: 'Risk level',
     executionMethod: 'Execution method',
     knownLimits: 'Known limits',
@@ -101,6 +117,7 @@ const copy = {
       'invalid-pricing': 'Invalid pricing type.',
       'invalid-price': 'The beta price must be greater than 0.',
       'invalid-risk': 'Invalid risk level.',
+      'invalid-contract': 'Invalid agent contract.',
       'forbidden-risk': 'forbidden_beta agents cannot be submitted directly.',
       'creator-profile-error': 'Could not read your creator profile.',
       'creator-profile-missing': 'No creator profile is linked to this account.',
@@ -269,6 +286,52 @@ export default function NewAgentContent({
                 </Field>
                 <Field label={t.executionMethod}>
                   <input name="execution_method" required placeholder="Manual beta delivery via verified endpoint" className={inputClass} />
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">{t.contract}</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label={t.workspaceMode}>
+                  <select name="workspace_mode" required className={inputClass} defaultValue="instant">
+                    {WORKSPACE_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={t.setupType}>
+                  <select name="setup_type" required className={inputClass} defaultValue="none">
+                    {SETUP_REQUIREMENT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={t.outputPromiseSummary} wide>
+                  <input
+                    name="output_promise_summary"
+                    placeholder={locale === 'en' ? 'What the user can expect after opening the workspace' : 'Ce que l’utilisateur peut obtenir en ouvrant le workspace'}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label={t.outputPromiseExamples} hint={t.lineHint}>
+                  <textarea name="output_promise_examples" rows={4} className={inputClass} />
+                </Field>
+                <Field label={t.setupItems} hint={t.lineHint}>
+                  <textarea name="setup_items" rows={4} className={inputClass} />
+                </Field>
+                <Field label={t.executionMode}>
+                  <select name="execution_mode" required className={inputClass} defaultValue="guided_workspace">
+                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             </section>

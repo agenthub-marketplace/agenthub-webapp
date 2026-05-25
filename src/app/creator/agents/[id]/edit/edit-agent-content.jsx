@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
 import { resubmitAgentChangesAction } from '@/server/agents/actions';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 
@@ -13,6 +14,7 @@ const errorMessages = {
   'invalid-pricing': 'Le type de prix est invalide.',
   'invalid-price': 'Le prix fixe doit être supérieur à 0.',
   'invalid-risk': 'Le niveau de risque est invalide.',
+  'invalid-contract': 'Le mode workspace ou la promesse de sortie est invalide.',
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être soumis directement.',
   'creator-profile-error': 'Impossible de lire votre profil créateur.',
   'creator-profile-missing': 'Aucun profil créateur n’est lié à ce compte.',
@@ -51,6 +53,14 @@ function cleanAdminNotes(notes) {
   return (notes || '')
     .replace(/^\s*Modifications demandées\s*:\s*/i, '')
     .trim();
+}
+
+function setupItems(agent) {
+  return lines(agent?.version?.setupRequirements?.items);
+}
+
+function outputExamples(agent) {
+  return lines(agent?.version?.outputPromise?.examples);
 }
 
 function EditAgentPage({ agentResult, categories = [], error, profile }) {
@@ -156,6 +166,51 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                     <option value="medium">medium</option>
                     <option value="high">high</option>
                     <option value="forbidden_beta">forbidden_beta</option>
+                  </select>
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <h2 className="font-display mb-2 text-2xl font-bold text-[#F4EFFA]">Expérience workspace</h2>
+              <p className="mb-5 text-sm text-[#C8B1E4]">
+                Ces éléments expliquent à l’utilisateur ce qu’il obtient après activation. Gardez une promesse simple, concrète et vérifiable.
+              </p>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Mode workspace">
+                  <select name="workspace_mode" required className={inputClass} defaultValue={agent.version?.workspaceMode ?? 'instant'}>
+                    {WORKSPACE_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Setup requis">
+                  <select name="setup_type" required className={inputClass} defaultValue={agent.version?.setupRequirements?.type ?? 'none'}>
+                    {SETUP_REQUIREMENT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Promesse de sortie" wide hint="Une phrase courte sur le résultat que l’utilisateur peut attendre.">
+                  <input name="output_promise_summary" defaultValue={agent.version?.outputPromise?.summary ?? ''} className={inputClass} />
+                </Field>
+                <Field label="Exemples de résultats" hint="Une ligne par exemple.">
+                  <textarea name="output_promise_examples" rows={4} defaultValue={outputExamples(agent)} className={inputClass} />
+                </Field>
+                <Field label="Éléments de setup" hint="Une ligne par élément si un setup est requis.">
+                  <textarea name="setup_items" rows={4} defaultValue={setupItems(agent)} className={inputClass} />
+                </Field>
+                <Field label="Mode d’exécution">
+                  <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'guided_workspace'}>
+                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </Field>
               </div>

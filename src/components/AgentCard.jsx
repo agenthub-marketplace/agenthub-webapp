@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { Star, ShieldCheck, TrendingUp } from 'lucide-react';
 import AgentAvatar from '@/components/AgentAvatar';
+import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { useT } from '@/lib/i18n';
 
 export default function AgentCard({ agent, variant = 'dark' }) {
@@ -9,6 +10,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
   const ratingLabel = agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'New';
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
   const priceModeLabel = agent.priceMode === 'project' ? t('g.perproject') : t('g.pertask');
+  const workspaceLabel = WORKSPACE_MODE_LABELS[agent.contract?.workspaceMode] || null;
   const isLight = variant === 'light';
   const card = isLight
     ? 'bg-white border border-[#E8DFCB] shadow-[0_4px_24px_rgba(107,63,160,0.08)]'
@@ -35,7 +37,12 @@ export default function AgentCard({ agent, variant = 'dark' }) {
         </div>
         <h3 className={`font-display font-bold text-lg mb-1 ${title}`}>{agent.name}</h3>
         <p className={`text-sm mb-3 line-clamp-1 ${pitch}`}>{agent.pitch}</p>
-        <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full mb-3 ${chip}`}>{agent.category}</span>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full ${chip}`}>{agent.category}</span>
+          {workspaceLabel && (
+            <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full ${chip}`}>{workspaceLabel}</span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 mb-3">
           <Star className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" />
           <span className={`font-stat text-sm ${title}`}>{ratingLabel}</span>

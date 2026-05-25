@@ -3,9 +3,11 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
+import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { getCurrentProfile } from '@/lib/auth/session';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
 import { createAgentAccessAction } from '@/server/rentals/actions';
+import { getUserAgentOrderState } from '@/server/rentals/user-rentals';
 import { AlertTriangle, ArrowLeft, Check, Clock, ShieldCheck, Star } from 'lucide-react';
 
 function ListSection({ title, items, icon: Icon, tone = 'default' }) {
@@ -65,12 +67,46 @@ function ReviewSection({ reviews }) {
   );
 }
 
+function optionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function formatOrderPrice(cents, currency = 'eur') {
+  if (typeof cents !== 'number' || cents <= 0) {
+    return 'Prix non renseigné';
+  }
+
+  return new Intl.NumberFormat('fr-FR', {
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    style: 'currency',
+  }).format(cents / 100);
+}
+
+function formatOrderDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  return new Date(value).toLocaleDateString('fr-FR');
+}
+
 const rentalErrors = {
   'agent-load-failed': 'Impossible de charger cet agent pour le moment.',
   'agent-unavailable': 'Cet agent n’est plus disponible à l’accès beta.',
   'rental-create-failed': 'Impossible d’activer cet accès beta pour le moment.',
   'price-not-configured': 'Cet agent doit avoir un prix fixe avant d’être loué.',
   'self-rental-not-allowed': 'Vous ne pouvez pas louer votre propre agent en beta.',
+  'payment-service-unavailable': 'Le service de paiement est indisponible pour le moment.',
+  'checkout-create-failed': 'Impossible de créer la session de paiement Stripe.',
+  'payment-create-failed': 'Impossible d’enregistrer ce paiement.',
+  'stripe-not-configured': 'Stripe n’est pas encore configuré sur cet environnement.',
+};
+
+const orderMessages = {
+  'activation-pending': 'Votre paiement est reçu. L’activation de l’accès est en cours.',
+  'payment-pending': 'Un paiement est déjà en attente pour cet agent.',
 };
 
 export default async function Page({ params, searchParams }) {
@@ -78,6 +114,8 @@ export default async function Page({ params, searchParams }) {
   const { agent, error } = await getMarketplaceAgentBySlug(slug);
   const query = searchParams ? await searchParams : {};
   const rentalError = typeof query?.error === 'string' ? query.error : null;
+  const orderMessage = typeof query?.order === 'string' ? orderMessages[query.order] : null;
+  const paymentCancelled = query?.payment === 'cancelled';
   const profile = await getCurrentProfile();
 
   if (!agent) {
@@ -107,6 +145,9 @@ export default async function Page({ params, searchParams }) {
 
   const priceModeLabel = agent.pricingType === 'project' ? 'projet' : 'tâche';
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
+  const setupLabel = WORKSPACE_MODE_LABELS[agent.contract.workspaceMode] || 'Accès immédiat';
+  const { state: orderState } = profile ? await getUserAgentOrderState(profile.id, agent.id) : { state: null };
+  const canStartOrder = hasPrice && (!orderState || orderState.kind === 'expired_access');
 
   return (
     <div className="min-h-screen">
@@ -129,6 +170,9 @@ export default async function Page({ params, searchParams }) {
                   </span>
                   <span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A1130] border border-[#532B88]/40 text-[#C8B1E4]">
                     {agent.category}
+                  </span>
+                  <span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A1130] border border-[#8B5CF6]/40 text-[#C4B5FD]">
+                    {setupLabel}
                   </span>
                 </div>
                 <h1 className="font-display text-4xl md:text-5xl font-bold mb-3">{agent.name}</h1>
@@ -164,6 +208,41 @@ export default async function Page({ params, searchParams }) {
               <ListSection title="Livrables attendus" items={agent.deliverables} icon={Check} />
             </div>
 
+            <div className="my-6 grid md:grid-cols-2 gap-5">
+              <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
+                <h2 className="font-display font-bold text-lg mb-3">Ce que vous obtenez</h2>
+                <p className="text-sm leading-relaxed text-[#C8B1E4]">
+                  {agent.contract.outputPromise.summary || 'L’accès ouvre un workspace guidé pour utiliser cet agent avec les consignes fournies par le créateur.'}
+                </p>
+                {agent.contract.outputPromise.examples.length > 0 && (
+                  <ul className="mt-4 space-y-2 text-sm text-[#C8B1E4]">
+                    {agent.contract.outputPromise.examples.map((example, index) => (
+                      <li key={`${example}-${index}`} className="flex gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+                        <span>{example}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
+                <h2 className="font-display font-bold text-lg mb-3">Setup avant usage</h2>
+                <p className="text-sm text-[#C8B1E4]">
+                  {optionLabel(SETUP_REQUIREMENT_OPTIONS, agent.contract.setupRequirements.type)}
+                </p>
+                {agent.contract.setupRequirements.items.length > 0 && (
+                  <ul className="mt-4 space-y-2 text-sm text-[#C8B1E4]">
+                    {agent.contract.setupRequirements.items.map((item, index) => (
+                      <li key={`${item}-${index}`} className="flex gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
             <ReviewSection reviews={agent.reviewSummaries} />
           </section>
 
@@ -183,24 +262,85 @@ export default async function Page({ params, searchParams }) {
                   {rentalErrors[rentalError] || 'Impossible d’activer cet accès beta.'}
                 </div>
               )}
+              {paymentCancelled && (
+                <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">
+                  Paiement annulé. Aucun accès agent n’a été créé.
+                </div>
+              )}
+              {orderMessage && (
+                <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">
+                  {orderMessage}
+                </div>
+              )}
               <p className="text-sm text-[#9B72CF] mb-5">
-                Le prix est fixé par le créateur puis validé avant publication. Pendant la beta privée, aucun paiement réel n’est traité ; Stripe remplacera ce bouton ensuite.
+                Le prix est fixé par le créateur puis validé avant publication. Le paiement Stripe active l’accès uniquement après confirmation webhook.
               </p>
-              {hasPrice ? (
+              {orderState?.kind === 'open_access' && (
+                <div className="mb-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#C8B1E4]">
+                  <p className="font-display font-bold text-[#6EE7B7]">Accès déjà actif</p>
+                  <p className="mt-2">
+                    Vous avez déjà loué cet agent. Retrouvez-le dans “Mes locations” et ouvrez le workspace quand vous voulez.
+                  </p>
+                  <div className="mt-3 grid gap-1 text-xs text-[#9B72CF]">
+                    <span>Statut : {orderState.status === 'active' ? 'actif' : orderState.status}</span>
+                    <span>Activé le {formatOrderDate(orderState.createdAt)}</span>
+                    <span>Montant : {formatOrderPrice(orderState.priceCents, orderState.currency)}</span>
+                  </div>
+                  <Link href={`/workspace/${orderState.rentalId}`} className="mt-4 block">
+                    <Button className="w-full border-0 bg-[#10B981] text-[#07130F] hover:bg-[#34D399]">
+                      Ouvrir mon agent
+                    </Button>
+                  </Link>
+                </div>
+              )}
+              {orderState?.kind === 'payment_pending' && (
+                <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">
+                  <p className="font-display font-bold">Paiement en attente</p>
+                  <p className="mt-2">
+                    Une commande est déjà ouverte pour cet agent. Finalisez le paiement ou attendez son expiration avant de relancer une location.
+                  </p>
+                  <div className="mt-3 grid gap-1 text-xs text-[#C8B1E4]">
+                    <span>Créé le {formatOrderDate(orderState.createdAt)}</span>
+                    <span>Montant : {formatOrderPrice(orderState.amountCents, orderState.currency)}</span>
+                  </div>
+                </div>
+              )}
+              {orderState?.kind === 'activation_pending' && (
+                <div className="mb-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#C8B1E4]">
+                  <p className="font-display font-bold text-[#6EE7B7]">Activation en cours</p>
+                  <p className="mt-2">
+                    Le paiement est enregistré. L’accès sera disponible dès que la confirmation webhook Stripe aura terminé.
+                  </p>
+                  {orderState.checkoutSessionId && (
+                    <Link href={`/checkout/success?session_id=${encodeURIComponent(orderState.checkoutSessionId)}`} className="mt-4 block">
+                      <Button className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                        Vérifier l’activation
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
+              {orderState?.kind === 'expired_access' && (
+                <div className="mb-4 rounded-xl border border-[#6B3FA0]/45 bg-[#1A1130] p-4 text-sm text-[#C8B1E4]">
+                  <p className="font-display font-bold text-[#F4EFFA]">Ancien accès expiré</p>
+                  <p className="mt-2">Votre dernier accès est terminé. Vous pouvez relouer cet agent.</p>
+                </div>
+              )}
+              {canStartOrder ? (
                 <form action={createAgentAccessAction.bind(null, 'fr')} className="space-y-3">
                   <input type="hidden" name="agent_id" value={agent.id} />
                   <input type="hidden" name="slug" value={agent.slug} />
                   <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12">
-                    Louer cet agent
+                    {orderState?.kind === 'expired_access' ? 'Relouer cet agent' : 'Louer cet agent'}
                   </Button>
                 </form>
-              ) : (
+              ) : !orderState ? (
                 <Button disabled className="w-full bg-[#532B88] text-white border-0 h-12 opacity-50">
                   Location indisponible
                 </Button>
-              )}
+              ) : null}
               <p className="mt-3 text-xs text-[#9B72CF]">
-                Aucun paiement réel n’est traité pendant la beta privée.
+                En local sans clé Stripe, l’accès beta peut encore être créé gratuitement pour tester le produit.
               </p>
             </div>
 

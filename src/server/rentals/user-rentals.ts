@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UserRental = {
@@ -21,7 +22,17 @@ export type UserRental = {
     name: string;
     slug: string;
     summary: string;
+    description: string;
     status: string;
+    pricingType: "task" | "project";
+    priceCents: number | null;
+    currency: string;
+    capabilities: string[];
+    requiredInputsList: string[];
+    deliverables: string[];
+    limitations: string[];
+    dataHandlingNotes: string | null;
+    contract: AgentContract;
   } | null;
   accessOpen: boolean;
   result: {
@@ -36,7 +47,58 @@ export type UserRental = {
   } | null;
 };
 
+export type UserPaymentOrder = {
+  id: string;
+  status: "pending" | "paid" | "failed" | "cancelled";
+  amountCents: number;
+  currency: string;
+  createdAt: string;
+  checkoutSessionId: string | null;
+  rentalRequestId: string | null;
+  agent: {
+    name: string;
+    slug: string;
+    summary: string;
+  } | null;
+};
+
 export const ACCESS_COMPATIBLE_STATUSES = ["active", "accepted", "in_progress", "delivered"] as const;
+const OPEN_ACCESS_STATUSES = new Set<string>(ACCESS_COMPATIBLE_STATUSES);
+
+export type UserAgentOrderState =
+  | {
+      kind: "open_access";
+      rentalId: string;
+      status: UserRental["status"];
+      pricingType: "task" | "project";
+      priceCents: number | null;
+      currency: string;
+      createdAt: string;
+    }
+  | {
+      kind: "expired_access";
+      rentalId: string;
+      status: "expired";
+      pricingType: "task" | "project";
+      priceCents: number | null;
+      currency: string;
+      createdAt: string;
+    }
+  | {
+      kind: "payment_pending";
+      paymentId: string;
+      amountCents: number;
+      currency: string;
+      createdAt: string;
+    }
+  | {
+      kind: "activation_pending";
+      paymentId: string;
+      checkoutSessionId: string | null;
+      amountCents: number;
+      currency: string;
+      createdAt: string;
+    };
 
 type UserRentalRow = {
   id: string;
@@ -48,8 +110,78 @@ type UserRentalRow = {
   required_inputs: UserRental["requiredInputs"];
   created_at: string;
   agents:
-    | { name: string; slug: string; summary: string; status: string }
-    | { name: string; slug: string; summary: string; status: string }[]
+    | {
+        name: string;
+        slug: string;
+        summary: string;
+        description: string;
+        status: string;
+        pricing_type: "task" | "project";
+        starting_price_cents: number | null;
+        currency: string;
+        agent_versions:
+          | {
+              capabilities: string[] | null;
+              required_inputs: string[] | null;
+              deliverables: string[] | null;
+              limitations: string[] | null;
+              data_handling_notes: string | null;
+              workspace_mode?: string | null;
+              setup_requirements?: unknown;
+              output_promise?: unknown;
+              execution_mode?: string | null;
+              data_policy?: unknown;
+            }
+          | {
+              capabilities: string[] | null;
+              required_inputs: string[] | null;
+              deliverables: string[] | null;
+              limitations: string[] | null;
+              data_handling_notes: string | null;
+              workspace_mode?: string | null;
+              setup_requirements?: unknown;
+              output_promise?: unknown;
+              execution_mode?: string | null;
+              data_policy?: unknown;
+            }[]
+          | null;
+      }
+    | {
+        name: string;
+        slug: string;
+        summary: string;
+        description: string;
+        status: string;
+        pricing_type: "task" | "project";
+        starting_price_cents: number | null;
+        currency: string;
+        agent_versions:
+          | {
+              capabilities: string[] | null;
+              required_inputs: string[] | null;
+              deliverables: string[] | null;
+              limitations: string[] | null;
+              data_handling_notes: string | null;
+              workspace_mode?: string | null;
+              setup_requirements?: unknown;
+              output_promise?: unknown;
+              execution_mode?: string | null;
+              data_policy?: unknown;
+            }
+          | {
+              capabilities: string[] | null;
+              required_inputs: string[] | null;
+              deliverables: string[] | null;
+              limitations: string[] | null;
+              data_handling_notes: string | null;
+              workspace_mode?: string | null;
+              setup_requirements?: unknown;
+              output_promise?: unknown;
+              execution_mode?: string | null;
+              data_policy?: unknown;
+            }[]
+          | null;
+      }[]
     | null;
   rental_results: { summary: string; delivered_at: string | null } | { summary: string; delivered_at: string | null }[] | null;
   agent_reviews:
@@ -68,8 +200,215 @@ type UserRentalRow = {
     | null;
 };
 
+type AccessStateRentalRow = {
+  id: string;
+  status: UserRental["status"];
+  pricing_type: "task" | "project";
+  quoted_price_cents: number | null;
+  currency: string;
+  created_at: string;
+};
+
+type AccessStatePaymentRow = {
+  id: string;
+  status: "pending" | "paid" | "failed" | "cancelled";
+  rental_request_id: string | null;
+  stripe_checkout_session_id: string | null;
+  amount_cents: number;
+  currency: string;
+  created_at: string;
+};
+
+type UserPaymentOrderRow = {
+  id: string;
+  status: UserPaymentOrder["status"];
+  amount_cents: number;
+  currency: string;
+  created_at: string;
+  stripe_checkout_session_id: string | null;
+  rental_request_id: string | null;
+  agents:
+    | {
+        name: string;
+        slug: string;
+        summary: string;
+      }
+    | {
+        name: string;
+        slug: string;
+        summary: string;
+      }[]
+    | null;
+};
+
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+const USER_RENTAL_SELECT_WITH_CONTRACT =
+  "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,description,status,pricing_type,starting_price_cents,currency,agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy)),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)";
+
+const USER_RENTAL_SELECT_LEGACY =
+  "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,description,status,pricing_type,starting_price_cents,currency,agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes)),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)";
+
+function isMissingAgentContractSchemaError(error: { code?: string; message?: string; details?: string; hint?: string } | null) {
+  const errorText = [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    errorText.includes("workspace_mode") ||
+    errorText.includes("setup_requirements") ||
+    errorText.includes("output_promise") ||
+    errorText.includes("execution_mode") ||
+    errorText.includes("data_policy") ||
+    (errorText.includes("schema cache") && errorText.includes("agent_versions"))
+  );
+}
+
+function isMissingPaymentsSchemaError(error: { code?: string; message?: string; details?: string; hint?: string } | null) {
+  const errorText = [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return errorText.includes("payments") || errorText.includes("schema cache");
+}
+
+function dedupeOpenAccessRentals(rentals: UserRental[]) {
+  const seenOpenAgentKeys = new Set<string>();
+  const deduped: UserRental[] = [];
+
+  for (const rental of rentals) {
+    const agentKey = rental.agent?.slug || rental.agent?.name || rental.id;
+
+    if (rental.accessOpen) {
+      if (seenOpenAgentKeys.has(agentKey)) {
+        continue;
+      }
+
+      seenOpenAgentKeys.add(agentKey);
+    }
+
+    deduped.push(rental);
+  }
+
+  return deduped;
+}
+
+export async function getUserAgentOrderState(userId: string, agentId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { state: null, error: "missing-config" };
+  }
+
+  const { data: rentals, error: rentalError } = await supabase
+    .from("rental_requests")
+    .select("id,status,pricing_type,quoted_price_cents,currency,created_at")
+    .eq("user_id", userId)
+    .eq("agent_id", agentId)
+    .order("created_at", { ascending: false })
+    .returns<AccessStateRentalRow[]>();
+
+  if (rentalError) {
+    return { state: null, error: "access-state-load-failed" };
+  }
+
+  const openAccess = (rentals ?? []).find((rental) => OPEN_ACCESS_STATUSES.has(rental.status));
+
+  if (openAccess) {
+    return {
+      state: {
+        kind: "open_access" as const,
+        rentalId: openAccess.id,
+        status: openAccess.status,
+        pricingType: openAccess.pricing_type,
+        priceCents: openAccess.quoted_price_cents,
+        currency: openAccess.currency,
+        createdAt: openAccess.created_at,
+      },
+      error: null,
+    };
+  }
+
+  const { data: payments, error: paymentError } = await supabase
+    .from("payments")
+    .select("id,status,rental_request_id,stripe_checkout_session_id,amount_cents,currency,created_at")
+    .eq("user_id", userId)
+    .eq("agent_id", agentId)
+    .in("status", ["pending", "paid"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .returns<AccessStatePaymentRow[]>();
+
+  if (paymentError && !isMissingPaymentsSchemaError(paymentError)) {
+    return { state: null, error: "payment-state-load-failed" };
+  }
+
+  const payment = payments?.[0] ?? null;
+
+  if (payment?.status === "paid" && payment.rental_request_id) {
+    return {
+      state: {
+        kind: "open_access" as const,
+        rentalId: payment.rental_request_id,
+        status: "active" as const,
+        pricingType: "task" as const,
+        priceCents: payment.amount_cents,
+        currency: payment.currency,
+        createdAt: payment.created_at,
+      },
+      error: null,
+    };
+  }
+
+  if (payment?.status === "paid") {
+    return {
+      state: {
+        kind: "activation_pending" as const,
+        paymentId: payment.id,
+        checkoutSessionId: payment.stripe_checkout_session_id,
+        amountCents: payment.amount_cents,
+        currency: payment.currency,
+        createdAt: payment.created_at,
+      },
+      error: null,
+    };
+  }
+
+  if (payment?.status === "pending") {
+    return {
+      state: {
+        kind: "payment_pending" as const,
+        paymentId: payment.id,
+        amountCents: payment.amount_cents,
+        currency: payment.currency,
+        createdAt: payment.created_at,
+      },
+      error: null,
+    };
+  }
+
+  const expiredAccess = (rentals ?? []).find((rental) => rental.status === "expired");
+
+  if (expiredAccess) {
+    return {
+      state: {
+        kind: "expired_access" as const,
+        rentalId: expiredAccess.id,
+        status: "expired" as const,
+        pricingType: expiredAccess.pricing_type,
+        priceCents: expiredAccess.quoted_price_cents,
+        currency: expiredAccess.currency,
+        createdAt: expiredAccess.created_at,
+      },
+      error: null,
+    };
+  }
+
+  return { state: null, error: null };
 }
 
 export async function getUserRentals(userId: string) {
@@ -79,22 +418,59 @@ export async function getUserRentals(userId: string) {
     return { rentals: [], error: "missing-config" };
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("rental_requests")
-    .select(
-      "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,status),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)",
-    )
+    .select(USER_RENTAL_SELECT_WITH_CONTRACT)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .returns<UserRentalRow[]>();
+
+  if (error && isMissingAgentContractSchemaError(error)) {
+    console.warn("Agent contract columns unavailable; retrying legacy user rentals query", {
+      code: error.code,
+      message: error.message,
+    });
+
+    ({ data, error } = await supabase
+      .from("rental_requests")
+      .select(USER_RENTAL_SELECT_LEGACY)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .returns<UserRentalRow[]>());
+  }
 
   if (error) {
     return { rentals: [], error: "rentals-load-failed" };
   }
 
-  return {
-    rentals: (data ?? []).map((rental) => {
+  const rentals = (data ?? []).map((rental) => {
       const agent = readSingle(rental.agents);
+      const version = readSingle(agent?.agent_versions ?? null);
+      const contract = normalizeAgentContract({
+        workspaceMode: version?.workspace_mode,
+        setupRequirements: version?.setup_requirements,
+        outputPromise: version?.output_promise,
+        executionMode: version?.execution_mode,
+        dataPolicy: version?.data_policy,
+      });
+      const mappedAgent = agent
+        ? {
+            name: agent.name,
+            slug: agent.slug,
+            summary: agent.summary,
+            description: agent.description,
+            status: agent.status,
+            pricingType: agent.pricing_type,
+            priceCents: agent.starting_price_cents,
+            currency: agent.currency,
+            capabilities: version?.capabilities ?? [],
+            requiredInputsList: version?.required_inputs ?? [],
+            deliverables: version?.deliverables ?? [],
+            limitations: version?.limitations ?? [],
+            dataHandlingNotes: version?.data_handling_notes ?? null,
+            contract,
+          }
+        : null;
 
       return {
         id: rental.id,
@@ -105,8 +481,8 @@ export async function getUserRentals(userId: string) {
         requestBrief: rental.request_brief,
         requiredInputs: rental.required_inputs,
         createdAt: rental.created_at,
-        agent,
-        accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && agent?.status === "approved",
+        agent: mappedAgent,
+        accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && mappedAgent?.status === "approved",
         result: (() => {
         const result = readSingle(rental.rental_results);
         return result
@@ -127,6 +503,56 @@ export async function getUserRentals(userId: string) {
             }
           : null;
         })(),
+      };
+    });
+
+  return {
+    rentals: dedupeOpenAccessRentals(rentals),
+    error: null,
+  };
+}
+
+export async function getUserPaymentOrders(userId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { payments: [], error: "missing-config" };
+  }
+
+  const { data, error } = await supabase
+    .from("payments")
+    .select("id,status,amount_cents,currency,created_at,stripe_checkout_session_id,rental_request_id,agents!payments_agent_id_fkey(name,slug,summary)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .returns<UserPaymentOrderRow[]>();
+
+  if (error) {
+    if (isMissingPaymentsSchemaError(error)) {
+      return { payments: [], error: null };
+    }
+
+    return { payments: [], error: "payments-load-failed" };
+  }
+
+  return {
+    payments: (data ?? []).map((payment) => {
+      const agent = readSingle(payment.agents);
+
+      return {
+        id: payment.id,
+        status: payment.status,
+        amountCents: payment.amount_cents,
+        currency: payment.currency,
+        createdAt: payment.created_at,
+        checkoutSessionId: payment.stripe_checkout_session_id,
+        rentalRequestId: payment.rental_request_id,
+        agent: agent
+          ? {
+              name: agent.name,
+              slug: agent.slug,
+              summary: agent.summary,
+            }
+          : null,
       };
     }),
     error: null,

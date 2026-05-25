@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
+import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { Check, X, Edit, Lock, Search, Eye, Ban, Trash2, Flag, BarChart3 } from 'lucide-react';
 import { adminStats } from '@/lib/mock-data';
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -69,6 +70,10 @@ function cleanAdminNotes(notes) {
 
 function isCreatorResubmissionNote(note) {
   return Boolean(note && note !== 'Initial creator submission.' && note !== 'Creator resubmission after admin feedback.');
+}
+
+function optionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label ?? value;
 }
 
 function statusLabel(agent) {
@@ -197,7 +202,43 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                 </div>
                 <div className="mb-4">
                   <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Détails de validation</p>
-                  <pre className="text-xs bg-[#0A0816] border border-[#251A40] rounded-lg p-3 text-[#D6C5E8] overflow-x-auto font-mono">Version de validation créée. Les capacités, inputs et livrables seront détaillés dans la prochaine étape admin.</pre>
+                  <div className="space-y-3 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-2 py-1 font-label text-[#C4B5FD]">
+                        {WORKSPACE_MODE_LABELS[activeSelection.contract.workspaceMode] || activeSelection.contract.workspaceMode}
+                      </span>
+                      <span className="rounded-full border border-[#251A40] bg-[#110D24] px-2 py-1 font-label text-[#A78BCF]">
+                        {optionLabel(SETUP_REQUIREMENT_OPTIONS, activeSelection.contract.setupRequirements.type)}
+                      </span>
+                      <span className="rounded-full border border-[#251A40] bg-[#110D24] px-2 py-1 font-label text-[#A78BCF]">
+                        {optionLabel(EXECUTION_MODE_OPTIONS, activeSelection.contract.executionMode)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Promesse de sortie</p>
+                      <p>{activeSelection.contract.outputPromise.summary || 'Promesse non renseignée.'}</p>
+                    </div>
+                    {activeSelection.contract.outputPromise.examples.length > 0 && (
+                      <div>
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Exemples</p>
+                        <ul className="list-disc space-y-1 pl-4">
+                          {activeSelection.contract.outputPromise.examples.map((example, index) => (
+                            <li key={`${example}-${index}`}>{example}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {activeSelection.contract.setupRequirements.items.length > 0 && (
+                      <div>
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Setup demandé</p>
+                        <ul className="list-disc space-y-1 pl-4">
+                          {activeSelection.contract.setupRequirements.items.map((item, index) => (
+                            <li key={`${item}-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {isCreatorResubmissionNote(activeSelection.resubmissionChangelog) && (
                   <div className="mb-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">

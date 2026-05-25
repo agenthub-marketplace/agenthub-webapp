@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type MarketplaceAgent = {
@@ -34,6 +35,7 @@ export type MarketplaceAgent = {
   deliverables: string[];
   limitations: string[];
   dataHandlingNotes: string | null;
+  contract: AgentContract;
   reviewSummaries: {
     id: string;
     rating: number;
@@ -70,6 +72,11 @@ type AgentRow = {
         deliverables: string[] | null;
         limitations: string[] | null;
         data_handling_notes: string | null;
+        workspace_mode: string | null;
+        setup_requirements: unknown;
+        output_promise: unknown;
+        execution_mode: string | null;
+        data_policy: unknown;
       }
     | {
         capabilities: string[] | null;
@@ -77,6 +84,11 @@ type AgentRow = {
         deliverables: string[] | null;
         limitations: string[] | null;
         data_handling_notes: string | null;
+        workspace_mode: string | null;
+        setup_requirements: unknown;
+        output_promise: unknown;
+        execution_mode: string | null;
+        data_policy: unknown;
       }[]
     | null;
   agent_reviews:
@@ -96,6 +108,12 @@ type AgentRow = {
       }[]
     | null;
 };
+
+const MARKETPLACE_SELECT_WITH_CONTRACT =
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy),agent_reviews(id,rating,title,body,created_at)";
+
+const MARKETPLACE_SELECT_LEGACY =
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)";
 
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -123,10 +141,44 @@ function formatEuroPrice(cents: number | null) {
   }).format(cents / 100);
 }
 
+function isMissingContractColumnError(error: { code?: string; details?: string | null; message?: string | null }) {
+  const text = `${error.code ?? ""} ${error.details ?? ""} ${error.message ?? ""}`.toLowerCase();
+
+  return (
+    text.includes("workspace_mode") ||
+    text.includes("setup_requirements") ||
+    text.includes("output_promise") ||
+    text.includes("execution_mode") ||
+    text.includes("data_policy")
+  );
+}
+
+async function fetchMarketplaceRows(selectClause: string) {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { data: null, error: { message: "missing-config" } };
+  }
+
+  return supabase
+    .from("agents")
+    .select(selectClause)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .returns<AgentRow[]>();
+}
+
 function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
   const category = readSingle(row.agent_categories);
   const creator = readSingle(row.creator_profiles);
   const version = readSingle(row.agent_versions);
+  const contract = normalizeAgentContract({
+    workspaceMode: version?.workspace_mode,
+    setupRequirements: version?.setup_requirements,
+    outputPromise: version?.output_promise,
+    executionMode: version?.execution_mode,
+    dataPolicy: version?.data_policy,
+  });
   const creatorName = creator?.public_name ?? "AgentHub Creator";
   const reviews = Array.isArray(row.agent_reviews) ? row.agent_reviews : row.agent_reviews ? [row.agent_reviews] : [];
   const rating = reviews.length > 0 ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length : 0;
@@ -166,6 +218,7 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     deliverables: version?.deliverables ?? [],
     limitations: version?.limitations ?? [],
     dataHandlingNotes: version?.data_handling_notes ?? null,
+    contract,
     reviewSummaries: reviews
       .map((review) => ({
         id: review.id,
@@ -179,20 +232,13 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
 }
 
 export async function getMarketplaceAgents() {
-  const supabase = await createSupabaseServerClient();
+  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_SELECT_WITH_CONTRACT);
 
-  if (!supabase) {
-    return { agents: [], categories: [], error: "missing-config" };
+  if (error && isMissingContractColumnError(error)) {
+    const fallback = await fetchMarketplaceRows(MARKETPLACE_SELECT_LEGACY);
+    data = fallback.data;
+    error = fallback.error;
   }
-
-  const { data, error } = await supabase
-    .from("agents")
-    .select(
-      "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)",
-    )
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .returns<AgentRow[]>();
 
   if (error) {
     return { agents: [], categories: [], error: "marketplace-load-failed" };
