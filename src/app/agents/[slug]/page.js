@@ -102,11 +102,13 @@ const rentalErrors = {
   'checkout-create-failed': 'Impossible de créer la session de paiement Stripe.',
   'payment-create-failed': 'Impossible d’enregistrer ce paiement.',
   'stripe-not-configured': 'Stripe n’est pas encore configuré sur cet environnement.',
+  'payment-config-invalid': 'La configuration paiement est incohérente sur cet environnement.',
 };
 
 const orderMessages = {
   'activation-pending': 'Votre paiement est reçu. L’activation de l’accès est en cours.',
   'payment-pending': 'Un paiement est déjà en attente pour cet agent.',
+  'activation-blocked': 'Le paiement est reçu, mais l’activation a été bloquée. Contactez l’équipe AgentHub.',
 };
 
 export default async function Page({ params, searchParams }) {

@@ -12,6 +12,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 import { createStripeCheckoutSession } from "@/server/payments/stripe";
+import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 import { getUserAgentOrderState } from "@/server/rentals/user-rentals";
 
 type AgentRentalRow = {
@@ -140,10 +141,14 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirectWithAgentOrder(locale, slug, "payment-pending");
   }
 
-  if (serverEnv.stripeSecretKey) {
+  if (serverEnv.paymentsConfigError) {
+    redirectWithAgentError(locale, slug, "payment-config-invalid");
+  }
+
+  if (serverEnv.accessMode === "paid" && serverEnv.paymentsProvider === "stripe") {
     const serviceClient = createSupabaseServiceClient();
 
-    if (!serviceClient) {
+    if (!serverEnv.stripeSecretKey || !serviceClient) {
       redirectWithAgentError(locale, slug, "payment-service-unavailable");
     }
 
@@ -220,9 +225,7 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirect(checkoutSession.url);
   }
 
-  const canUseFreeBetaAccess = process.env.NODE_ENV !== "production" || serverEnv.enableFreeBetaAccess;
-
-  if (!canUseFreeBetaAccess) {
+  if (serverEnv.accessMode !== "free_beta" || serverEnv.paymentsProvider !== "none") {
     redirectWithAgentError(locale, slug, "stripe-not-configured");
   }
 
@@ -261,4 +264,65 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
   revalidatePath(localizedPath("/dashboard", locale));
   revalidatePath(localizedPath("/workspace", locale));
   redirect(`${localizedPath(`/workspace/${access.id}`, locale)}?access=created`);
+}
+
+export async function stopAgentAccessAction(locale: Locale, formData: FormData) {
+  const rentalId = formData.get("rental_id");
+
+  if (typeof rentalId !== "string" || !rentalId) {
+    redirect(`${localizedPath("/workspace", locale)}?accessStop=invalid`);
+  }
+
+  const profile = await requireAuth(locale, localizedPath("/workspace", locale));
+  const serviceClient = createSupabaseServiceClient();
+
+  if (!serviceClient) {
+    redirect(`${localizedPath("/workspace", locale)}?accessStop=error`);
+  }
+
+  const { data: rental, error: rentalError } = await serviceClient
+    .from("rental_requests")
+    .select("id,user_id,agent_id,status,agents!rental_requests_agent_id_fkey(slug)")
+    .eq("id", rentalId)
+    .eq("user_id", profile.id)
+    .maybeSingle<{
+      id: string;
+      user_id: string;
+      agent_id: string;
+      status: string;
+      agents: { slug: string } | { slug: string }[] | null;
+    }>();
+
+  if (rentalError || !rental) {
+    redirect(`${localizedPath("/workspace", locale)}?accessStop=not-found`);
+  }
+
+  if (!(ACCESS_OPEN_STATUSES as readonly string[]).includes(rental.status)) {
+    redirect(`${localizedPath("/workspace", locale)}?accessStop=already-stopped`);
+  }
+
+  const { data: stoppedRental, error: stopError } = await serviceClient
+    .from("rental_requests")
+    .update({ status: "expired" })
+    .eq("user_id", profile.id)
+    .eq("id", rental.id)
+    .in("status", ACCESS_OPEN_STATUSES)
+    .select("id")
+    .returns<{ id: string }[]>();
+
+  if (stopError || !stoppedRental || stoppedRental.length === 0) {
+    redirect(`${localizedPath("/workspace", locale)}?accessStop=error`);
+  }
+
+  const agent = Array.isArray(rental.agents) ? rental.agents[0] : rental.agents;
+
+  revalidatePath(localizedPath("/dashboard", locale));
+  revalidatePath(localizedPath("/workspace", locale));
+  revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
+
+  if (agent?.slug) {
+    revalidatePath(localizedPath(`/agents/${agent.slug}`, locale));
+  }
+
+  redirect(`${localizedPath("/workspace", locale)}?accessStop=stopped`);
 }

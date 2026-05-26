@@ -17,8 +17,11 @@ type CheckoutSessionInput = {
 
 export type StripeCheckoutSession = {
   id: string;
+  amount_total?: number | null;
+  currency?: string | null;
   payment_intent?: string | null;
   payment_status?: string;
+  status?: string;
   url: string | null;
 };
 
@@ -28,6 +31,8 @@ export type StripeWebhookEvent = {
   data: {
     object: {
       id: string;
+      amount_total?: number | null;
+      currency?: string | null;
       payment_intent?: string | null;
       payment_status?: string;
     };
@@ -80,6 +85,27 @@ export async function createStripeCheckoutSession(input: CheckoutSessionInput) {
 
   if (!response.ok || !data.id) {
     throw new Error(data.error?.message || "stripe-checkout-create-failed");
+  }
+
+  return data;
+}
+
+export async function retrieveStripeCheckoutSession(sessionId: string) {
+  if (!serverEnv.stripeSecretKey) {
+    throw new Error("stripe-secret-missing");
+  }
+
+  const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    headers: {
+      Authorization: `Bearer ${serverEnv.stripeSecretKey}`,
+    },
+    cache: "no-store",
+  });
+
+  const data = (await response.json()) as StripeCheckoutSession & { error?: { message?: string } };
+
+  if (!response.ok || !data.id) {
+    throw new Error(data.error?.message || "stripe-checkout-retrieve-failed");
   }
 
   return data;

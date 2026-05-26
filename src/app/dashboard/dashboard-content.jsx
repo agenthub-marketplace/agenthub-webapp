@@ -10,6 +10,7 @@ import { Download, Edit3, Heart, Star, FileText, ArrowRight } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
+import { stopAgentAccessAction } from '@/server/rentals/actions';
 
 function statusBadgeClass(status) {
   return (
@@ -53,7 +54,11 @@ function rentalStatusLabel(status, lang) {
   return labels[lang === 'en' ? 'en' : 'fr'][status] ?? status;
 }
 
-function paymentStatusLabel(status, lang, hasAccess = false) {
+function paymentStatusLabel(status, lang, hasAccess = false, rentalStatus = null) {
+  if (rentalStatus === 'expired') {
+    return lang === 'en' ? 'Access stopped' : 'Accès arrêté';
+  }
+
   const labels = {
     fr: {
       pending: 'Paiement en attente',
@@ -149,6 +154,7 @@ function DashboardPage({
 
   const effectiveLocale = (locale ?? lang ?? 'fr') === 'en' ? 'en' : 'fr';
   const reviewAction = submitRentalReviewAction.bind(null, effectiveLocale);
+  const stopAction = stopAgentAccessAction.bind(null, effectiveLocale);
   const marketplacePath = effectiveLocale === 'en' ? '/en/marketplace' : '/marketplace';
   const workspacePath = effectiveLocale === 'en' ? '/en/workspace' : '/workspace';
 
@@ -413,11 +419,19 @@ function DashboardPage({
                       )}
 
                       {rental.accessOpen ? (
-                        <Link href={`${workspacePath}/${rental.id}`}>
-                          <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
-                            {lang === 'en' ? 'Open agent' : 'Ouvrir l’agent'}
-                          </Button>
-                        </Link>
+                        <div className="space-y-2">
+                          <Link href={`${workspacePath}/${rental.id}`}>
+                            <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
+                              {lang === 'en' ? 'Open agent' : 'Ouvrir l’agent'}
+                            </Button>
+                          </Link>
+                          <form action={stopAction}>
+                            <input type="hidden" name="rental_id" value={rental.id} />
+                            <Button size="sm" variant="outline" className="w-full bg-transparent border-[#EF4444]/45 text-[#FCA5A5] hover:bg-[#2A0D18]">
+                              {lang === 'en' ? 'Stop rental' : 'Arrêter la location'}
+                            </Button>
+                          </form>
+                        </div>
                       ) : (
                         <p className="rounded-xl border border-[#2F184B] bg-[#07050F] px-3 py-2 text-center text-xs text-[#9B72CF]">
                           {lang === 'en'
@@ -577,17 +591,23 @@ function DashboardPage({
                         <p className="mt-1 line-clamp-2 text-xs text-[#A78BCF]">{payment.agent?.summary}</p>
                       </div>
                       <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-label ${paymentStatusClass(payment.status)}`}>
-                        {paymentStatusLabel(payment.status, lang, Boolean(payment.rentalRequestId))}
+                        {paymentStatusLabel(payment.status, lang, Boolean(payment.rentalRequestId), payment.rentalStatus)}
                       </span>
                     </div>
                     <div className="mb-4 flex items-center justify-between text-sm text-[#D6C5E8]">
                       <span>{new Date(payment.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR')}</span>
                       <span className="font-stat text-[#F5F1FA]">€{Math.round((payment.amountCents ?? 0) / 100)}</span>
                     </div>
-                    {payment.rentalRequestId ? (
+                    {payment.rentalRequestId && payment.rentalStatus !== 'expired' ? (
                       <Link href={`${workspacePath}/${payment.rentalRequestId}`}>
                         <Button size="sm" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
                           {lang === 'en' ? 'Open access' : 'Ouvrir l’accès'}
+                        </Button>
+                      </Link>
+                    ) : payment.rentalStatus === 'expired' && payment.agent?.slug ? (
+                      <Link href={`/agents/${payment.agent.slug}`}>
+                        <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
+                          {lang === 'en' ? 'Rent again' : 'Relouer cet agent'}
                         </Button>
                       </Link>
                     ) : payment.status === 'paid' && payment.checkoutSessionId ? (

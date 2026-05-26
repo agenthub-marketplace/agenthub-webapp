@@ -4,22 +4,44 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceClient } from '@/lib/supabase/service';
+import { fulfillCheckoutSession, markPaymentCancelled } from '@/server/payments/fulfillment';
+import { retrieveStripeCheckoutSession } from '@/server/payments/stripe';
 import CheckoutSuccessClient from '../checkout-success-client';
 
 async function getPayment(profileId, sessionId) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
     return null;
   }
 
-  const { data } = await supabase
-    .from('payments')
-    .select('status,rental_request_id')
-    .eq('user_id', profileId)
-    .eq('stripe_checkout_session_id', sessionId)
-    .maybeSingle();
+  const loadPayment = () =>
+    supabase
+      .from('payments')
+      .select('status,rental_request_id')
+      .eq('user_id', profileId)
+      .eq('stripe_checkout_session_id', sessionId)
+      .maybeSingle();
+
+  let { data } = await loadPayment();
+
+  if (data?.status === 'pending') {
+    try {
+      const checkoutSession = await retrieveStripeCheckoutSession(sessionId);
+
+      if (checkoutSession.payment_status === 'paid') {
+        await fulfillCheckoutSession(checkoutSession);
+      } else if (checkoutSession.status === 'expired') {
+        await markPaymentCancelled(sessionId);
+      }
+
+      const refreshed = await loadPayment();
+      data = refreshed.data ?? data;
+    } catch {
+      return data ?? null;
+    }
+  }
 
   return data ?? null;
 }
@@ -34,18 +56,26 @@ export default async function CheckoutSuccessPage({ searchParams }) {
     redirect(`/workspace/${payment.rental_request_id}?access=created`);
   }
 
+  const activationBlocked = payment?.status === 'failed' || payment?.status === 'cancelled';
+
   return (
     <div className="min-h-screen">
       <Navbar profile={profile} />
       <main className="container py-20">
         <div className="mx-auto max-w-2xl rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-8 text-center">
-          <p className="font-label mb-2 text-xs text-[#10B981]">Paiement reçu</p>
-          <h1 className="font-display text-3xl font-bold text-[#F4EFFA]">Activation en cours</h1>
+          <p className={`font-label mb-2 text-xs ${activationBlocked ? 'text-[#F59E0B]' : 'text-[#10B981]'}`}>
+            {activationBlocked ? 'Activation bloquée' : 'Paiement reçu'}
+          </p>
+          <h1 className="font-display text-3xl font-bold text-[#F4EFFA]">
+            {activationBlocked ? 'Votre accès n’a pas été activé' : 'Activation en cours'}
+          </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#C8B1E4]">
-            Stripe a confirmé le paiement. Cette page vérifie automatiquement la création de l’accès et vous redirige dès que le webhook a terminé.
+            {activationBlocked
+              ? 'Le paiement ne peut pas activer cet agent pour le moment. Il a peut-être été suspendu ou retiré pendant le checkout. Contactez l’équipe AgentHub avant de relancer.'
+              : 'Stripe a confirmé le paiement. Cette page vérifie automatiquement la création de l’accès et vous redirige dès que le webhook a terminé.'}
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <CheckoutSuccessClient />
+            {!activationBlocked && <CheckoutSuccessClient />}
             <Link href="/dashboard">
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">Voir mon dashboard</Button>
             </Link>

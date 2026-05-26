@@ -2,6 +2,7 @@ import "server-only";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 
 export type UserRental = {
   id: string;
@@ -55,6 +56,7 @@ export type UserPaymentOrder = {
   createdAt: string;
   checkoutSessionId: string | null;
   rentalRequestId: string | null;
+  rentalStatus: UserRental["status"] | null;
   agent: {
     name: string;
     slug: string;
@@ -62,7 +64,7 @@ export type UserPaymentOrder = {
   } | null;
 };
 
-export const ACCESS_COMPATIBLE_STATUSES = ["active", "accepted", "in_progress", "delivered"] as const;
+export const ACCESS_COMPATIBLE_STATUSES = ACCESS_OPEN_STATUSES;
 const OPEN_ACCESS_STATUSES = new Set<string>(ACCESS_COMPATIBLE_STATUSES);
 
 export type UserAgentOrderState =
@@ -350,21 +352,25 @@ export async function getUserAgentOrderState(userId: string, agentId: string) {
   const payment = payments?.[0] ?? null;
 
   if (payment?.status === "paid" && payment.rental_request_id) {
-    return {
-      state: {
-        kind: "open_access" as const,
-        rentalId: payment.rental_request_id,
-        status: "active" as const,
-        pricingType: "task" as const,
-        priceCents: payment.amount_cents,
-        currency: payment.currency,
-        createdAt: payment.created_at,
-      },
-      error: null,
-    };
+    const linkedRental = (rentals ?? []).find((rental) => rental.id === payment.rental_request_id);
+
+    if (linkedRental && OPEN_ACCESS_STATUSES.has(linkedRental.status)) {
+      return {
+        state: {
+          kind: "open_access" as const,
+          rentalId: linkedRental.id,
+          status: linkedRental.status,
+          pricingType: linkedRental.pricing_type,
+          priceCents: linkedRental.quoted_price_cents,
+          currency: linkedRental.currency,
+          createdAt: linkedRental.created_at,
+        },
+        error: null,
+      };
+    }
   }
 
-  if (payment?.status === "paid") {
+  if (payment?.status === "paid" && !payment.rental_request_id) {
     return {
       state: {
         kind: "activation_pending" as const,
@@ -534,6 +540,22 @@ export async function getUserPaymentOrders(userId: string) {
     return { payments: [], error: "payments-load-failed" };
   }
 
+  const rentalIds = (data ?? [])
+    .map((payment) => payment.rental_request_id)
+    .filter((id): id is string => Boolean(id));
+  let rentalStatusById = new Map<string, UserRental["status"]>();
+
+  if (rentalIds.length > 0) {
+    const { data: rentalRows } = await supabase
+      .from("rental_requests")
+      .select("id,status")
+      .eq("user_id", userId)
+      .in("id", rentalIds)
+      .returns<{ id: string; status: UserRental["status"] }[]>();
+
+    rentalStatusById = new Map((rentalRows ?? []).map((rental) => [rental.id, rental.status]));
+  }
+
   return {
     payments: (data ?? []).map((payment) => {
       const agent = readSingle(payment.agents);
@@ -546,6 +568,7 @@ export async function getUserPaymentOrders(userId: string) {
         createdAt: payment.created_at,
         checkoutSessionId: payment.stripe_checkout_session_id,
         rentalRequestId: payment.rental_request_id,
+        rentalStatus: payment.rental_request_id ? rentalStatusById.get(payment.rental_request_id) ?? null : null,
         agent: agent
           ? {
               name: agent.name,

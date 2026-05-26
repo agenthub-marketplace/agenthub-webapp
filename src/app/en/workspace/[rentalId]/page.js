@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
+import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
 
@@ -110,6 +111,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const accessLabel = WORKSPACE_MODE_LABELS[contract.workspaceMode] || 'Instant access';
   const setupLabel = optionLabel(SETUP_REQUIREMENT_OPTIONS, contract.setupRequirements.type);
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
+  const stopAction = stopAgentAccessAction.bind(null, 'en');
 
   return (
     <div className="min-h-screen">
@@ -159,6 +161,16 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
                 </Button>
               </Link>
             )}
+            <form action={stopAction} className="mt-3">
+              <input type="hidden" name="rental_id" value={rental.id} />
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full border-[#EF4444]/45 bg-transparent text-[#FCA5A5] hover:bg-[#2A0D18]"
+              >
+                Stop rental
+              </Button>
+            </form>
           </aside>
 
           <section className="space-y-6">

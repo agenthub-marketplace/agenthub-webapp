@@ -5,6 +5,7 @@ import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
+import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { getUserRentals } from '@/server/rentals/user-rentals';
 import { ArrowRight, Bot, Clock } from 'lucide-react';
 
@@ -34,10 +35,23 @@ function formatPrice(cents, currency = 'eur') {
   }).format(cents / 100);
 }
 
-export default async function WorkspacePage() {
+function accessStopMessage(value) {
+  return {
+    stopped: { tone: 'success', text: 'La location a été arrêtée. Vous pouvez relouer cet agent depuis sa fiche.' },
+    error: { tone: 'error', text: 'Impossible d’arrêter cette location pour le moment.' },
+    invalid: { tone: 'error', text: 'Location invalide.' },
+    'not-found': { tone: 'error', text: 'Location introuvable.' },
+    'already-stopped': { tone: 'info', text: 'Cette location est déjà arrêtée.' },
+  }[value] ?? null;
+}
+
+export default async function WorkspacePage({ searchParams }) {
   const profile = await requireAuth('fr', '/workspace');
+  const query = searchParams ? await searchParams : {};
   const { rentals, error } = await getUserRentals(profile.id);
   const activeRentals = rentals.filter((rental) => rental.accessOpen);
+  const stopMessage = accessStopMessage(typeof query?.accessStop === 'string' ? query.accessStop : null);
+  const stopAction = stopAgentAccessAction.bind(null, 'fr');
 
   return (
     <div className="min-h-screen">
@@ -54,6 +68,18 @@ export default async function WorkspacePage() {
         {error && (
           <div className="mb-6 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
             Impossible de charger vos accès pour le moment.
+          </div>
+        )}
+
+        {stopMessage && (
+          <div
+            className={`mb-6 rounded-2xl border p-4 text-sm ${
+              stopMessage.tone === 'error'
+                ? 'border-[#EF4444]/35 bg-[#EF4444]/10 text-[#FCA5A5]'
+                : 'border-[#10B981]/35 bg-[#10B981]/10 text-[#6EE7B7]'
+            }`}
+          >
+            {stopMessage.text}
           </div>
         )}
 
@@ -103,6 +129,16 @@ export default async function WorkspacePage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
+                <form action={stopAction} className="mt-3">
+                  <input type="hidden" name="rental_id" value={rental.id} />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full border-[#EF4444]/45 bg-transparent text-[#FCA5A5] hover:bg-[#2A0D18]"
+                  >
+                    Arrêter la location
+                  </Button>
+                </form>
               </article>
             ))}
           </div>
