@@ -36,6 +36,7 @@ Server-only variables:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ACCESS_MODE` (`free_beta` or `paid`)
 - `PAYMENTS_PROVIDER` (`none` or `stripe`)
+- `STRIPE_MODE` (`test` while using sandbox keys)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_CONNECT_CLIENT_ID`
@@ -45,7 +46,7 @@ Server-only variables:
 Do not commit `.env.local` or real secrets.
 
 For local product testing without Stripe, use `ACCESS_MODE=free_beta` and `PAYMENTS_PROVIDER=none`.
-For Stripe sandbox, use `ACCESS_MODE=paid`, `PAYMENTS_PROVIDER=stripe`, and provide the Stripe secret and webhook secret.
+For Stripe sandbox, use `ACCESS_MODE=paid`, `PAYMENTS_PROVIDER=stripe`, `STRIPE_MODE=test`, and provide the Stripe secret and webhook secret.
 
 ## Checks
 

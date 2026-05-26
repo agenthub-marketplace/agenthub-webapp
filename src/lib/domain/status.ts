@@ -20,6 +20,7 @@ export const RENTAL_REQUEST_STATUSES = [
   "rejected",
   "cancelled",
   "active",
+  "stopped",
   "expired",
 ] as const;
 

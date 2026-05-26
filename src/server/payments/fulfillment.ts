@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import type { ActivationError, PaymentStatus } from "@/server/payments/state";
 
 type PaymentRow = {
   id: string;
@@ -10,7 +11,8 @@ type PaymentRow = {
   rental_request_id: string | null;
   amount_cents: number;
   currency: string;
-  status: "pending" | "paid" | "failed" | "cancelled";
+  status: PaymentStatus;
+  activation_error: ActivationError | null;
 };
 
 type AgentRow = {
@@ -56,6 +58,23 @@ export async function markPaymentFailed(paymentId: string) {
   await supabase.from("payments").update({ status: "failed" }).eq("id", paymentId).eq("status", "pending");
 }
 
+export async function markPaymentBlocked(paymentId: string, activationError: ActivationError) {
+  const supabase = createSupabaseServiceClient();
+
+  if (!supabase) {
+    return;
+  }
+
+  await supabase
+    .from("payments")
+    .update({
+      status: "paid_blocked",
+      activation_error: activationError,
+    })
+    .eq("id", paymentId)
+    .eq("status", "pending");
+}
+
 export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillment) {
   const supabase = createSupabaseServiceClient();
 
@@ -69,7 +88,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
 
   const { data: payment, error: paymentError } = await supabase
     .from("payments")
-    .select("id,user_id,agent_id,agent_version_id,rental_request_id,amount_cents,currency,status")
+    .select("id,user_id,agent_id,agent_version_id,rental_request_id,amount_cents,currency,status,activation_error")
     .eq("stripe_checkout_session_id", session.id)
     .maybeSingle<PaymentRow>();
 
@@ -81,7 +100,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     return;
   }
 
-  if (payment.status === "failed" || payment.status === "cancelled") {
+  if (payment.status === "failed" || payment.status === "cancelled" || payment.status === "paid_blocked") {
     return;
   }
 
@@ -90,12 +109,12 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
   }
 
   if (typeof session.amount_total !== "number" || session.amount_total !== payment.amount_cents) {
-    await markPaymentFailed(payment.id);
+    await markPaymentBlocked(payment.id, "snapshot_mismatch");
     return;
   }
 
   if (!session.currency || session.currency.toLowerCase() !== payment.currency.toLowerCase()) {
-    await markPaymentFailed(payment.id);
+    await markPaymentBlocked(payment.id, "snapshot_mismatch");
     return;
   }
 
@@ -106,19 +125,19 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     .maybeSingle<AgentRow>();
 
   if (agentError || !agent || agent.status !== "approved") {
-    await markPaymentFailed(payment.id);
+    await markPaymentBlocked(payment.id, "agent_not_approved");
     return;
   }
 
   if (agent.currency.toLowerCase() !== payment.currency.toLowerCase()) {
-    await markPaymentFailed(payment.id);
+    await markPaymentBlocked(payment.id, "snapshot_mismatch");
     return;
   }
 
   const agentVersionId = payment.agent_version_id;
 
   if (!agentVersionId) {
-    await markPaymentFailed(payment.id);
+    await markPaymentBlocked(payment.id, "missing_agent_version");
     return;
   }
 
@@ -190,29 +209,17 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     }
 
     if (duplicateError || !duplicateAccess) {
-      throw new Error("access-create-failed");
+      await markPaymentBlocked(payment.id, "duplicate_access");
+      return;
     }
 
-    const { data: paidPayment, error: duplicateUpdateError } = await supabase
-      .from("payments")
-      .update({
-        rental_request_id: duplicateAccess.id,
-        status: "paid",
-        stripe_payment_intent_id: session.payment_intent ?? null,
-      })
-      .eq("id", payment.id)
-      .select("id")
-      .maybeSingle<{ id: string }>();
-
-    if (duplicateUpdateError || !paidPayment) {
-      throw new Error("payment-update-failed");
-    }
-
+    await markPaymentBlocked(payment.id, "duplicate_access");
     return;
   }
 
   if (accessError || !access) {
-    throw new Error("access-create-failed");
+    await markPaymentBlocked(payment.id, "unknown_error");
+    return;
   }
 
   const { data: updatedPayment, error: updateError } = await supabase

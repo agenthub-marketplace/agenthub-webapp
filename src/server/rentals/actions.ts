@@ -303,7 +303,7 @@ export async function stopAgentAccessAction(locale: Locale, formData: FormData) 
 
   const { data: stoppedRental, error: stopError } = await serviceClient
     .from("rental_requests")
-    .update({ status: "expired" })
+    .update({ status: "stopped" })
     .eq("user_id", profile.id)
     .eq("id", rental.id)
     .in("status", ACCESS_OPEN_STATUSES)

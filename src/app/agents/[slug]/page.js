@@ -149,7 +149,7 @@ export default async function Page({ params, searchParams }) {
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
   const setupLabel = WORKSPACE_MODE_LABELS[agent.contract.workspaceMode] || 'Accès immédiat';
   const { state: orderState } = profile ? await getUserAgentOrderState(profile.id, agent.id) : { state: null };
-  const canStartOrder = hasPrice && (!orderState || orderState.kind === 'expired_access');
+  const canStartOrder = hasPrice && (!orderState || orderState.kind === 'stopped_access');
 
   return (
     <div className="min-h-screen">
@@ -322,10 +322,22 @@ export default async function Page({ params, searchParams }) {
                   )}
                 </div>
               )}
-              {orderState?.kind === 'expired_access' && (
+              {orderState?.kind === 'activation_blocked' && (
+                <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">
+                  <p className="font-display font-bold">Activation bloquée</p>
+                  <p className="mt-2">
+                    Paiement reçu, mais l’activation de l’accès nécessite une vérification. Contactez le support AgentHub avant de relancer.
+                  </p>
+                  <div className="mt-3 grid gap-1 text-xs text-[#C8B1E4]">
+                    <span>Créé le {formatOrderDate(orderState.createdAt)}</span>
+                    <span>Montant : {formatOrderPrice(orderState.amountCents, orderState.currency)}</span>
+                  </div>
+                </div>
+              )}
+              {orderState?.kind === 'stopped_access' && (
                 <div className="mb-4 rounded-xl border border-[#6B3FA0]/45 bg-[#1A1130] p-4 text-sm text-[#C8B1E4]">
-                  <p className="font-display font-bold text-[#F4EFFA]">Ancien accès expiré</p>
-                  <p className="mt-2">Votre dernier accès est terminé. Vous pouvez relouer cet agent.</p>
+                  <p className="font-display font-bold text-[#F4EFFA]">Accès arrêté</p>
+                  <p className="mt-2">Votre dernier accès est fermé. Vous pouvez relouer cet agent.</p>
                 </div>
               )}
               {canStartOrder ? (
@@ -333,7 +345,7 @@ export default async function Page({ params, searchParams }) {
                   <input type="hidden" name="agent_id" value={agent.id} />
                   <input type="hidden" name="slug" value={agent.slug} />
                   <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12">
-                    {orderState?.kind === 'expired_access' ? 'Relouer cet agent' : 'Louer cet agent'}
+                    {orderState?.kind === 'stopped_access' ? 'Relouer cet agent' : 'Louer cet agent'}
                   </Button>
                 </form>
               ) : !orderState ? (

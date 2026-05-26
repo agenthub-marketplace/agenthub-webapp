@@ -37,11 +37,11 @@ function formatPrice(cents, currency = 'eur') {
 
 function accessStopMessage(value) {
   return {
-    stopped: { tone: 'success', text: 'La location a été arrêtée. Vous pouvez relouer cet agent depuis sa fiche.' },
+    stopped: { tone: 'success', text: 'L’accès a été arrêté. Vous pouvez relouer cet agent depuis sa fiche.' },
     error: { tone: 'error', text: 'Impossible d’arrêter cette location pour le moment.' },
     invalid: { tone: 'error', text: 'Location invalide.' },
     'not-found': { tone: 'error', text: 'Location introuvable.' },
-    'already-stopped': { tone: 'info', text: 'Cette location est déjà arrêtée.' },
+    'already-stopped': { tone: 'info', text: 'Cet accès est déjà arrêté.' },
   }[value] ?? null;
 }
 
@@ -136,7 +136,7 @@ export default async function WorkspacePage({ searchParams }) {
                     variant="outline"
                     className="w-full border-[#EF4444]/45 bg-transparent text-[#FCA5A5] hover:bg-[#2A0D18]"
                   >
-                    Arrêter la location
+                    Arrêter l’accès
                   </Button>
                 </form>
               </article>

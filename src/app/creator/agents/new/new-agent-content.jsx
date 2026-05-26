@@ -12,7 +12,7 @@ const copy = {
     back: 'Retour au tableau de bord',
     eyebrow: 'Soumission créateur',
     title: 'Soumettre un agent pour validation',
-    subtitle: 'Décrivez un agent professionnel, ses livrables, ses limites et son mode de livraison beta.',
+    subtitle: 'Décrivez un agent professionnel, sa valeur, ses limites, son prix et l’expérience utilisateur après activation.',
     core: 'Informations principales',
     delivery: 'Livraison et validation',
     name: 'Nom',
@@ -32,15 +32,15 @@ const copy = {
       'Prix fixe en euros, visible dans la marketplace pour ce mode de location. Pendant la beta, aucun paiement n’est encaissé par AgentHub ; Stripe prendra ensuite le relais.',
     pricingDetailsHint:
       'Expliquez clairement ce qui est inclus dans ce prix fixe et les limites de l’accès.',
-    contract: 'Expérience workspace',
-    workspaceMode: 'Type d’accès',
-    setupType: 'Setup après activation',
-    setupItems: 'Éléments demandés dans le workspace',
+    contract: 'Expérience après activation',
+    workspaceMode: 'Type d’expérience dans le workspace',
+    setupType: 'Ce que l’utilisateur devra faire après activation',
+    setupItems: 'Informations ou éléments nécessaires',
     outputPromiseSummary: 'Promesse de résultat',
     outputPromiseExamples: 'Exemples d’utilisation',
-    executionMode: 'Mode d’exécution beta',
+    executionMode: 'Mode d’exécution prévu',
     riskLevel: 'Niveau de risque',
-    executionMethod: 'Méthode d’exécution',
+    executionMethod: 'Données nécessaires',
     knownLimits: 'Limites connues',
     lineHint: 'Une ligne par élément.',
     submit: 'Soumettre pour validation',
@@ -71,7 +71,7 @@ const copy = {
     back: 'Back to dashboard',
     eyebrow: 'Creator submission',
     title: 'Submit an agent for review',
-    subtitle: 'Describe a professional agent, its deliverables, limits, and beta delivery method.',
+    subtitle: 'Describe a professional agent, its value, limits, price, and the user experience after activation.',
     core: 'Core information',
     delivery: 'Delivery and validation',
     name: 'Name',
@@ -91,15 +91,15 @@ const copy = {
       'Fixed amount in euros, shown in the marketplace for this rental mode. During beta, AgentHub does not collect payments; Stripe will replace this later.',
     pricingDetailsHint:
       'Explain what is included in this fixed price and the limits of the access.',
-    contract: 'Workspace experience',
-    workspaceMode: 'Access type',
-    setupType: 'Setup after activation',
-    setupItems: 'Items requested in the workspace',
+    contract: 'Post-activation experience',
+    workspaceMode: 'Workspace experience type',
+    setupType: 'What the user must do after activation',
+    setupItems: 'Required information or items',
     outputPromiseSummary: 'Output promise',
     outputPromiseExamples: 'Usage examples',
-    executionMode: 'Beta execution mode',
+    executionMode: 'Planned execution mode',
     riskLevel: 'Risk level',
-    executionMethod: 'Execution method',
+    executionMethod: 'Required data',
     knownLimits: 'Known limits',
     lineHint: 'One item per line.',
     submit: 'Submit for review',
@@ -285,7 +285,7 @@ export default function NewAgentContent({
                   <input name="pricing_hint" required placeholder="Ex: includes one deliverable and one revision" className={inputClass} />
                 </Field>
                 <Field label={t.executionMethod}>
-                  <input name="execution_method" required placeholder="Manual beta delivery via verified endpoint" className={inputClass} />
+                  <input name="execution_method" required placeholder={locale === 'en' ? 'Example: user context, text input, public URLs' : 'Exemple : contexte utilisateur, texte, URLs publiques'} className={inputClass} />
                 </Field>
               </div>
             </section>

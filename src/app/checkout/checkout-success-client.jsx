@@ -30,7 +30,13 @@ export default function CheckoutSuccessClient({ label = 'Vérifier maintenant', 
         return;
       }
 
-      if (data?.status === 'failed' || data?.status === 'cancelled') {
+      if (data?.status === 'paid_blocked' || data?.status === 'failed' || data?.status === 'cancelled') {
+        setIsTerminal(true);
+        router.refresh();
+        return;
+      }
+
+      if (data?.status === 'paid' && !data.rentalRequestId) {
         setIsTerminal(true);
         router.refresh();
         return;

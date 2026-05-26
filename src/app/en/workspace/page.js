@@ -37,11 +37,11 @@ function formatPrice(cents, currency = 'eur') {
 
 function accessStopMessage(value) {
   return {
-    stopped: { tone: 'success', text: 'The rental has been stopped. You can rent this agent again from its listing.' },
+    stopped: { tone: 'success', text: 'Access has been stopped. You can rent this agent again from its listing.' },
     error: { tone: 'error', text: 'Unable to stop this rental right now.' },
     invalid: { tone: 'error', text: 'Invalid rental.' },
     'not-found': { tone: 'error', text: 'Rental not found.' },
-    'already-stopped': { tone: 'info', text: 'This rental is already stopped.' },
+    'already-stopped': { tone: 'info', text: 'This access is already stopped.' },
   }[value] ?? null;
 }
 
@@ -136,7 +136,7 @@ export default async function WorkspacePage({ searchParams }) {
                     variant="outline"
                     className="w-full border-[#EF4444]/45 bg-transparent text-[#FCA5A5] hover:bg-[#2A0D18]"
                   >
-                    Stop rental
+                    Stop access
                   </Button>
                 </form>
               </article>

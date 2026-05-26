@@ -4,6 +4,7 @@ type ServerEnv = {
   accessMode: "free_beta" | "paid";
   enableFreeBetaAccess: boolean;
   paymentsProvider: "none" | "stripe";
+  stripeMode: "test" | "live";
   paymentsConfigError?: string;
   supabaseServiceRoleKey?: string;
   stripeSecretKey?: string;
@@ -27,6 +28,8 @@ const rawAccessMode = process.env.ACCESS_MODE?.trim().toLowerCase();
 const hasExplicitAccessMode = rawAccessMode === "free_beta" || rawAccessMode === "paid";
 const rawPaymentsProvider = process.env.PAYMENTS_PROVIDER?.trim().toLowerCase();
 const hasExplicitPaymentsProvider = rawPaymentsProvider === "none" || rawPaymentsProvider === "stripe";
+const rawStripeMode = process.env.STRIPE_MODE?.trim().toLowerCase();
+const hasExplicitStripeMode = rawStripeMode === "test" || rawStripeMode === "live";
 
 const readAccessMode = () => {
   if (hasExplicitAccessMode) {
@@ -50,6 +53,7 @@ const readPaymentsProvider = (accessMode: "free_beta" | "paid") => {
 
 const accessMode = readAccessMode();
 const paymentsProvider = readPaymentsProvider(accessMode);
+const stripeMode = hasExplicitStripeMode ? rawStripeMode : "test";
 
 function validatePaymentsConfig() {
   if (rawAccessMode && !hasExplicitAccessMode) {
@@ -72,8 +76,16 @@ function validatePaymentsConfig() {
     return "payments-provider-invalid";
   }
 
+  if (rawStripeMode && !hasExplicitStripeMode) {
+    return "stripe-mode-invalid";
+  }
+
   if (accessMode === "paid" && (!readOptional("STRIPE_SECRET_KEY") || !readOptional("STRIPE_WEBHOOK_SECRET"))) {
     return "stripe-env-missing";
+  }
+
+  if (accessMode === "paid" && stripeMode === "test" && !readOptional("STRIPE_SECRET_KEY")?.startsWith("sk_test_")) {
+    return "stripe-test-key-required";
   }
 
   return undefined;
@@ -83,6 +95,7 @@ export const serverEnv: ServerEnv = {
   accessMode,
   enableFreeBetaAccess: readBoolean("ENABLE_FREE_BETA_ACCESS"),
   paymentsProvider,
+  stripeMode,
   paymentsConfigError: validatePaymentsConfig(),
   supabaseServiceRoleKey: readOptional("SUPABASE_SERVICE_ROLE_KEY"),
   stripeSecretKey: readOptional("STRIPE_SECRET_KEY"),

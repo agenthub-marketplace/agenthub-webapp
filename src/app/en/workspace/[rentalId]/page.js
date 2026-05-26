@@ -50,6 +50,16 @@ function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 's
   );
 }
 
+function workspaceActions(mode) {
+  const actions = {
+    instant: ['Read use cases', 'Copy the starter prompt', 'Review expected deliverables'],
+    guided: ['Define my goal', 'Prepare useful context', 'Generate my startup checklist'],
+    document_required: ['Prepare my document', 'Check required information', 'Review analysis limits'],
+  };
+
+  return actions[mode] ?? actions.instant;
+}
+
 function WorkspaceUnavailable({ message, profile, title }) {
   return (
     <div className="min-h-screen">
@@ -168,7 +178,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
                 variant="outline"
                 className="w-full border-[#EF4444]/45 bg-transparent text-[#FCA5A5] hover:bg-[#2A0D18]"
               >
-                Stop rental
+                Stop access
               </Button>
             </form>
           </aside>
@@ -176,12 +186,12 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           <section className="space-y-6">
             <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
               <p className="font-label mb-2 text-xs text-[#9B72CF]">Direct access</p>
-              <h2 className="font-display text-xl font-bold text-[#F4EFFA]">How to use this agent</h2>
+              <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Start with this agent</h2>
               <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">
                 {contract.outputPromise.summary || 'Follow the creator instructions, prepare the required inputs, then use this workspace as your access guide.'}
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {['Read inputs', 'Check limitations', 'Prepare expected output'].map((label) => (
+                {workspaceActions(contract.workspaceMode).map((label) => (
                   <button key={label} type="button" className="rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-3 text-left text-xs font-label text-[#C8B1E4]">
                     {label}
                   </button>

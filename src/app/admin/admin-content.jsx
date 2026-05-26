@@ -201,7 +201,7 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                   </div>
                 </div>
                 <div className="mb-4">
-                  <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Détails de validation</p>
+                  <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Contrat agent à vérifier</p>
                   <div className="space-y-3 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-2 py-1 font-label text-[#C4B5FD]">
@@ -215,7 +215,7 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                       </span>
                     </div>
                     <div>
-                      <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Promesse de sortie</p>
+                      <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Promesse de résultat</p>
                       <p>{activeSelection.contract.outputPromise.summary || 'Promesse non renseignée.'}</p>
                     </div>
                     {activeSelection.contract.outputPromise.examples.length > 0 && (
@@ -238,6 +238,25 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                         </ul>
                       </div>
                     )}
+                  </div>
+                </div>
+                <div className="mb-4 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
+                  <p className="font-label mb-2 text-[10px] text-[#A78BCF]">Checklist admin</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      'Promesse compréhensible',
+                      'Limites visibles',
+                      'Risque cohérent',
+                      'Prix cohérent',
+                      'Setup après activation clair',
+                      'Data policy cohérente',
+                      'Agent non forbidden_beta',
+                    ].map((item) => (
+                      <span key={item} className="flex items-center gap-2">
+                        <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                        {item}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 {isCreatorResubmissionNote(activeSelection.resubmissionChangelog) && (

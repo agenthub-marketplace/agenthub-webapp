@@ -20,6 +20,7 @@ function statusBadgeClass(status) {
       in_progress: 'bg-[#1A152F] border-[#0EA5E9]/30 text-[#7DD3FC]',
       delivered: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
       active: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      stopped: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
       expired: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
       rejected: 'bg-[#1A152F] border-[#EF4444]/30 text-[#FCA5A5]',
       cancelled: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
@@ -35,6 +36,7 @@ function rentalStatusLabel(status, lang) {
       in_progress: 'En cours',
       delivered: 'Livrée',
       active: 'Active',
+      stopped: 'Arrêtée',
       expired: 'Expirée',
       rejected: 'Refusée',
       cancelled: 'Annulée',
@@ -45,6 +47,7 @@ function rentalStatusLabel(status, lang) {
       in_progress: 'In progress',
       delivered: 'Delivered',
       active: 'Active',
+      stopped: 'Stopped',
       expired: 'Expired',
       rejected: 'Rejected',
       cancelled: 'Cancelled',
@@ -55,7 +58,7 @@ function rentalStatusLabel(status, lang) {
 }
 
 function paymentStatusLabel(status, lang, hasAccess = false, rentalStatus = null) {
-  if (rentalStatus === 'expired') {
+  if (rentalStatus === 'stopped' || rentalStatus === 'expired') {
     return lang === 'en' ? 'Access stopped' : 'Accès arrêté';
   }
 
@@ -63,12 +66,14 @@ function paymentStatusLabel(status, lang, hasAccess = false, rentalStatus = null
     fr: {
       pending: 'Paiement en attente',
       paid: hasAccess ? 'Accès activé' : 'Activation en cours',
+      paid_blocked: 'Activation bloquée',
       failed: 'Paiement échoué',
       cancelled: 'Paiement annulé',
     },
     en: {
       pending: 'Payment pending',
       paid: hasAccess ? 'Access active' : 'Activation pending',
+      paid_blocked: 'Activation blocked',
       failed: 'Payment failed',
       cancelled: 'Payment cancelled',
     },
@@ -82,6 +87,7 @@ function paymentStatusClass(status) {
     {
       pending: 'bg-[#1A152F] border-[#F59E0B]/30 text-[#F59E0B]',
       paid: 'bg-[#1A152F] border-[#10B981]/30 text-[#6EE7B7]',
+      paid_blocked: 'bg-[#1A152F] border-[#F59E0B]/30 text-[#F59E0B]',
       failed: 'bg-[#1A152F] border-[#EF4444]/30 text-[#FCA5A5]',
       cancelled: 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]',
     }[status] ?? 'bg-[#1A152F] border-[#6B7280]/30 text-[#D1D5DB]'
@@ -159,7 +165,7 @@ function DashboardPage({
   const workspacePath = effectiveLocale === 'en' ? '/en/workspace' : '/workspace';
 
   const historyRows = betaRentals
-    .filter((rental) => ['delivered', 'rejected', 'cancelled', 'expired'].includes(rental.status))
+    .filter((rental) => ['delivered', 'rejected', 'cancelled', 'stopped', 'expired'].includes(rental.status))
     .map((rental) => ({
       id: rental.id,
       agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'AgentHub agent'),
@@ -169,6 +175,10 @@ function DashboardPage({
       rating: rental.review?.rating ?? null,
       dates: new Date(rental.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR'),
     }));
+  const activeAccessCount = betaRentals.filter((rental) => rental.accessOpen).length;
+  const pendingPaymentCount = paymentOrders.filter((payment) => payment.status === 'pending').length;
+  const cancelledPaymentCount = paymentOrders.filter((payment) => payment.status === 'cancelled').length;
+  const blockedPaymentCount = paymentOrders.filter((payment) => payment.status === 'paid_blocked').length;
 
   const reviewErrorMessage = (() => {
     if (!reviewError) {
@@ -204,13 +214,13 @@ function DashboardPage({
     }
 
     if (reviewError === 'review-already-exists') {
-      return lang === 'en' ? 'You already reviewed this rental.' : 'Vous avez déjà laissé un avis pour cette location.';
+      return lang === 'en' ? 'You already reviewed this agent access.' : 'Vous avez déjà laissé un avis pour cet accès agent.';
     }
 
     if (reviewError === 'self-review-not-allowed') {
       return lang === 'en'
-        ? 'You cannot review a beta rental for your own agent.'
-        : 'Vous ne pouvez pas noter une location beta de votre propre agent.';
+        ? 'You cannot review access to your own agent.'
+        : 'Vous ne pouvez pas noter un accès à votre propre agent.';
     }
 
     if (reviewError === 'review-create-failed') {
@@ -361,7 +371,7 @@ function DashboardPage({
                         </div>
                       )}
 
-                      {['active', 'expired', 'delivered'].includes(rental.status) && !rental.review && (
+                      {['active', 'stopped', 'expired', 'delivered'].includes(rental.status) && !rental.review && (
                         <form action={reviewAction} className="mt-4 space-y-2">
                           <input type="hidden" name="rental_id" value={rental.id} />
                           <div>
@@ -428,7 +438,7 @@ function DashboardPage({
                           <form action={stopAction}>
                             <input type="hidden" name="rental_id" value={rental.id} />
                             <Button size="sm" variant="outline" className="w-full bg-transparent border-[#EF4444]/45 text-[#FCA5A5] hover:bg-[#2A0D18]">
-                              {lang === 'en' ? 'Stop rental' : 'Arrêter la location'}
+                              {lang === 'en' ? 'Stop access' : 'Arrêter l’accès'}
                             </Button>
                           </form>
                         </div>
@@ -567,6 +577,20 @@ function DashboardPage({
               </p>
             </div>
 
+            <div className="grid gap-3 md:grid-cols-4">
+              {[
+                [lang === 'en' ? 'Active agents' : 'Agents actifs', activeAccessCount],
+                [lang === 'en' ? 'Pending payments' : 'Paiements en attente', pendingPaymentCount],
+                [lang === 'en' ? 'Cancelled payments' : 'Paiements annulés', cancelledPaymentCount],
+                [lang === 'en' ? 'Blocked activations' : 'Activations bloquées', blockedPaymentCount],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-[#251A40] bg-[#110D24] p-4">
+                  <p className="font-label text-[10px] text-[#A78BCF]">{label}</p>
+                  <p className="mt-2 font-stat text-2xl text-[#F5F1FA]">{value}</p>
+                </div>
+              ))}
+            </div>
+
             {paymentOrdersError && (
               <div className="rounded-2xl border border-[#F59E0B]/40 bg-[#110D24] px-4 py-3 text-sm text-[#F59E0B]">
                 {lang === 'en' ? 'Payment status is temporarily unavailable.' : 'Les états de paiement sont temporairement indisponibles.'}
@@ -598,13 +622,20 @@ function DashboardPage({
                       <span>{new Date(payment.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR')}</span>
                       <span className="font-stat text-[#F5F1FA]">€{Math.round((payment.amountCents ?? 0) / 100)}</span>
                     </div>
-                    {payment.rentalRequestId && payment.rentalStatus !== 'expired' ? (
+                    {payment.status === 'paid_blocked' && (
+                      <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">
+                        {lang === 'en'
+                          ? 'Payment was received, but access activation needs a manual check.'
+                          : 'Paiement reçu, mais l’activation de l’accès nécessite une vérification.'}
+                      </div>
+                    )}
+                    {payment.rentalRequestId && !['stopped', 'expired'].includes(payment.rentalStatus ?? '') ? (
                       <Link href={`${workspacePath}/${payment.rentalRequestId}`}>
                         <Button size="sm" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
                           {lang === 'en' ? 'Open access' : 'Ouvrir l’accès'}
                         </Button>
                       </Link>
-                    ) : payment.rentalStatus === 'expired' && payment.agent?.slug ? (
+                    ) : ['stopped', 'expired'].includes(payment.rentalStatus ?? '') && payment.agent?.slug ? (
                       <Link href={`/agents/${payment.agent.slug}`}>
                         <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
                           {lang === 'en' ? 'Rent again' : 'Relouer cet agent'}

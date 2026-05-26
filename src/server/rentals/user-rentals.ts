@@ -6,7 +6,7 @@ import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 
 export type UserRental = {
   id: string;
-  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled" | "active" | "expired";
+  status: "pending" | "accepted" | "in_progress" | "delivered" | "rejected" | "cancelled" | "active" | "stopped" | "expired";
   pricingType: "task" | "project";
   priceCents: number | null;
   currency: string;
@@ -50,7 +50,8 @@ export type UserRental = {
 
 export type UserPaymentOrder = {
   id: string;
-  status: "pending" | "paid" | "failed" | "cancelled";
+  status: "pending" | "paid" | "failed" | "cancelled" | "paid_blocked";
+  activationError: string | null;
   amountCents: number;
   currency: string;
   createdAt: string;
@@ -78,9 +79,9 @@ export type UserAgentOrderState =
       createdAt: string;
     }
   | {
-      kind: "expired_access";
+      kind: "stopped_access";
       rentalId: string;
-      status: "expired";
+      status: "stopped" | "expired";
       pricingType: "task" | "project";
       priceCents: number | null;
       currency: string;
@@ -100,6 +101,15 @@ export type UserAgentOrderState =
       amountCents: number;
       currency: string;
       createdAt: string;
+    }
+  | {
+      kind: "activation_blocked";
+      paymentId: string;
+      checkoutSessionId: string | null;
+      amountCents: number;
+      currency: string;
+      createdAt: string;
+      activationError: string | null;
     };
 
 type UserRentalRow = {
@@ -213,7 +223,8 @@ type AccessStateRentalRow = {
 
 type AccessStatePaymentRow = {
   id: string;
-  status: "pending" | "paid" | "failed" | "cancelled";
+  status: UserPaymentOrder["status"];
+  activation_error: string | null;
   rental_request_id: string | null;
   stripe_checkout_session_id: string | null;
   amount_cents: number;
@@ -224,6 +235,7 @@ type AccessStatePaymentRow = {
 type UserPaymentOrderRow = {
   id: string;
   status: UserPaymentOrder["status"];
+  activation_error: string | null;
   amount_cents: number;
   currency: string;
   created_at: string;
@@ -337,10 +349,10 @@ export async function getUserAgentOrderState(userId: string, agentId: string) {
 
   const { data: payments, error: paymentError } = await supabase
     .from("payments")
-    .select("id,status,rental_request_id,stripe_checkout_session_id,amount_cents,currency,created_at")
+    .select("id,status,activation_error,rental_request_id,stripe_checkout_session_id,amount_cents,currency,created_at")
     .eq("user_id", userId)
     .eq("agent_id", agentId)
-    .in("status", ["pending", "paid"])
+    .in("status", ["pending", "paid", "paid_blocked"])
     .order("created_at", { ascending: false })
     .limit(1)
     .returns<AccessStatePaymentRow[]>();
@@ -397,18 +409,33 @@ export async function getUserAgentOrderState(userId: string, agentId: string) {
     };
   }
 
-  const expiredAccess = (rentals ?? []).find((rental) => rental.status === "expired");
-
-  if (expiredAccess) {
+  if (payment?.status === "paid_blocked") {
     return {
       state: {
-        kind: "expired_access" as const,
-        rentalId: expiredAccess.id,
-        status: "expired" as const,
-        pricingType: expiredAccess.pricing_type,
-        priceCents: expiredAccess.quoted_price_cents,
-        currency: expiredAccess.currency,
-        createdAt: expiredAccess.created_at,
+        kind: "activation_blocked" as const,
+        paymentId: payment.id,
+        checkoutSessionId: payment.stripe_checkout_session_id,
+        amountCents: payment.amount_cents,
+        currency: payment.currency,
+        createdAt: payment.created_at,
+        activationError: payment.activation_error,
+      },
+      error: null,
+    };
+  }
+
+  const stoppedAccess = (rentals ?? []).find((rental) => rental.status === "stopped" || rental.status === "expired");
+
+  if (stoppedAccess) {
+    return {
+      state: {
+        kind: "stopped_access" as const,
+        rentalId: stoppedAccess.id,
+        status: stoppedAccess.status === "expired" ? "expired" : "stopped",
+        pricingType: stoppedAccess.pricing_type,
+        priceCents: stoppedAccess.quoted_price_cents,
+        currency: stoppedAccess.currency,
+        createdAt: stoppedAccess.created_at,
       },
       error: null,
     };
@@ -527,7 +554,7 @@ export async function getUserPaymentOrders(userId: string) {
 
   const { data, error } = await supabase
     .from("payments")
-    .select("id,status,amount_cents,currency,created_at,stripe_checkout_session_id,rental_request_id,agents!payments_agent_id_fkey(name,slug,summary)")
+    .select("id,status,activation_error,amount_cents,currency,created_at,stripe_checkout_session_id,rental_request_id,agents!payments_agent_id_fkey(name,slug,summary)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .returns<UserPaymentOrderRow[]>();
@@ -563,6 +590,7 @@ export async function getUserPaymentOrders(userId: string) {
       return {
         id: payment.id,
         status: payment.status,
+        activationError: payment.activation_error,
         amountCents: payment.amount_cents,
         currency: payment.currency,
         createdAt: payment.created_at,

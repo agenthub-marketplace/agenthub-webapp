@@ -19,7 +19,7 @@ async function getPayment(profileId, sessionId) {
   const loadPayment = () =>
     supabase
       .from('payments')
-      .select('status,rental_request_id')
+      .select('status,rental_request_id,activation_error')
       .eq('user_id', profileId)
       .eq('stripe_checkout_session_id', sessionId)
       .maybeSingle();
@@ -56,7 +56,15 @@ export default async function CheckoutSuccessPage({ searchParams }) {
     redirect(`/en/workspace/${payment.rental_request_id}?access=created`);
   }
 
-  const activationBlocked = payment?.status === 'failed' || payment?.status === 'cancelled';
+  const activationBlocked =
+    payment?.status === 'paid_blocked' ||
+    payment?.status === 'failed' ||
+    payment?.status === 'cancelled' ||
+    (payment?.status === 'paid' && !payment.rental_request_id);
+  const activationBlockedMessage =
+    payment?.status === 'paid_blocked' || (payment?.status === 'paid' && !payment.rental_request_id)
+      ? 'Payment received, but access activation needs a manual check. Contact AgentHub support before retrying.'
+      : 'This payment cannot activate the agent right now. The agent may have been suspended or removed during checkout. Contact AgentHub before retrying.';
 
   return (
     <div className="min-h-screen">
@@ -71,7 +79,7 @@ export default async function CheckoutSuccessPage({ searchParams }) {
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#C8B1E4]">
             {activationBlocked
-              ? 'This payment cannot activate the agent right now. The agent may have been suspended or removed during checkout. Contact AgentHub before retrying.'
+              ? activationBlockedMessage
               : 'Stripe confirmed the payment. This page automatically checks access creation and redirects once the webhook has finished.'}
           </p>
           <div className="mt-6 flex justify-center gap-3">

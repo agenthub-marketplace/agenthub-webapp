@@ -132,7 +132,9 @@ export function verifyStripeWebhookPayload(rawBody: string, signatureHeader: str
   }
 
   const parts = signatureHeader.split(",").reduce<Record<string, string[]>>((acc, part) => {
-    const [key, value] = part.split("=");
+    const [rawKey, rawValue] = part.split("=");
+    const key = rawKey?.trim();
+    const value = rawValue?.trim();
     if (!key || !value) {
       return acc;
     }
