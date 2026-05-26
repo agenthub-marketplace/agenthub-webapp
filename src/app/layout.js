@@ -4,7 +4,7 @@ import { LanguageProvider } from '@/lib/i18n'
 
 export const metadata = {
   title: 'AgentHub — L’agent IA qui correspond à vos besoins',
-  description: 'Marketplace de location d’agents IA spécialisés.',
+  description: 'Marketplace d’accès à des agents IA spécialisés.',
   icons: { icon: '/logo.png' },
 }
 

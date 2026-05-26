@@ -5,8 +5,6 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/service';
-import { fulfillCheckoutSession, markPaymentCancelled } from '@/server/payments/fulfillment';
-import { retrieveStripeCheckoutSession } from '@/server/payments/stripe';
 import CheckoutSuccessClient from '../checkout-success-client';
 
 async function getPayment(profileId, sessionId) {
@@ -16,32 +14,12 @@ async function getPayment(profileId, sessionId) {
     return null;
   }
 
-  const loadPayment = () =>
-    supabase
-      .from('payments')
-      .select('status,rental_request_id,activation_error')
-      .eq('user_id', profileId)
-      .eq('stripe_checkout_session_id', sessionId)
-      .maybeSingle();
-
-  let { data } = await loadPayment();
-
-  if (data?.status === 'pending') {
-    try {
-      const checkoutSession = await retrieveStripeCheckoutSession(sessionId);
-
-      if (checkoutSession.payment_status === 'paid') {
-        await fulfillCheckoutSession(checkoutSession);
-      } else if (checkoutSession.status === 'expired') {
-        await markPaymentCancelled(sessionId);
-      }
-
-      const refreshed = await loadPayment();
-      data = refreshed.data ?? data;
-    } catch {
-      return data ?? null;
-    }
-  }
+  const { data } = await supabase
+    .from('payments')
+    .select('status,rental_request_id,activation_error')
+    .eq('user_id', profileId)
+    .eq('stripe_checkout_session_id', sessionId)
+    .maybeSingle();
 
   return data ?? null;
 }

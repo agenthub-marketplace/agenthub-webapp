@@ -17,47 +17,79 @@ type ReviewRow = {
   agents: { slug: string } | { slug: string }[] | null;
 };
 
-function redirectWithReviewError(locale: Locale, rentalId: string, error: string): never {
+function appendReviewQuery(path: string, params: Record<string, string>) {
+  const separator = path.includes("?") ? "&" : "?";
+  const query = new URLSearchParams(params).toString();
+
+  return `${path}${separator}${query}`;
+}
+
+function normalizeReviewReturnPath(locale: Locale, value: FormDataEntryValue | null, rentalId: string) {
+  const dashboardPath = localizedPath("/dashboard", locale);
+
+  if (typeof value !== "string") {
+    return dashboardPath;
+  }
+
+  const trimmed = value.trim();
+  const workspacePath = rentalId ? localizedPath(`/workspace/${rentalId}`, locale) : "";
+
+  if (trimmed === dashboardPath || trimmed.startsWith(`${dashboardPath}?`)) {
+    return trimmed;
+  }
+
+  if (workspacePath && (trimmed === workspacePath || trimmed.startsWith(`${workspacePath}?`))) {
+    return trimmed;
+  }
+
+  return dashboardPath;
+}
+
+function redirectWithReviewError(locale: Locale, rentalId: string, error: string, returnTo?: string): never {
   redirect(
-    `${localizedPath("/dashboard", locale)}?reviewError=${encodeURIComponent(error)}&rental=${encodeURIComponent(rentalId)}`,
+    appendReviewQuery(returnTo || localizedPath("/dashboard", locale), {
+      reviewError: error,
+      rental: rentalId,
+    }),
   );
 }
 
 export async function submitRentalReviewAction(locale: Locale, formData: FormData) {
   const profile = await requireAuth(locale, localizedPath("/dashboard", locale));
   const supabase = await createSupabaseServerClient();
+  const rentalId = formData.get("rental_id");
+  const returnPath = normalizeReviewReturnPath(locale, formData.get("return_to"), typeof rentalId === "string" ? rentalId : "");
 
   if (!supabase) {
-    redirectWithReviewError(locale, "", "missing-config");
+    redirectWithReviewError(locale, "", "missing-config", returnPath);
   }
 
-  const rentalId = formData.get("rental_id");
   const rating = formData.get("rating");
   const title = formData.get("title");
   const body = formData.get("body");
 
   if (typeof rentalId !== "string" || !rentalId) {
-    redirectWithReviewError(locale, "", "invalid-request");
+    redirectWithReviewError(locale, "", "invalid-request", returnPath);
   }
 
   if (typeof rating !== "string" || !rating.trim()) {
-    redirectWithReviewError(locale, rentalId, "rating-required");
+    redirectWithReviewError(locale, rentalId, "rating-required", returnPath);
   }
 
   const normalizedRating = Number.parseInt(rating, 10);
 
   if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
-    redirectWithReviewError(locale, rentalId, "invalid-rating");
+    redirectWithReviewError(locale, rentalId, "invalid-rating", returnPath);
   }
 
   if (typeof body !== "string" || !body.trim()) {
-    redirectWithReviewError(locale, rentalId, "review-body-required");
+    redirectWithReviewError(locale, rentalId, "review-body-required", returnPath);
   }
 
   const normalizedBody = body.trim().slice(0, 4000);
 
   if (normalizedBody.length < 5) {
-    redirectWithReviewError(locale, rentalId, "review-body-too-short");
+    redirectWithReviewError(locale, rentalId, "review-body-too-short", returnPath);
   }
 
   const rentalQuery = await supabase
@@ -68,7 +100,7 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     .maybeSingle<ReviewRow>();
 
   if (rentalQuery.error || !rentalQuery.data) {
-    redirectWithReviewError(locale, rentalId, "rental-not-found");
+    redirectWithReviewError(locale, rentalId, "rental-not-found", returnPath);
   }
 
   const rental = rentalQuery.data;
@@ -78,13 +110,13 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     : rental.agents?.slug ?? "";
 
   if (!["active", "stopped", "expired", "delivered"].includes(rental.status)) {
-    redirectWithReviewError(locale, rentalId, "rental-not-reviewable");
+    redirectWithReviewError(locale, rentalId, "rental-not-reviewable", returnPath);
   }
 
   const creatorProfile = await getCreatorProfileForUser();
 
   if (!creatorProfile.error && !creatorProfile.creatorProfileMissing && creatorProfile.id === rental.creator_id) {
-    redirectWithReviewError(locale, rentalId, "self-review-not-allowed");
+    redirectWithReviewError(locale, rentalId, "self-review-not-allowed", returnPath);
   }
 
   const normalizedTitle = typeof title === "string" ? title.trim().slice(0, 200) : null;
@@ -100,15 +132,20 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
 
   if (error) {
     if (error.code === "23505") {
-      redirectWithReviewError(locale, rentalId, "review-already-exists");
+      redirectWithReviewError(locale, rentalId, "review-already-exists", returnPath);
     }
 
-    redirectWithReviewError(locale, rentalId, "review-create-failed");
+    redirectWithReviewError(locale, rentalId, "review-create-failed", returnPath);
   }
 
   revalidatePath(localizedPath("/dashboard", locale));
+  revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
   if (rentalAgentSlug) {
     revalidatePath(localizedPath(`/agents/${rentalAgentSlug}`, locale));
   }
-  redirect(`${localizedPath("/dashboard", locale)}?reviewSubmitted=${encodeURIComponent(rental.id)}`);
+  redirect(
+    appendReviewQuery(returnPath, {
+      reviewSubmitted: rental.id,
+    }),
+  );
 }

@@ -4,15 +4,26 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
-import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
 
-function optionLabel(options, value) {
-  return options.find((option) => option.value === value)?.label ?? value;
+const WORKSPACE_MODE_LABELS = {
+  instant: 'Instant access',
+  guided: 'Guided workspace',
+  document_required: 'Document preparation',
+};
+
+const SETUP_REQUIREMENT_LABELS = {
+  none: 'No setup required',
+  context: 'Context to prepare',
+  document: 'Document to prepare',
+};
+
+function optionLabel(labels, value) {
+  return labels[value] ?? value;
 }
 
 function formatPrice(cents, currency = 'eur') {
@@ -52,21 +63,68 @@ function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 's
 
 function workspaceActions(mode) {
   const actions = {
-    instant: ['Read use cases', 'Copy the starter prompt', 'Review expected deliverables'],
-    guided: ['Define my goal', 'Prepare useful context', 'Generate my startup checklist'],
-    document_required: ['Prepare my document', 'Check required information', 'Review analysis limits'],
+    instant: ['Read the output promise', 'Check useful inputs', 'Review expected deliverables'],
+    guided: ['Define my goal', 'Prepare useful context', 'Follow the startup checklist'],
+    document_required: ['Prepare the document on your side', 'Check required information', 'Review analysis limits'],
   };
 
   return actions[mode] ?? actions.instant;
 }
 
-function WorkspaceUnavailable({ message, profile, title }) {
+function unavailableCopy(rental) {
+  if (rental.agent?.status === 'suspended') {
+    return {
+      eyebrow: 'AGENT SUSPENDED',
+      title: 'Agent suspended',
+      message:
+        'This agent has been suspended by AgentHub. Your workspace stays closed until the review is complete.',
+    };
+  }
+
+  const byStatus = {
+    cancelled: {
+      eyebrow: 'ACCESS CANCELLED',
+      title: 'Access cancelled',
+      message: 'This activation was cancelled. You can choose another approved agent from the marketplace.',
+    },
+    rejected: {
+      eyebrow: 'ACCESS BLOCKED',
+      title: 'Access blocked',
+      message: 'This access cannot be opened. Contact AgentHub if you think this decision is incorrect.',
+    },
+    stopped: {
+      eyebrow: 'ACCESS STOPPED',
+      title: 'Access stopped',
+      message: 'You stopped this access. You can rent this agent again from its listing if it is available.',
+    },
+    expired: {
+      eyebrow: 'ACCESS EXPIRED',
+      title: 'Access expired',
+      message: 'This access has expired. You can rent this agent again from its listing if it is available.',
+    },
+    pending: {
+      eyebrow: 'ACCESS PENDING',
+      title: 'Access pending',
+      message: 'This access is not active yet. Come back here when activation is complete.',
+    },
+  };
+
+  return (
+    byStatus[rental.status] ?? {
+      eyebrow: 'AGENT WORKSPACE',
+      title: 'Access unavailable',
+      message: 'This access is not active or the related agent is no longer published. You can find your other agents from your workspace.',
+    }
+  );
+}
+
+function WorkspaceUnavailable({ eyebrow = 'AGENT WORKSPACE', message, profile, title }) {
   return (
     <div className="min-h-screen">
       <Navbar profile={profile} />
       <main className="container py-20">
         <div className="mx-auto max-w-2xl rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-8">
-          <p className="font-label mb-3 text-xs text-[#F59E0B]">AGENT WORKSPACE</p>
+          <p className="font-label mb-3 text-xs text-[#F59E0B]">{eyebrow}</p>
           <h1 className="font-display mb-3 text-3xl font-bold text-[#F4EFFA]">{title}</h1>
           <p className="mb-6 text-sm leading-relaxed text-[#C8B1E4]">{message}</p>
           <div className="flex flex-wrap gap-3">
@@ -97,7 +155,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       <WorkspaceUnavailable
         profile={profile}
         title="Unable to load this access"
-        message="The rental may have been created, but the workspace data is temporarily unavailable. Please try again in a few seconds."
+        message="The access may have been created, but the workspace data is temporarily unavailable. Please try again in a few seconds."
       />
     );
   }
@@ -107,19 +165,24 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   }
 
   if (!rental.accessOpen) {
+    const state = unavailableCopy(rental);
+
     return (
       <WorkspaceUnavailable
         profile={profile}
-        title="Access unavailable"
-        message="This access is not active or the related agent is no longer published. You can find your other agents from your workspace."
+        eyebrow={state.eyebrow}
+        title={state.title}
+        message={state.message}
       />
     );
   }
 
   const accessCreated = query?.access === 'created';
+  const reviewSubmitted = query?.reviewSubmitted === rental.id;
+  const reviewError = typeof query?.reviewError === 'string' ? query.reviewError : null;
   const contract = rental.agent.contract;
-  const accessLabel = WORKSPACE_MODE_LABELS[contract.workspaceMode] || 'Instant access';
-  const setupLabel = optionLabel(SETUP_REQUIREMENT_OPTIONS, contract.setupRequirements.type);
+  const accessLabel = optionLabel(WORKSPACE_MODE_LABELS, contract.workspaceMode) || 'Instant access';
+  const setupLabel = optionLabel(SETUP_REQUIREMENT_LABELS, contract.setupRequirements.type);
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
   const stopAction = stopAgentAccessAction.bind(null, 'en');
 
@@ -134,7 +197,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
 
         {accessCreated && (
           <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            Your beta access is active. You can find this agent from your workspace.
+            Your access is active. You can find this agent from your workspace.
           </div>
         )}
 
@@ -165,7 +228,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
               </div>
             </div>
             {rental.agent?.slug && (
-              <Link href={`/agents/${rental.agent.slug}`} className="mt-6 block">
+              <Link href={`/en/agents/${rental.agent.slug}`} className="mt-6 block">
                 <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
                   View agent listing
                 </Button>
@@ -200,6 +263,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
+              <ListBlock title="What this agent can help with" items={rental.agent.capabilities} emptyText="No detailed capability was provided." />
               <ListBlock title="Inputs to prepare" items={rental.agent.requiredInputsList} emptyText="No specific input was provided." />
               <ListBlock title="Expected deliverables" items={rental.agent.deliverables} emptyText="No deliverable listed." />
               <ListBlock title="Usage examples" items={contract.outputPromise.examples} emptyText="No example yet." />
@@ -242,6 +306,16 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
                   <p className="text-sm text-[#9B72CF]">Available because you own active access.</p>
                 </div>
               </div>
+              {reviewSubmitted && (
+                <div className="mb-4 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+                  Your verified review has been published.
+                </div>
+              )}
+              {reviewError && (
+                <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
+                  Unable to publish this review right now.
+                </div>
+              )}
               {rental.review ? (
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
                   <div className="mb-2 flex gap-1 text-[#F59E0B]">
@@ -255,6 +329,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
               ) : (
                 <form action={reviewAction} className="space-y-3">
                   <input type="hidden" name="rental_id" value={rental.id} />
+                  <input type="hidden" name="return_to" value={`/en/workspace/${rental.id}`} />
                   <select name="rating" required className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none focus:border-[#7C3AED]">
                     <option value="">Rating</option>
                     <option value="5">5 - Excellent</option>

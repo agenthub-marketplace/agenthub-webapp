@@ -281,7 +281,7 @@ export default async function Page({ params, searchParams }) {
                 <div className="mb-4 rounded-xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#C8B1E4]">
                   <p className="font-display font-bold text-[#6EE7B7]">Accès déjà actif</p>
                   <p className="mt-2">
-                    Vous avez déjà loué cet agent. Retrouvez-le dans “Mes locations” et ouvrez le workspace quand vous voulez.
+                    Vous avez déjà activé cet agent. Retrouvez-le dans “Mes agents” et ouvrez le workspace quand vous voulez.
                   </p>
                   <div className="mt-3 grid gap-1 text-xs text-[#9B72CF]">
                     <span>Statut : {orderState.status === 'active' ? 'actif' : orderState.status}</span>
@@ -299,7 +299,7 @@ export default async function Page({ params, searchParams }) {
                 <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">
                   <p className="font-display font-bold">Paiement en attente</p>
                   <p className="mt-2">
-                    Une commande est déjà ouverte pour cet agent. Finalisez le paiement ou attendez son expiration avant de relancer une location.
+                    Une commande est déjà ouverte pour cet agent. Finalisez le paiement ou attendez son expiration avant de relancer l’activation.
                   </p>
                   <div className="mt-3 grid gap-1 text-xs text-[#C8B1E4]">
                     <span>Créé le {formatOrderDate(orderState.createdAt)}</span>
@@ -374,7 +374,7 @@ export default async function Page({ params, searchParams }) {
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-4">
               <p className="font-label text-[10px] text-[#9B72CF] mb-2">Retours vérifiés</p>
               <div className="text-[#F4EFFA] font-stat text-sm">{agent.reviews} avis</div>
-              <p className="text-xs text-[#9B72CF] mt-2">Note moyenne basée sur les évaluations post-location.</p>
+              <p className="text-xs text-[#9B72CF] mt-2">Note moyenne basée sur les avis après activation.</p>
             </div>
 
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-4">

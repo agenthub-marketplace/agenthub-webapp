@@ -3,11 +3,16 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
-import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
-import { getUserRentals } from '@/server/rentals/user-rentals';
-import { ArrowRight, Bot, Clock } from 'lucide-react';
+import { getUserPaymentOrders, getUserRentals } from '@/server/rentals/user-rentals';
+import { AlertTriangle, ArrowRight, Bot, Clock, ShieldAlert } from 'lucide-react';
+
+const WORKSPACE_MODE_LABELS = {
+  instant: 'Instant access',
+  guided: 'Guided workspace',
+  document_required: 'Document preparation',
+};
 
 function statusLabel(status) {
   return {
@@ -38,18 +43,63 @@ function formatPrice(cents, currency = 'eur') {
 function accessStopMessage(value) {
   return {
     stopped: { tone: 'success', text: 'Access has been stopped. You can rent this agent again from its listing.' },
-    error: { tone: 'error', text: 'Unable to stop this rental right now.' },
+    error: { tone: 'error', text: 'Unable to stop this access right now.' },
     invalid: { tone: 'error', text: 'Invalid rental.' },
     'not-found': { tone: 'error', text: 'Rental not found.' },
     'already-stopped': { tone: 'info', text: 'This access is already stopped.' },
   }[value] ?? null;
 }
 
+function unavailableRentalCopy(rental) {
+  if (rental.agent?.status === 'suspended') {
+    return {
+      label: 'Agent suspended',
+      text: 'This workspace is closed during AgentHub review.',
+      tone: 'warning',
+    };
+  }
+
+  const byStatus = {
+    cancelled: { label: 'Access cancelled', text: 'This activation was cancelled.', tone: 'muted' },
+    rejected: { label: 'Access blocked', text: 'This access cannot be opened.', tone: 'warning' },
+    stopped: { label: 'Access stopped', text: 'You stopped this access.', tone: 'muted' },
+    expired: { label: 'Access expired', text: 'This access has expired.', tone: 'muted' },
+    pending: { label: 'Activation pending', text: 'Access is not active yet.', tone: 'warning' },
+  };
+
+  return byStatus[rental.status] ?? { label: 'Access unavailable', text: 'This access is not open.', tone: 'warning' };
+}
+
+function paymentStateCopy(payment) {
+  if (payment.status === 'paid_blocked') {
+    return {
+      label: 'Activation blocked',
+      text: payment.activationError
+        ? 'Payment was received, but a manual check is required before opening access.'
+        : 'Payment was received, but access could not open automatically.',
+      tone: 'warning',
+    };
+  }
+
+  if (payment.status === 'cancelled') {
+    return { label: 'Payment cancelled', text: 'Checkout was cancelled before activation.', tone: 'muted' };
+  }
+
+  return { label: 'Activation pending', text: 'Payment received, activation is still being confirmed.', tone: 'warning' };
+}
+
 export default async function WorkspacePage({ searchParams }) {
   const profile = await requireAuth('en', '/en/workspace');
   const query = searchParams ? await searchParams : {};
-  const { rentals, error } = await getUserRentals(profile.id);
+  const [{ rentals, error }, { payments: paymentOrders, error: paymentOrdersError }] = await Promise.all([
+    getUserRentals(profile.id),
+    getUserPaymentOrders(profile.id),
+  ]);
   const activeRentals = rentals.filter((rental) => rental.accessOpen);
+  const unavailableRentals = rentals.filter((rental) => !rental.accessOpen);
+  const paymentStateOrders = paymentOrders.filter(
+    (payment) => payment.status === 'paid_blocked' || payment.status === 'cancelled' || (payment.status === 'paid' && !payment.rentalRequestId),
+  );
   const stopMessage = accessStopMessage(typeof query?.accessStop === 'string' ? query.accessStop : null);
   const stopAction = stopAgentAccessAction.bind(null, 'en');
 
@@ -58,7 +108,7 @@ export default async function WorkspacePage({ searchParams }) {
       <Navbar profile={profile} />
       <main className="container py-10">
         <div className="mb-8">
-          <p className="font-label mb-2 text-xs text-[#9B72CF]">My rentals</p>
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">My agents</p>
           <h1 className="font-display text-4xl font-bold text-[#F4EFFA] md:text-5xl">Your accessible agents</h1>
           <p className="mt-2 max-w-2xl text-[#C8B1E4]">
             Find every beta agent currently active on your account.
@@ -68,6 +118,12 @@ export default async function WorkspacePage({ searchParams }) {
         {error && (
           <div className="mb-6 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
             Could not load your access records right now.
+          </div>
+        )}
+
+        {paymentOrdersError && (
+          <div className="mb-6 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm text-[#F6C177]">
+            Payment states are temporarily unavailable.
           </div>
         )}
 
@@ -83,7 +139,7 @@ export default async function WorkspacePage({ searchParams }) {
           </div>
         )}
 
-        {!error && activeRentals.length === 0 ? (
+        {!error && activeRentals.length === 0 && (
           <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
               <Bot className="h-7 w-7" />
@@ -98,7 +154,9 @@ export default async function WorkspacePage({ searchParams }) {
               </Button>
             </Link>
           </div>
-        ) : (
+        )}
+
+        {!error && activeRentals.length > 0 && (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {activeRentals.map((rental, index) => (
               <article key={rental.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
@@ -142,6 +200,80 @@ export default async function WorkspacePage({ searchParams }) {
               </article>
             ))}
           </div>
+        )}
+
+        {!error && (unavailableRentals.length > 0 || paymentStateOrders.length > 0) && (
+          <section className="mt-8">
+            <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
+              <ShieldAlert className="h-5 w-5 text-[#F59E0B]" />
+              <h2 className="font-display text-2xl font-bold">Access requiring attention</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {unavailableRentals.map((rental) => {
+                const state = unavailableRentalCopy(rental);
+
+                return (
+                  <article key={rental.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">
+                          {rental.agent?.name ?? 'AgentHub agent'}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#C8B1E4]">{state.text}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1 text-xs font-label text-[#F6C177]">
+                        {state.label}
+                      </span>
+                    </div>
+                    {rental.agent?.slug && (
+                      <Link href={`/en/agents/${rental.agent.slug}`}>
+                        <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
+                          View agent listing
+                        </Button>
+                      </Link>
+                    )}
+                  </article>
+                );
+              })}
+              {paymentStateOrders.map((payment) => {
+                const state = paymentStateCopy(payment);
+
+                return (
+                  <article key={payment.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">
+                          {payment.agent?.name ?? 'AgentHub agent'}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#C8B1E4]">{state.text}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1 text-xs font-label text-[#F6C177]">
+                        {state.label}
+                      </span>
+                    </div>
+                    {payment.status === 'paid' && payment.checkoutSessionId ? (
+                      <Link href={`/en/checkout/success?session_id=${encodeURIComponent(payment.checkoutSessionId)}`}>
+                        <Button className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                          Check activation
+                        </Button>
+                      </Link>
+                    ) : payment.agent?.slug ? (
+                      <Link href={`/en/agents/${payment.agent.slug}`}>
+                        <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
+                          View agent listing
+                        </Button>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-sm text-[#F6C177]">
+                        <AlertTriangle className="h-4 w-4" />
+                        AgentHub support required
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
         )}
       </main>
       <Footer />

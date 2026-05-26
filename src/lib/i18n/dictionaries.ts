@@ -63,7 +63,7 @@ export const dictionaries = {
     auth: {
       loginEyebrow: "Connexion",
       loginTitle: "Bon retour sur AgentHub.",
-      loginDescription: "Connecte-toi pour accéder à tes locations, ton espace créateur ou l’admin.",
+      loginDescription: "Connecte-toi pour accéder à tes agents, ton espace créateur ou l’admin.",
       signupEyebrow: "Inscription",
       signupTitle: "Crée ton compte AgentHub.",
       signupDescription: "Choisis ton rôle beta. Les comptes créateur seront vérifiés avant publication.",
@@ -90,9 +90,9 @@ export const dictionaries = {
       subheadline:
         "AgentHub transforme les agents IA en services vérifiables avec des livrables clairs, des avis utiles et une vraie logique de marketplace.",
       stats: [
-        ["3 façons", "de louer"],
+        ["3 façons", "d’activer"],
         ["Vérifié", "avant publication"],
-        ["Avis", "après livraison"],
+        ["Avis", "après activation"],
       ],
       heroPreviewTitle: "Aperçu marketplace",
       heroPreviewSubtitle: "Agents vérifiés prêts à louer",
@@ -105,7 +105,7 @@ export const dictionaries = {
           description: "Trouve des services IA ciblés, revus pour leur périmètre et leurs résultats.",
         },
         {
-          title: "Loue le bon agent",
+          title: "Active le bon agent",
           description: "Choisis une tâche, une durée ou un projet selon le travail à réaliser.",
         },
         {
@@ -118,7 +118,7 @@ export const dictionaries = {
         "Chaque surface met l’accent sur les livrables, la confiance et des workflows répétables.",
       features: [
         ["Agents vérifiés", "Les fiches sont revues avant d’arriver sur la marketplace."],
-        ["Locations flexibles", "Loue à la tâche, à la durée ou au projet sans acheter un outil complet."],
+        ["Accès flexibles", "Active à la tâche, à la durée ou au projet sans acheter un outil complet."],
         ["Avis de confiance", "Le classement s’appuie sur les travaux terminés et les retours utilisateurs."],
         ["Accessible sans technique", "Briefs, livrables et attentes en langage clair."],
         ["Monétisation créateur", "Les builders IA peuvent transformer leur expertise en services louables."],
@@ -140,7 +140,7 @@ export const dictionaries = {
       forUsers: {
         title: "Pour les utilisateurs",
         description:
-          "Loue des services IA ciblés sans apprendre d’outils techniques ni gérer d’infrastructure agent.",
+          "Active des services IA ciblés sans apprendre d’outils techniques ni gérer d’infrastructure agent.",
         points: [
           "Trouver rapidement des agents",
           "Comparer les notes",
@@ -199,7 +199,7 @@ export const dictionaries = {
       whatDoesNot: "Ce que cet agent ne fait pas",
       requiredInputs: "Entrées nécessaires",
       deliverables: "Livrables",
-      rentalSummary: "Résumé de location",
+      rentalSummary: "Résumé d’accès",
       creator: "Créateur",
       price: "Prix",
       estimatedDuration: "Durée estimée",
@@ -211,7 +211,7 @@ export const dictionaries = {
       reviews: "Avis",
       mockReviews: (count: number) => `${count} avis mock`,
       noReviewsTitle: "Pas encore d’avis",
-      noReviewsDescription: "Cet agent mock attend son premier avis après location terminée.",
+      noReviewsDescription: "Cet agent mock attend son premier avis après activation.",
       dataSensitivity: (level: string) => `Données ${level}`,
       pricingLabel: (pricing: string) => `Tarification ${pricing}`,
     },
@@ -230,15 +230,15 @@ export const dictionaries = {
     },
     dashboardPage: {
       eyebrow: "Tableau de bord utilisateur",
-      title: "Suis tes agents loués et les travaux terminés.",
-      description: "Vue statique des locations actives, livrables terminés et avis à laisser.",
-      active: "Locations actives",
-      completed: "Locations terminées",
+      title: "Suis tes agents activés et les avis à laisser.",
+      description: "Vue statique des accès actifs, agents terminés et avis à laisser.",
+      active: "Accès actifs",
+      completed: "Accès terminés",
       pendingReviews: "Avis en attente",
       leaveReview: "Laisser un avis",
-      pendingReviewText: "Ton livrable est terminé. Laisse un retour pour améliorer le classement.",
+      pendingReviewText: "Ton accès est actif. Laisse un retour pour améliorer le classement.",
       noPendingTitle: "Aucun avis en attente",
-      noPendingDescription: "Les locations terminées qui attendent un retour apparaîtront ici.",
+      noPendingDescription: "Les accès qui attendent un retour apparaîtront ici.",
     },
     adminPage: {
       eyebrow: "Admin",
@@ -312,7 +312,7 @@ export const dictionaries = {
     auth: {
       loginEyebrow: "Login",
       loginTitle: "Welcome back to AgentHub.",
-      loginDescription: "Sign in to access your rentals, creator workspace, or admin area.",
+      loginDescription: "Sign in to access your agents, creator workspace, or admin area.",
       signupEyebrow: "Signup",
       signupTitle: "Create your AgentHub account.",
       signupDescription: "Choose your beta role. Creator accounts are reviewed before publication.",
@@ -339,9 +339,9 @@ export const dictionaries = {
       subheadline:
         "AgentHub turns AI agents into trusted services with clear deliverables, useful reviews, and a real marketplace flow.",
       stats: [
-        ["3 ways", "to rent"],
+        ["3 ways", "to activate"],
         ["Verified", "before listing"],
-        ["Reviews", "after delivery"],
+        ["Reviews", "after activation"],
       ],
       heroPreviewTitle: "Marketplace preview",
       heroPreviewSubtitle: "Verified agents ready to rent",
@@ -354,7 +354,7 @@ export const dictionaries = {
           description: "Find focused AI services reviewed for scope, quality, and clear outcomes.",
         },
         {
-          title: "Rent the right agent",
+          title: "Activate the right agent",
           description: "Choose a task, duration, or project model that matches the work you need.",
         },
         {
@@ -367,7 +367,7 @@ export const dictionaries = {
         "Every surface is designed around concrete deliverables, trust, and repeatable marketplace workflows.",
       features: [
         ["Verified agents", "Listings are reviewed before they reach the marketplace."],
-        ["Flexible rentals", "Rent by task, duration, or project without buying a full tool."],
+        ["Flexible access", "Activate by task, duration, or project without buying a full tool."],
         ["Trusted reviews", "Rankings are designed around completed work and user feedback."],
         ["Non-technical friendly", "Plain-language briefs, deliverables, and expectations."],
         ["Creator monetization", "AI builders can package expertise into rentable services."],
@@ -389,7 +389,7 @@ export const dictionaries = {
       forUsers: {
         title: "For users",
         description:
-          "Rent focused AI services without learning technical tooling or managing agent infrastructure.",
+          "Activate focused AI services without learning technical tooling or managing agent infrastructure.",
         points: [
           "Find agents quickly",
           "Compare ratings",
@@ -448,7 +448,7 @@ export const dictionaries = {
       whatDoesNot: "What this agent does not do",
       requiredInputs: "Required inputs",
       deliverables: "Deliverables",
-      rentalSummary: "Rental summary",
+      rentalSummary: "Access summary",
       creator: "Creator",
       price: "Price",
       estimatedDuration: "Estimated duration",
@@ -460,7 +460,7 @@ export const dictionaries = {
       reviews: "Reviews",
       mockReviews: (count: number) => `${count} mock reviews`,
       noReviewsTitle: "No reviews yet",
-      noReviewsDescription: "This mock agent is ready for its first completed rental review.",
+      noReviewsDescription: "This mock agent is ready for its first post-activation review.",
       dataSensitivity: (level: string) => `${level} data sensitivity`,
       pricingLabel: (pricing: string) => `${pricing} pricing`,
     },
@@ -479,15 +479,15 @@ export const dictionaries = {
     },
     dashboardPage: {
       eyebrow: "User dashboard",
-      title: "Track rented agents and review completed work.",
-      description: "A static view of active rentals, completed deliverables, and reviews waiting for feedback.",
-      active: "Active rentals",
-      completed: "Completed rentals",
+      title: "Track activated agents and reviews.",
+      description: "A static view of active access, completed agents, and reviews waiting for feedback.",
+      active: "Active access",
+      completed: "Completed access",
       pendingReviews: "Pending reviews",
       leaveReview: "Leave review",
-      pendingReviewText: "Your deliverable is complete. Leave feedback to improve rankings.",
+      pendingReviewText: "Your access is active. Leave feedback to improve rankings.",
       noPendingTitle: "No pending reviews",
-      noPendingDescription: "Completed rentals that need feedback will appear here.",
+      noPendingDescription: "Accesses that need feedback will appear here.",
     },
     adminPage: {
       eyebrow: "Admin",

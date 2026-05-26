@@ -29,7 +29,7 @@ const copy = {
     startingPrice: 'Prix fixe affiché',
     pricingHint: 'Détails de prix et conditions',
     priceHint:
-      'Prix fixe en euros, visible dans la marketplace pour ce mode de location. Pendant la beta, aucun paiement n’est encaissé par AgentHub ; Stripe prendra ensuite le relais.',
+      'Prix fixe en euros, visible dans la marketplace pour ce mode d’accès. En sandbox, Stripe simule le paiement avant activation.',
     pricingDetailsHint:
       'Expliquez clairement ce qui est inclus dans ce prix fixe et les limites de l’accès.',
     contract: 'Expérience après activation',
@@ -88,7 +88,7 @@ const copy = {
     startingPrice: 'Displayed fixed price',
     pricingHint: 'Pricing details and terms',
     priceHint:
-      'Fixed amount in euros, shown in the marketplace for this rental mode. During beta, AgentHub does not collect payments; Stripe will replace this later.',
+      'Fixed amount in euros, shown in the marketplace for this access mode. In sandbox, Stripe simulates payment before activation.',
     pricingDetailsHint:
       'Explain what is included in this fixed price and the limits of the access.',
     contract: 'Post-activation experience',

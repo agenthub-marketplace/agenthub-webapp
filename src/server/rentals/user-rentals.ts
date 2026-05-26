@@ -90,6 +90,7 @@ export type UserAgentOrderState =
   | {
       kind: "payment_pending";
       paymentId: string;
+      checkoutSessionId: string | null;
       amountCents: number;
       currency: string;
       createdAt: string;
@@ -401,6 +402,7 @@ export async function getUserAgentOrderState(userId: string, agentId: string) {
       state: {
         kind: "payment_pending" as const,
         paymentId: payment.id,
+        checkoutSessionId: payment.stripe_checkout_session_id,
         amountCents: payment.amount_cents,
         currency: payment.currency,
         createdAt: payment.created_at,

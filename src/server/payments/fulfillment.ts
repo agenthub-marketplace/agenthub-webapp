@@ -72,7 +72,7 @@ export async function markPaymentBlocked(paymentId: string, activationError: Act
       activation_error: activationError,
     })
     .eq("id", paymentId)
-    .eq("status", "pending");
+    .in("status", ["pending", "cancelled", "failed"]);
 }
 
 export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillment) {
@@ -100,11 +100,11 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     return;
   }
 
-  if (payment.status === "failed" || payment.status === "cancelled" || payment.status === "paid_blocked") {
+  if (payment.status === "paid_blocked") {
     return;
   }
 
-  if (payment.status !== "pending") {
+  if (!["pending", "cancelled", "failed"].includes(payment.status)) {
     throw new Error("payment-not-pending");
   }
 
@@ -230,7 +230,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
       stripe_payment_intent_id: session.payment_intent ?? null,
     })
     .eq("id", payment.id)
-    .eq("status", "pending")
+    .in("status", ["pending", "cancelled", "failed"])
     .select("id")
     .maybeSingle<{ id: string }>();
 

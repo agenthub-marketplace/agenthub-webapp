@@ -254,8 +254,8 @@ function DashboardPage({
         {rentalCreated && (
           <div className="mb-5 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-3 text-sm text-[#6EE7B7]">
             {lang === 'en'
-              ? 'Your beta access is active. Find it anytime from My rentals.'
-              : 'Votre accès beta est actif. Retrouvez-le à tout moment dans Mes locations.'}
+              ? 'Your access is active. Find it anytime from My agents.'
+              : 'Votre accès est actif. Retrouvez-le à tout moment dans Mes agents.'}
           </div>
         )}
 
@@ -326,7 +326,7 @@ function DashboardPage({
           <div>
             {betaRentalsError && (
               <div className="mb-5 rounded-2xl border border-[#F59E0B]/40 bg-[#110D24] px-4 py-3 text-sm text-[#F59E0B]">
-                {lang === 'en' ? 'Beta rentals are temporarily unavailable.' : 'Les locations beta sont temporairement indisponibles.'}
+                {lang === 'en' ? 'Agent accesses are temporarily unavailable.' : 'Les accès agent sont temporairement indisponibles.'}
               </div>
             )}
 
@@ -367,7 +367,7 @@ function DashboardPage({
                       )}
                       {!rental.result && rental.status === 'delivered' && (
                         <div className="mb-4 rounded-xl border border-[#2F184B] bg-[#07050F] p-3 text-xs text-[#C8B1E4]">
-                          {lang === 'en' ? 'Legacy delivered rental without stored result.' : 'Ancienne location livrée sans résultat enregistré.'}
+                          {lang === 'en' ? 'Legacy delivered access without stored result.' : 'Ancien accès livré sans résultat enregistré.'}
                         </div>
                       )}
 
@@ -478,12 +478,12 @@ function DashboardPage({
         {tab === 'history' && (
           <div className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-x-auto">
             <div className="flex justify-between items-center p-4 border-b border-[#251A40]">
-              <p className="font-display font-bold">{lang==='en'?'Rental history':'Historique des locations'}</p>
+              <p className="font-display font-bold">{lang==='en'?'Access history':'Historique des accès'}</p>
               <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]"><Download className="w-3.5 h-3.5 mr-1"/>{t('cr.exportcsv')}</Button>
             </div>
             {historyRows.length === 0 ? (
               <div className="p-6 text-sm text-[#A78BCF]">
-                {lang === 'en' ? 'No completed rentals yet.' : 'Aucun historique de location pour l’instant.'}
+                {lang === 'en' ? 'No completed access yet.' : 'Aucun historique d’accès pour l’instant.'}
               </div>
             ) : (
               <table className="w-full text-sm min-w-[700px]">

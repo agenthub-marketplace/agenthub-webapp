@@ -23,7 +23,7 @@ const copy = {
     loadError: 'Impossible de charger vos agents pour le moment.',
     rentalsTitle: 'Accès à mes agents',
     rentalsEmptyTitle: 'Aucun accès actif',
-    rentalsEmptyText: 'Les accès beta apparaîtront ici dès qu’un utilisateur louera un de vos agents approuvés.',
+    rentalsEmptyText: 'Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents approuvés.',
     rentalsLoadError: 'Impossible de charger les accès à vos agents.',
     submitted: 'Agent soumis pour validation. Il apparaît maintenant dans votre espace créateur.',
     adminFeedbackTitle: 'Retour admin',
@@ -72,7 +72,7 @@ const copy = {
     loadError: 'Could not load your agents right now.',
     rentalsTitle: 'Access to my agents',
     rentalsEmptyTitle: 'No active access yet',
-    rentalsEmptyText: 'Beta accesses will appear here as soon as a user rents one of your approved agents.',
+    rentalsEmptyText: 'Accesses will appear here as soon as a user activates one of your approved agents.',
     rentalsLoadError: 'Could not load access analytics for your agents.',
     submitted: 'Agent submitted for review. It now appears in your creator workspace.',
     adminFeedbackTitle: 'Admin feedback',
@@ -167,38 +167,6 @@ function getAgentStatusLabel(agent, t) {
 
 function Panel({ children, className = '' }) {
   return <div className={`rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5 ${className}`}>{children}</div>;
-}
-
-function StructuredBrief({ inputs, locale }) {
-  if (!inputs || typeof inputs !== 'object') {
-    return null;
-  }
-
-  const rows = [
-    [locale === 'en' ? 'Goal' : 'Objectif', inputs.objective],
-    [locale === 'en' ? 'Context' : 'Contexte', inputs.context],
-    [locale === 'en' ? 'Deadline' : 'Deadline', inputs.deadline],
-    [locale === 'en' ? 'Expected format' : 'Format attendu', inputs.output_format],
-    [locale === 'en' ? 'Constraints' : 'Contraintes', inputs.constraints],
-  ].filter(([, value]) => typeof value === 'string' && value.trim().length > 0);
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-4 rounded-xl border border-[#2F184B] bg-[#080612] p-3">
-      <p className="font-label mb-2 text-[10px] text-[#9B72CF]">{locale === 'en' ? 'CLIENT BRIEF' : 'BRIEF CLIENT'}</p>
-      <div className="grid gap-3 md:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <p className="font-label text-[10px] text-[#7F6B9C]">{label}</p>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]">{value}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default function CreatorDashboardContent({
@@ -336,13 +304,14 @@ export default function CreatorDashboardContent({
                           <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{rental.agent?.name ?? 'AgentHub agent'}</h3>
                           <StatusBadge status={rental.status} label={t.rentalStatuses[rental.status] || rental.status} />
                         </div>
-                        <p className="text-sm text-[#C8B1E4]">{rental.agent?.summary ?? rental.requestBrief}</p>
+                        <p className="text-sm text-[#C8B1E4]">
+                          {rental.agent?.summary ?? (locale === 'en' ? 'Direct access activated.' : 'Accès direct activé.')}
+                        </p>
                         <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9B72CF]">
                           <span>{rental.pricingType}</span>
                           <span>€{Math.round((rental.priceCents ?? 0) / 100)}</span>
                           <span>{new Date(rental.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}</span>
                         </div>
-                        <StructuredBrief inputs={rental.requiredInputs} locale={locale} />
                       </div>
                       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
                         <div className="rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2 text-right">

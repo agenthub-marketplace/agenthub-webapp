@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
 import { createSupabaseServiceClient } from '@/lib/supabase/service';
 
-async function cancelPayment(profileId, paymentId) {
+async function loadPayment(profileId, paymentId) {
   if (!paymentId) {
     return { payment: null, status: 'missing-payment' };
   }
@@ -27,23 +27,6 @@ async function cancelPayment(profileId, paymentId) {
     return { payment: null, status: 'not-found' };
   }
 
-  if (payment.status === 'pending') {
-    const { data: updatedPayment, error } = await supabase
-      .from('payments')
-      .update({ status: 'cancelled' })
-      .eq('id', payment.id)
-      .eq('user_id', profileId)
-      .eq('status', 'pending')
-      .select('id,status,amount_cents,currency,rental_request_id,agents!payments_agent_id_fkey(name,slug)')
-      .maybeSingle();
-
-    if (error) {
-      return { payment, status: 'cancel-failed' };
-    }
-
-    return { payment: updatedPayment ?? payment, status: 'cancelled' };
-  }
-
   return { payment, status: payment.status };
 }
 
@@ -51,7 +34,7 @@ export default async function CheckoutCancelPage({ searchParams }) {
   const query = searchParams ? await searchParams : {};
   const paymentId = typeof query?.payment_id === 'string' ? query.payment_id : '';
   const profile = await requireAuth('en', '/en/checkout/cancel');
-  const { payment, status } = await cancelPayment(profile.id, paymentId);
+  const { payment, status } = await loadPayment(profile.id, paymentId);
   const agent = Array.isArray(payment?.agents) ? payment.agents[0] : payment?.agents;
   const agentPath = agent?.slug ? `/en/agents/${agent.slug}` : '/en/marketplace';
 
@@ -66,7 +49,9 @@ export default async function CheckoutCancelPage({ searchParams }) {
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#C8B1E4]">
             {status === 'cancelled'
-              ? 'The pending payment has been marked as cancelled. You can restart from the agent detail page.'
+              ? 'Stripe expired this checkout without payment. You can restart activation from the agent detail page.'
+              : status === 'pending'
+                ? 'You left Stripe before payment finished. No access will be created unless the Stripe webhook confirms a payment.'
               : 'The checkout did not complete or has already been handled. Check your orders if needed.'}
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">

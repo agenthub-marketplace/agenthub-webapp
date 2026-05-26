@@ -4,15 +4,26 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
-import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { requireAuth } from '@/lib/auth/session';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
 
-function optionLabel(options, value) {
-  return options.find((option) => option.value === value)?.label ?? value;
+const WORKSPACE_MODE_LABELS = {
+  instant: 'Accès immédiat',
+  guided: 'Workspace guidé',
+  document_required: 'Préparation document',
+};
+
+const SETUP_REQUIREMENT_LABELS = {
+  none: 'Aucun setup requis',
+  context: 'Contexte à préparer',
+  document: 'Document à préparer',
+};
+
+function optionLabel(labels, value) {
+  return labels[value] ?? value;
 }
 
 function formatPrice(cents, currency = 'eur') {
@@ -52,21 +63,68 @@ function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 's
 
 function workspaceActions(mode) {
   const actions = {
-    instant: ['Lire les cas d’usage', 'Copier le prompt de démarrage', 'Voir les livrables attendus'],
-    guided: ['Définir mon objectif', 'Préparer les informations utiles', 'Générer ma checklist de démarrage'],
-    document_required: ['Préparer mon document', 'Vérifier les informations nécessaires', 'Voir les limites de l’analyse'],
+    instant: ['Lire la promesse de résultat', 'Vérifier les inputs utiles', 'Consulter les livrables attendus'],
+    guided: ['Définir mon objectif', 'Préparer le contexte utile', 'Suivre la checklist de démarrage'],
+    document_required: ['Préparer le document côté utilisateur', 'Vérifier les informations nécessaires', 'Lire les limites de l’analyse'],
   };
 
   return actions[mode] ?? actions.instant;
 }
 
-function WorkspaceUnavailable({ message, profile, title }) {
+function unavailableCopy(rental) {
+  if (rental.agent?.status === 'suspended') {
+    return {
+      eyebrow: 'AGENT SUSPENDU',
+      title: 'Agent suspendu',
+      message:
+        'Cet agent a été suspendu par AgentHub. Votre workspace reste fermé tant que la vérification n’est pas terminée.',
+    };
+  }
+
+  const byStatus = {
+    cancelled: {
+      eyebrow: 'ACCÈS ANNULÉ',
+      title: 'Accès annulé',
+      message: 'Cette activation a été annulée. Vous pouvez choisir un autre agent approuvé depuis la marketplace.',
+    },
+    rejected: {
+      eyebrow: 'ACCÈS BLOQUÉ',
+      title: 'Accès bloqué',
+      message: 'Cet accès ne peut pas être ouvert. Contactez AgentHub si vous pensez que cette décision est incorrecte.',
+    },
+    stopped: {
+      eyebrow: 'ACCÈS ARRÊTÉ',
+      title: 'Accès arrêté',
+      message: 'Vous avez arrêté cet accès. Vous pouvez relouer cet agent depuis sa fiche si elle est disponible.',
+    },
+    expired: {
+      eyebrow: 'ACCÈS EXPIRÉ',
+      title: 'Accès expiré',
+      message: 'Cet accès est expiré. Vous pouvez relouer cet agent depuis sa fiche si elle est disponible.',
+    },
+    pending: {
+      eyebrow: 'ACCÈS EN ATTENTE',
+      title: 'Accès en attente',
+      message: 'Cet accès n’est pas encore actif. Revenez ici lorsque l’activation sera terminée.',
+    },
+  };
+
+  return (
+    byStatus[rental.status] ?? {
+      eyebrow: 'ESPACE AGENT',
+      title: 'Accès indisponible',
+      message: 'Cet accès n’est pas actif ou l’agent associé n’est plus publié. Retrouvez vos autres agents depuis votre espace.',
+    }
+  );
+}
+
+function WorkspaceUnavailable({ eyebrow = 'ESPACE AGENT', message, profile, title }) {
   return (
     <div className="min-h-screen">
       <Navbar profile={profile} />
       <main className="container py-20">
         <div className="mx-auto max-w-2xl rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-8">
-          <p className="font-label mb-3 text-xs text-[#F59E0B]">ESPACE AGENT</p>
+          <p className="font-label mb-3 text-xs text-[#F59E0B]">{eyebrow}</p>
           <h1 className="font-display mb-3 text-3xl font-bold text-[#F4EFFA]">{title}</h1>
           <p className="mb-6 text-sm leading-relaxed text-[#C8B1E4]">{message}</p>
           <div className="flex flex-wrap gap-3">
@@ -97,7 +155,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       <WorkspaceUnavailable
         profile={profile}
         title="Impossible de charger cet accès"
-        message="La location a bien pu être créée, mais les données du workspace sont temporairement indisponibles. Réessayez dans quelques secondes."
+        message="L’accès a bien pu être créé, mais les données du workspace sont temporairement indisponibles. Réessayez dans quelques secondes."
       />
     );
   }
@@ -107,19 +165,24 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   }
 
   if (!rental.accessOpen) {
+    const state = unavailableCopy(rental);
+
     return (
       <WorkspaceUnavailable
         profile={profile}
-        title="Accès indisponible"
-        message="Cet accès n’est pas actif ou l’agent associé n’est plus publié. Retrouvez vos autres agents depuis votre espace."
+        eyebrow={state.eyebrow}
+        title={state.title}
+        message={state.message}
       />
     );
   }
 
   const accessCreated = query?.access === 'created';
+  const reviewSubmitted = query?.reviewSubmitted === rental.id;
+  const reviewError = typeof query?.reviewError === 'string' ? query.reviewError : null;
   const contract = rental.agent.contract;
-  const accessLabel = WORKSPACE_MODE_LABELS[contract.workspaceMode] || 'Accès immédiat';
-  const setupLabel = optionLabel(SETUP_REQUIREMENT_OPTIONS, contract.setupRequirements.type);
+  const accessLabel = optionLabel(WORKSPACE_MODE_LABELS, contract.workspaceMode) || 'Accès immédiat';
+  const setupLabel = optionLabel(SETUP_REQUIREMENT_LABELS, contract.setupRequirements.type);
   const reviewAction = submitRentalReviewAction.bind(null, 'fr');
   const stopAction = stopAgentAccessAction.bind(null, 'fr');
 
@@ -134,7 +197,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
 
         {accessCreated && (
           <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            Votre accès beta est activé. Vous pouvez retrouver cet agent depuis “Mes locations”.
+            Votre accès est activé. Vous pouvez retrouver cet agent depuis “Mes agents”.
           </div>
         )}
 
@@ -200,6 +263,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
+              <ListBlock title="Ce que l’agent peut aider à faire" items={rental.agent.capabilities} emptyText="Aucune capacité détaillée n’a été renseignée." />
               <ListBlock title="Inputs à préparer" items={rental.agent.requiredInputsList} emptyText="Aucun input spécifique n’a été renseigné." />
               <ListBlock title="Livrables attendus" items={rental.agent.deliverables} emptyText="Livrables non renseignés." />
               <ListBlock title="Exemples d’usage" items={contract.outputPromise.examples} emptyText="Aucun exemple fourni pour le moment." />
@@ -242,6 +306,16 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
                   <p className="text-sm text-[#9B72CF]">Disponible car vous possédez un accès actif.</p>
                 </div>
               </div>
+              {reviewSubmitted && (
+                <div className="mb-4 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+                  Votre avis vérifié a été publié.
+                </div>
+              )}
+              {reviewError && (
+                <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
+                  Impossible de publier cet avis pour le moment.
+                </div>
+              )}
               {rental.review ? (
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
                   <div className="mb-2 flex gap-1 text-[#F59E0B]">
@@ -255,6 +329,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
               ) : (
                 <form action={reviewAction} className="space-y-3">
                   <input type="hidden" name="rental_id" value={rental.id} />
+                  <input type="hidden" name="return_to" value={`/workspace/${rental.id}`} />
                   <select name="rating" required className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none focus:border-[#7C3AED]">
                     <option value="">Note</option>
                     <option value="5">5 - Excellent</option>

@@ -2,7 +2,6 @@
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireAuth } from "@/lib/auth/session";
@@ -11,7 +10,7 @@ import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
-import { createStripeCheckoutSession } from "@/server/payments/stripe";
+import { createStripeCheckoutSession, retrieveStripeCheckoutSession } from "@/server/payments/stripe";
 import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 import { getUserAgentOrderState } from "@/server/rentals/user-rentals";
 
@@ -35,43 +34,32 @@ function redirectWithAgentOrder(locale: Locale, slug: string, order: string): ne
   redirect(`${localizedPath(`/agents/${slug}`, locale)}?order=${encodeURIComponent(order)}`);
 }
 
-function safeOrigin(value: string | null) {
-  if (!value) {
-    return undefined;
+async function redirectToPendingCheckout(locale: Locale, slug: string, checkoutSessionId: string | null) {
+  if (!checkoutSessionId) {
+    redirectWithAgentOrder(locale, slug, "payment-pending");
   }
+
+  let redirectTarget: string | null = null;
 
   try {
-    const url = new URL(value);
+    const checkoutSession = await retrieveStripeCheckoutSession(checkoutSessionId);
 
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return undefined;
+    if (checkoutSession.status === "open" && checkoutSession.url) {
+      redirectTarget = checkoutSession.url;
     }
 
-    return url.origin;
+    if (checkoutSession.payment_status === "paid") {
+      redirectTarget = `${localizedPath("/checkout/success", locale)}?session_id=${encodeURIComponent(checkoutSessionId)}`;
+    }
   } catch {
-    return undefined;
-  }
-}
-
-async function getCurrentRequestOrigin() {
-  const headerList = await headers();
-  const origin = safeOrigin(headerList.get("origin"));
-
-  if (origin) {
-    return origin;
+    redirectWithAgentOrder(locale, slug, "payment-pending");
   }
 
-  const forwardedHost = headerList.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost || headerList.get("host")?.split(",")[0]?.trim();
-
-  if (!host) {
-    return undefined;
+  if (redirectTarget) {
+    redirect(redirectTarget);
   }
 
-  const forwardedProto = headerList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const proto = forwardedProto || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-
-  return safeOrigin(`${proto}://${host}`);
+  redirectWithAgentOrder(locale, slug, "payment-pending");
 }
 
 export async function createBetaRentalAction(locale: Locale, formData: FormData) {
@@ -138,7 +126,7 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
   }
 
   if (currentOrderState?.kind === "payment_pending") {
-    redirectWithAgentOrder(locale, slug, "payment-pending");
+    await redirectToPendingCheckout(locale, slug, currentOrderState.checkoutSessionId);
   }
 
   if (serverEnv.paymentsConfigError) {
@@ -181,7 +169,7 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
         }
 
         if (existingOrderState?.kind === "payment_pending") {
-          redirectWithAgentOrder(locale, slug, "payment-pending");
+          await redirectToPendingCheckout(locale, slug, existingOrderState.checkoutSessionId);
         }
       }
 
@@ -192,7 +180,6 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     try {
       checkoutSession = await createStripeCheckoutSession({
         agentName: agent.name,
-        appUrl: await getCurrentRequestOrigin(),
         amountCents: agent.starting_price_cents,
         currency: agent.currency,
         locale,
