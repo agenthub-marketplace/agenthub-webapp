@@ -203,16 +203,25 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                 <div className="mb-4">
                   <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Contrat agent à vérifier</p>
                   <div className="space-y-3 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-2 py-1 font-label text-[#C4B5FD]">
-                        {WORKSPACE_MODE_LABELS[activeSelection.contract.workspaceMode] || activeSelection.contract.workspaceMode}
-                      </span>
-                      <span className="rounded-full border border-[#251A40] bg-[#110D24] px-2 py-1 font-label text-[#A78BCF]">
-                        {optionLabel(SETUP_REQUIREMENT_OPTIONS, activeSelection.contract.setupRequirements.type)}
-                      </span>
-                      <span className="rounded-full border border-[#251A40] bg-[#110D24] px-2 py-1 font-label text-[#A78BCF]">
-                        {optionLabel(EXECUTION_MODE_OPTIONS, activeSelection.contract.executionMode)}
-                      </span>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div className="rounded-lg border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 p-2">
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Expérience workspace</p>
+                        <p className="font-label text-[10px] text-[#C4B5FD]">
+                          {WORKSPACE_MODE_LABELS[activeSelection.contract.workspaceMode] || activeSelection.contract.workspaceMode}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[#251A40] bg-[#110D24] p-2">
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Setup utilisateur</p>
+                        <p className="font-label text-[10px] text-[#D6C5E8]">
+                          {optionLabel(SETUP_REQUIREMENT_OPTIONS, activeSelection.contract.setupRequirements.type)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[#251A40] bg-[#110D24] p-2">
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Mode d’exécution</p>
+                        <p className="font-label text-[10px] text-[#D6C5E8]">
+                          {optionLabel(EXECUTION_MODE_OPTIONS, activeSelection.contract.executionMode)}
+                        </p>
+                      </div>
                     </div>
                     <div>
                       <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Promesse de résultat</p>

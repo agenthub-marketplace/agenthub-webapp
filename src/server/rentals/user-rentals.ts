@@ -1,6 +1,7 @@
 import "server-only";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
+import { getAgentTemplateByLabel } from "@/lib/agent-templates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 
@@ -32,6 +33,8 @@ export type UserRental = {
     requiredInputsList: string[];
     deliverables: string[];
     limitations: string[];
+    workspaceActions: string[];
+    workspaceActionsEn: string[];
     dataHandlingNotes: string | null;
     contract: AgentContract;
   } | null;
@@ -481,6 +484,7 @@ export async function getUserRentals(userId: string) {
   const rentals = (data ?? []).map((rental) => {
       const agent = readSingle(rental.agents);
       const version = readSingle(agent?.agent_versions ?? null);
+      const template = getAgentTemplateByLabel(agent?.name ?? "");
       const contract = normalizeAgentContract({
         workspaceMode: version?.workspace_mode,
         setupRequirements: version?.setup_requirements,
@@ -502,6 +506,8 @@ export async function getUserRentals(userId: string) {
             requiredInputsList: version?.required_inputs ?? [],
             deliverables: version?.deliverables ?? [],
             limitations: version?.limitations ?? [],
+            workspaceActions: template?.workspace_actions ?? [],
+            workspaceActionsEn: template?.workspace_actions_en ?? [],
             dataHandlingNotes: version?.data_handling_notes ?? null,
             contract,
           }

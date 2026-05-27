@@ -3,9 +3,13 @@ import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
+import WorkspaceRunActions from '@/components/workspace/WorkspaceRunActions';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
+import { serverEnv } from '@/lib/env.server';
+import { getWorkspaceActionLabels } from '@/lib/workspace-actions';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
+import { getUserAgentRuns } from '@/server/llm/runs';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
@@ -59,16 +63,6 @@ function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 's
       )}
     </div>
   );
-}
-
-function workspaceActions(mode) {
-  const actions = {
-    instant: ['Read the output promise', 'Check useful inputs', 'Review expected deliverables'],
-    guided: ['Define my goal', 'Prepare useful context', 'Follow the startup checklist'],
-    document_required: ['Prepare the document on your side', 'Check required information', 'Review analysis limits'],
-  };
-
-  return actions[mode] ?? actions.instant;
 }
 
 function unavailableCopy(rental) {
@@ -183,6 +177,20 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const contract = rental.agent.contract;
   const accessLabel = optionLabel(WORKSPACE_MODE_LABELS, contract.workspaceMode) || 'Instant access';
   const setupLabel = optionLabel(SETUP_REQUIREMENT_LABELS, contract.setupRequirements.type);
+  const actions = getWorkspaceActionLabels({
+    locale: 'en',
+    templateActions: rental.agent?.workspaceActions ?? [],
+    templateActionsEn: rental.agent?.workspaceActionsEn ?? [],
+    workspaceMode: contract.workspaceMode,
+  });
+  const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
+  const llmRunnerEnabled =
+    serverEnv.llmRunsEnabled &&
+    Boolean(serverEnv.openaiApiKey) &&
+    contract.executionMode === 'llm_prompt' &&
+    !contract.dataPolicy.requires_files &&
+    contract.dataPolicy.external_tools.length === 0 &&
+    rental.agent?.status === 'approved';
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
   const stopAction = stopAgentAccessAction.bind(null, 'en');
 
@@ -247,20 +255,14 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </aside>
 
           <section className="space-y-6">
-            <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <p className="font-label mb-2 text-xs text-[#9B72CF]">Direct access</p>
-              <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Start with this agent</h2>
-              <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">
-                {contract.outputPromise.summary || 'Follow the creator instructions, prepare the required inputs, then use this workspace as your access guide.'}
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {workspaceActions(contract.workspaceMode).map((label) => (
-                  <button key={label} type="button" className="rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-3 text-left text-xs font-label text-[#C8B1E4]">
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <WorkspaceRunActions
+              actions={actions}
+              enabled={llmRunnerEnabled}
+              initialRuns={agentRuns}
+              locale="en"
+              maxInputChars={serverEnv.llmRunMaxInputChars}
+              rentalId={rental.id}
+            />
 
             <div className="grid gap-5 md:grid-cols-2">
               <ListBlock title="What this agent can help with" items={rental.agent.capabilities} emptyText="No detailed capability was provided." />

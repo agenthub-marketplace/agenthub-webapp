@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { getUserPaymentOrders, getUserRentals } from '@/server/rentals/user-rentals';
-import { AlertTriangle, ArrowRight, Bot, Clock, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bot, Clock, History, ShieldAlert } from 'lucide-react';
 
 const WORKSPACE_MODE_LABELS = {
   instant: 'Instant access',
@@ -88,6 +88,21 @@ function paymentStateCopy(payment) {
   return { label: 'Activation pending', text: 'Payment received, activation is still being confirmed.', tone: 'warning' };
 }
 
+function dedupeHistoryByAgent(rentals) {
+  const byAgent = new Map();
+
+  rentals.forEach((rental) => {
+    const key = rental.agent?.slug || rental.agent?.name || rental.agent?.id || rental.id;
+    const current = byAgent.get(key);
+
+    if (!current || new Date(rental.createdAt).getTime() > new Date(current.createdAt).getTime()) {
+      byAgent.set(key, rental);
+    }
+  });
+
+  return [...byAgent.values()];
+}
+
 export default async function WorkspacePage({ searchParams }) {
   const profile = await requireAuth('en', '/en/workspace');
   const query = searchParams ? await searchParams : {};
@@ -96,7 +111,13 @@ export default async function WorkspacePage({ searchParams }) {
     getUserPaymentOrders(profile.id),
   ]);
   const activeRentals = rentals.filter((rental) => rental.accessOpen);
-  const unavailableRentals = rentals.filter((rental) => !rental.accessOpen);
+  const historyRentals = rentals.filter(
+    (rental) => !rental.accessOpen && ['stopped', 'expired', 'delivered', 'cancelled'].includes(rental.status),
+  );
+  const uniqueHistoryRentals = dedupeHistoryByAgent(historyRentals);
+  const attentionRentals = rentals.filter(
+    (rental) => !rental.accessOpen && !['stopped', 'expired', 'delivered', 'cancelled'].includes(rental.status),
+  );
   const paymentStateOrders = paymentOrders.filter(
     (payment) => payment.status === 'paid_blocked' || payment.status === 'cancelled' || (payment.status === 'paid' && !payment.rentalRequestId),
   );
@@ -202,14 +223,54 @@ export default async function WorkspacePage({ searchParams }) {
           </div>
         )}
 
-        {!error && (unavailableRentals.length > 0 || paymentStateOrders.length > 0) && (
+        {!error && uniqueHistoryRentals.length > 0 && (
+          <section className="mt-8">
+            <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
+              <History className="h-5 w-5 text-[#9B72CF]" />
+              <h2 className="font-display text-2xl font-bold">Rented agent history</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {uniqueHistoryRentals.map((rental) => {
+                const state = unavailableRentalCopy(rental);
+
+                return (
+                  <article key={rental.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">
+                          {rental.agent?.name ?? 'AgentHub agent'}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#C8B1E4]">{state.text}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1 text-xs font-label text-[#F6C177]">
+                        {state.label}
+                      </span>
+                    </div>
+                    {rental.agent?.slug && (
+                      <Link href={`/en/agents/${rental.agent.slug}`}>
+                        <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
+                          View agent listing
+                        </Button>
+                      </Link>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {!error && (attentionRentals.length > 0 || paymentStateOrders.length > 0) && (
           <section className="mt-8">
             <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
               <ShieldAlert className="h-5 w-5 text-[#F59E0B]" />
-              <h2 className="font-display text-2xl font-bold">Access requiring attention</h2>
+              <h2 className="font-display text-2xl font-bold">To finalize</h2>
             </div>
+            <p className="mb-4 max-w-2xl text-sm text-[#C8B1E4]">
+              These items need an action or a verification before the agent can be opened.
+            </p>
             <div className="grid gap-4 md:grid-cols-2">
-              {unavailableRentals.map((rental) => {
+              {attentionRentals.map((rental) => {
                 const state = unavailableRentalCopy(rental);
 
                 return (

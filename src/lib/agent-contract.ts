@@ -45,8 +45,8 @@ export const SETUP_REQUIREMENT_OPTIONS: { value: SetupRequirementType; label: st
 ];
 
 export const EXECUTION_MODE_OPTIONS: { value: ExecutionMode; label: string }[] = [
-  { value: "guided_workspace", label: "Workspace guidé" },
-  { value: "llm_prompt", label: "Prompt LLM préparé" },
+  { value: "guided_workspace", label: "Workspace guidé statique (sans IA)" },
+  { value: "llm_prompt", label: "LLM Runner texte (OpenAI)" },
 ];
 
 export const DEFAULT_AGENT_CONTRACT: AgentContract = {

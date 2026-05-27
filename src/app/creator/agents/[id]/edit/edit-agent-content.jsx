@@ -204,7 +204,10 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                 <Field label="Informations ou éléments nécessaires" hint="Une ligne par élément si un setup est requis.">
                   <textarea name="setup_items" rows={4} defaultValue={setupItems(agent)} className={inputClass} />
                 </Field>
-                <Field label="Mode d’exécution prévu">
+                <Field
+                  label="Mode d’exécution prévu"
+                  hint="Pour activer le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe."
+                >
                   <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'guided_workspace'}>
                     {EXECUTION_MODE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>

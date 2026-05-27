@@ -7,6 +7,7 @@ import type { AgentStatus, PricingType } from "@/types/agent";
 export type AgentCategoryOption = {
   id: string;
   name: string;
+  slug: string;
 };
 
 export type CreatorAgentListItem = {
@@ -53,6 +54,7 @@ export type CreatorAgentEditItem = {
 type AgentCategoryRow = {
   id: string;
   name: string;
+  slug: string;
 };
 
 type CreatorProfileRow = {
@@ -122,7 +124,7 @@ export async function getAgentCategoryOptions(): Promise<AgentCategoryOption[]> 
 
   const { data } = await supabase
     .from("agent_categories")
-    .select("id,name")
+    .select("id,name,slug")
     .order("name", { ascending: true })
     .returns<AgentCategoryRow[]>();
 

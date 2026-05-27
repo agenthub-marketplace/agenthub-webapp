@@ -118,6 +118,7 @@ export default async function Page({ params, searchParams }) {
   const rentalError = typeof query?.error === 'string' ? query.error : null;
   const orderMessage = typeof query?.order === 'string' ? orderMessages[query.order] : null;
   const paymentCancelled = query?.payment === 'cancelled';
+  const reviewSubmitted = typeof query?.reviewSubmitted === 'string';
   const profile = await getCurrentProfile();
 
   if (!agent) {
@@ -159,6 +160,12 @@ export default async function Page({ params, searchParams }) {
           <ArrowLeft className="w-4 h-4" />
           Retour marketplace
         </Link>
+
+        {reviewSubmitted && (
+          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+            Votre avis a bien été envoyé. Merci pour votre retour.
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-8">
           <section>

@@ -1,9 +1,11 @@
 'use client';
 
+import { useRef } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
+import { AGENT_TEMPLATES, templateToCreatorFormValues } from '@/lib/agent-templates';
 import { submitAgentForReviewAction } from '@/server/agents/actions';
 import { ArrowLeft, Check, Send, ShieldAlert } from 'lucide-react';
 
@@ -13,6 +15,9 @@ const copy = {
     eyebrow: 'Soumission créateur',
     title: 'Soumettre un agent pour validation',
     subtitle: 'Décrivez un agent professionnel, sa valeur, ses limites, son prix et l’expérience utilisateur après activation.',
+    template: 'Démarrer depuis un template',
+    templatePlaceholder: 'Choisir un template d’agent',
+    templateHint: 'Le template préremplit le formulaire. Vous pouvez tout modifier avant soumission.',
     core: 'Informations principales',
     delivery: 'Livraison et validation',
     name: 'Nom',
@@ -39,6 +44,8 @@ const copy = {
     outputPromiseSummary: 'Promesse de résultat',
     outputPromiseExamples: 'Exemples d’utilisation',
     executionMode: 'Mode d’exécution prévu',
+    executionModeHint:
+      'Pour tester le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe.',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Données nécessaires',
     knownLimits: 'Limites connues',
@@ -72,6 +79,9 @@ const copy = {
     eyebrow: 'Creator submission',
     title: 'Submit an agent for review',
     subtitle: 'Describe a professional agent, its value, limits, price, and the user experience after activation.',
+    template: 'Start from template',
+    templatePlaceholder: 'Choose an agent template',
+    templateHint: 'The template pre-fills the form. You can edit everything before submitting.',
     core: 'Core information',
     delivery: 'Delivery and validation',
     name: 'Name',
@@ -98,6 +108,8 @@ const copy = {
     outputPromiseSummary: 'Output promise',
     outputPromiseExamples: 'Usage examples',
     executionMode: 'Planned execution mode',
+    executionModeHint:
+      'To test the workspace LLM runner, choose “LLM Runner texte (OpenAI)”. The agent must not require files or external tools.',
     riskLevel: 'Risk level',
     executionMethod: 'Required data',
     knownLimits: 'Known limits',
@@ -170,9 +182,28 @@ export default function NewAgentContent({
 }) {
   const t = copy[locale] || copy.fr;
   const action = submitAgentForReviewAction.bind(null, locale);
+  const formRef = useRef(null);
   const errorMessage = error && t.errors[error] ? t.errors[error] : null;
   const canSubmit = categories.length > 0 && !creatorProfileMissing && !profileError;
   const dashboardPath = locale === 'en' ? '/en/creator/dashboard' : '/creator/dashboard';
+
+  function handleTemplateChange(event) {
+    const template = AGENT_TEMPLATES.find((item) => item.key === event.target.value);
+    const values = templateToCreatorFormValues(template, categories);
+    const form = formRef.current;
+
+    if (!values || !form) {
+      return;
+    }
+
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements.namedItem(name);
+
+      if (field && 'value' in field) {
+        field.value = value;
+      }
+    });
+  }
 
   return (
     <div className="min-h-screen">
@@ -205,7 +236,20 @@ export default function NewAgentContent({
         </div>
 
         {!creatorProfileMissing && (
-          <form action={action} className="mt-8 space-y-6">
+          <form ref={formRef} action={action} className="mt-8 space-y-6">
+            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+              <Field label={t.template} hint={t.templateHint}>
+                <select name="agent_template" className={inputClass} defaultValue="" onChange={handleTemplateChange}>
+                  <option value="">{t.templatePlaceholder}</option>
+                  {AGENT_TEMPLATES.map((template) => (
+                    <option key={template.key} value={template.key}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </section>
+
             <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
               <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">{t.core}</h2>
               <div className="grid gap-5 md:grid-cols-2">
@@ -324,8 +368,8 @@ export default function NewAgentContent({
                 <Field label={t.setupItems} hint={t.lineHint}>
                   <textarea name="setup_items" rows={4} className={inputClass} />
                 </Field>
-                <Field label={t.executionMode}>
-                  <select name="execution_mode" required className={inputClass} defaultValue="guided_workspace">
+                <Field label={t.executionMode} hint={t.executionModeHint}>
+                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
                     {EXECUTION_MODE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}

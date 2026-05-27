@@ -163,17 +163,35 @@ function DashboardPage({
   const stopAction = stopAgentAccessAction.bind(null, effectiveLocale);
   const marketplacePath = effectiveLocale === 'en' ? '/en/marketplace' : '/marketplace';
   const workspacePath = effectiveLocale === 'en' ? '/en/workspace' : '/workspace';
+  const agentPath = (slug) => `${effectiveLocale === 'en' ? '/en' : ''}/agents/${slug}`;
+  const formatAccessDate = (date) => new Date(date).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR');
 
-  const historyRows = betaRentals
-    .filter((rental) => ['delivered', 'rejected', 'cancelled', 'stopped', 'expired'].includes(rental.status))
+  const rentedAgentHistory = [];
+  const seenAgentSlugs = new Set();
+
+  for (const rental of betaRentals) {
+    const slug = rental.agent?.slug;
+
+    if (!slug || seenAgentSlugs.has(slug)) {
+      continue;
+    }
+
+    seenAgentSlugs.add(slug);
+    rentedAgentHistory.push(rental);
+  }
+
+  const historyRows = rentedAgentHistory
     .map((rental) => ({
       id: rental.id,
       agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'AgentHub agent'),
+      slug: rental.agent?.slug ?? null,
+      status: rental.status,
+      accessOpen: rental.accessOpen,
       mode: rental.pricingType,
-      date: new Date(rental.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR'),
+      date: formatAccessDate(rental.createdAt),
       price: rental.priceCents ?? 0,
       rating: rental.review?.rating ?? null,
-      dates: new Date(rental.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR'),
+      dates: formatAccessDate(rental.createdAt),
     }));
   const activeAccessCount = betaRentals.filter((rental) => rental.accessOpen).length;
   const pendingPaymentCount = paymentOrders.filter((payment) => payment.status === 'pending').length;
@@ -472,18 +490,74 @@ function DashboardPage({
                 </Link>
               </div>
             )}
+
+            {historyRows.length > 0 && (
+              <section className="mt-8 rounded-2xl border border-[#251A40] bg-[#110D24] p-5">
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="font-label mb-1 text-xs text-[#A78BCF]">
+                      {lang === 'en' ? 'RENTAL HISTORY' : 'HISTORIQUE DES AGENTS LOUÉS'}
+                    </p>
+                    <h3 className="font-display text-xl font-bold text-[#F5F1FA]">
+                      {lang === 'en' ? 'Find an agent you rented before' : 'Retrouver un agent déjà loué'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTab('history')}
+                    className="text-sm font-display font-semibold text-[#C4B5FD] hover:text-[#F5F1FA]"
+                  >
+                    {lang === 'en' ? 'View full history' : 'Voir tout l’historique'}
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {historyRows.slice(0, 6).map((rental) => (
+                    <article key={`rented-agent-${rental.id}`} className="rounded-xl border border-[#2F184B] bg-[#0A0816] p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="font-display font-bold text-[#F5F1FA]">{rental.agent}</h4>
+                          <p className="mt-1 text-xs text-[#A78BCF]">
+                            {lang === 'en' ? 'Last rented on' : 'Dernière location le'} {rental.dates}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-label ${statusBadgeClass(rental.status)}`}>
+                          {rentalStatusLabel(rental.status, lang)}
+                        </span>
+                      </div>
+                      {rental.accessOpen ? (
+                        <Link href={`${workspacePath}/${rental.id}`}>
+                          <Button size="sm" className="w-full border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                            {lang === 'en' ? 'Open my agent' : 'Ouvrir mon agent'}
+                          </Button>
+                        </Link>
+                      ) : rental.slug ? (
+                        <Link href={agentPath(rental.slug)}>
+                          <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
+                            {lang === 'en' ? 'Rent again' : 'Relouer cet agent'}
+                          </Button>
+                        </Link>
+                      ) : (
+                        <p className="rounded-lg border border-[#2F184B] px-3 py-2 text-center text-xs text-[#9B72CF]">
+                          {lang === 'en' ? 'Agent listing unavailable' : 'Fiche agent indisponible'}
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
         {tab === 'history' && (
           <div className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-x-auto">
             <div className="flex justify-between items-center p-4 border-b border-[#251A40]">
-              <p className="font-display font-bold">{lang==='en'?'Access history':'Historique des accès'}</p>
+              <p className="font-display font-bold">{lang==='en'?'Rented agents history':'Historique des agents loués'}</p>
               <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]"><Download className="w-3.5 h-3.5 mr-1"/>{t('cr.exportcsv')}</Button>
             </div>
             {historyRows.length === 0 ? (
               <div className="p-6 text-sm text-[#A78BCF]">
-                {lang === 'en' ? 'No completed access yet.' : 'Aucun historique d’accès pour l’instant.'}
+                {lang === 'en' ? 'No rented agent history yet.' : 'Aucun historique d’agent loué pour l’instant.'}
               </div>
             ) : (
               <table className="w-full text-sm min-w-[700px]">
@@ -504,8 +578,20 @@ function DashboardPage({
                       </td>
                       <td className="text-right pr-4">
                         <div className="flex justify-end gap-1">
-                          <button className="text-xs px-2 py-1 rounded bg-[#1A152F] hover:bg-[#251A40] text-[#D6C5E8]">{t('db.rerent')}</button>
-                          <button className="p-1.5 rounded hover:bg-[#1A152F] text-[#A78BCF]"><FileText className="w-3.5 h-3.5"/></button>
+                          {h.accessOpen ? (
+                            <Link href={`${workspacePath}/${h.id}`} className="text-xs px-2 py-1 rounded bg-[#1A152F] hover:bg-[#251A40] text-[#D6C5E8]">
+                              {lang === 'en' ? 'Open' : 'Ouvrir'}
+                            </Link>
+                          ) : h.slug ? (
+                            <Link href={agentPath(h.slug)} className="text-xs px-2 py-1 rounded bg-[#1A152F] hover:bg-[#251A40] text-[#D6C5E8]">
+                              {t('db.rerent')}
+                            </Link>
+                          ) : null}
+                          {h.slug && (
+                            <Link href={agentPath(h.slug)} className="p-1.5 rounded hover:bg-[#1A152F] text-[#A78BCF]">
+                              <FileText className="w-3.5 h-3.5"/>
+                            </Link>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -636,7 +722,7 @@ function DashboardPage({
                         </Button>
                       </Link>
                     ) : ['stopped', 'expired'].includes(payment.rentalStatus ?? '') && payment.agent?.slug ? (
-                      <Link href={`/agents/${payment.agent.slug}`}>
+                      <Link href={agentPath(payment.agent.slug)}>
                         <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
                           {lang === 'en' ? 'Rent again' : 'Relouer cet agent'}
                         </Button>
@@ -648,7 +734,7 @@ function DashboardPage({
                         </Button>
                       </Link>
                     ) : payment.agent?.slug ? (
-                      <Link href={`/agents/${payment.agent.slug}`}>
+                      <Link href={agentPath(payment.agent.slug)}>
                         <Button size="sm" variant="outline" className="w-full bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]">
                           {lang === 'en' ? 'View agent' : 'Voir l’agent'}
                         </Button>

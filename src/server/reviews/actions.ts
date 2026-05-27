@@ -143,8 +143,11 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
   if (rentalAgentSlug) {
     revalidatePath(localizedPath(`/agents/${rentalAgentSlug}`, locale));
   }
+
+  const successPath = rentalAgentSlug ? localizedPath(`/agents/${rentalAgentSlug}`, locale) : returnPath;
+
   redirect(
-    appendReviewQuery(returnPath, {
+    appendReviewQuery(successPath, {
       reviewSubmitted: rental.id,
     }),
   );
