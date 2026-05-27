@@ -100,9 +100,9 @@ export function buildOutputPromise(summary: string, examplesText: string): Outpu
   };
 }
 
-export function buildDataPolicy(workspaceMode: WorkspaceMode): DataPolicy {
+export function buildDataPolicy(workspaceMode: WorkspaceMode, executionMode: ExecutionMode = DEFAULT_AGENT_CONTRACT.executionMode): DataPolicy {
   return {
-    stores_user_data: workspaceMode !== "instant",
+    stores_user_data: executionMode === "llm_prompt" || workspaceMode !== "instant",
     requires_files: workspaceMode === "document_required",
     external_tools: [],
   };

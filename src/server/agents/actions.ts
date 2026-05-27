@@ -163,7 +163,7 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
 
   const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
   const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
-  const dataPolicy = buildDataPolicy(workspaceMode);
+  const dataPolicy = buildDataPolicy(workspaceMode, executionMode);
 
   const creatorProfile = await getCreatorProfileForUser();
 
@@ -360,7 +360,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
 
   const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
   const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
-  const dataPolicy = buildDataPolicy(workspaceMode);
+  const dataPolicy = buildDataPolicy(workspaceMode, executionMode);
 
   const creatorProfile = await getCreatorProfileForUser();
 
