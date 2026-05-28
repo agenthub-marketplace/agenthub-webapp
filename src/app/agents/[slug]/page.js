@@ -10,6 +10,8 @@ import { createAgentAccessAction } from '@/server/rentals/actions';
 import { getUserAgentOrderState } from '@/server/rentals/user-rentals';
 import { AlertTriangle, ArrowLeft, Check, Clock, ShieldCheck, Star } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 function ListSection({ title, items, icon: Icon, tone = 'default' }) {
   const iconColor = tone === 'warning' ? 'text-[#F59E0B]' : 'text-[#10B981]';
 
@@ -150,7 +152,9 @@ export default async function Page({ params, searchParams }) {
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
   const setupLabel = WORKSPACE_MODE_LABELS[agent.contract.workspaceMode] || 'Accès immédiat';
   const { state: orderState } = profile ? await getUserAgentOrderState(profile.id, agent.id) : { state: null };
-  const canStartOrder = hasPrice && (!orderState || orderState.kind === 'stopped_access');
+  const agentPath = `/agents/${agent.slug}`;
+  const loginPath = `/auth/login?next=${encodeURIComponent(agentPath)}`;
+  const canStartOrder = Boolean(profile) && hasPrice && (!orderState || orderState.kind === 'stopped_access');
 
   return (
     <div className="min-h-screen">
@@ -347,7 +351,13 @@ export default async function Page({ params, searchParams }) {
                   <p className="mt-2">Votre dernier accès est fermé. Vous pouvez relouer cet agent.</p>
                 </div>
               )}
-              {canStartOrder ? (
+              {!profile ? (
+                <Link href={loginPath} className="block">
+                  <Button className="w-full bg-[#532B88] hover:bg-[#7C3AED] text-white border-0 glow-primary h-12">
+                    Se connecter pour louer
+                  </Button>
+                </Link>
+              ) : canStartOrder ? (
                 <form action={createAgentAccessAction.bind(null, 'fr')} className="space-y-3">
                   <input type="hidden" name="agent_id" value={agent.id} />
                   <input type="hidden" name="slug" value={agent.slug} />
