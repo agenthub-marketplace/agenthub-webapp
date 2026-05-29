@@ -45,6 +45,20 @@ values
   )
 on conflict (id) do nothing;
 
+-- GoTrue v2.189 scans several optional token fields as strings during
+-- password login. Keep local seed users compatible after db reset.
+update auth.users
+set
+  confirmation_token = coalesce(confirmation_token, ''),
+  recovery_token = coalesce(recovery_token, ''),
+  email_change_token_new = coalesce(email_change_token_new, ''),
+  email_change = coalesce(email_change, ''),
+  phone_change = coalesce(phone_change, ''),
+  phone_change_token = coalesce(phone_change_token, ''),
+  email_change_token_current = coalesce(email_change_token_current, ''),
+  reauthentication_token = coalesce(reauthentication_token, '')
+where email in ('creator@example.com', 'admin@example.com');
+
 insert into public.profiles (id, email, display_name, role)
 values
   (
