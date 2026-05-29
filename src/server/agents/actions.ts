@@ -10,6 +10,7 @@ import {
   buildDataPolicy,
   buildOutputPromise,
   buildSetupRequirements,
+  isAgentRuntimeType,
   isExecutionMode,
   isSetupRequirementType,
   isWorkspaceMode,
@@ -101,6 +102,7 @@ function isMissingAgentContractSchemaError(error: unknown) {
 
   return (
     errorText.includes("workspace_mode") ||
+    errorText.includes("runtime_type") ||
     errorText.includes("setup_requirements") ||
     errorText.includes("output_promise") ||
     errorText.includes("execution_mode") ||
@@ -156,8 +158,16 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
   const workspaceMode = readText(formData, "workspace_mode") || "instant";
   const setupType = readText(formData, "setup_type") || "none";
   const executionMode = readText(formData, "execution_mode") || "guided_workspace";
+  const runtimeType = readText(formData, "runtime_type") || "llm_prompt";
 
-  if (!isWorkspaceMode(workspaceMode) || !isSetupRequirementType(setupType) || !isExecutionMode(executionMode)) {
+  if (
+    !isWorkspaceMode(workspaceMode) ||
+    !isSetupRequirementType(setupType) ||
+    !isExecutionMode(executionMode) ||
+    !isAgentRuntimeType(runtimeType) ||
+    executionMode !== "llm_prompt" ||
+    runtimeType !== "llm_prompt"
+  ) {
     redirectWithError(locale, "invalid-contract");
   }
 
@@ -232,6 +242,7 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     setup_requirements: setupRequirements,
     output_promise: outputPromise,
     execution_mode: executionMode,
+    runtime_type: runtimeType,
     data_policy: dataPolicy,
   };
 
@@ -353,8 +364,16 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
   const workspaceMode = readText(formData, "workspace_mode") || "instant";
   const setupType = readText(formData, "setup_type") || "none";
   const executionMode = readText(formData, "execution_mode") || "guided_workspace";
+  const runtimeType = readText(formData, "runtime_type") || "llm_prompt";
 
-  if (!isWorkspaceMode(workspaceMode) || !isSetupRequirementType(setupType) || !isExecutionMode(executionMode)) {
+  if (
+    !isWorkspaceMode(workspaceMode) ||
+    !isSetupRequirementType(setupType) ||
+    !isExecutionMode(executionMode) ||
+    !isAgentRuntimeType(runtimeType) ||
+    executionMode !== "llm_prompt" ||
+    runtimeType !== "llm_prompt"
+  ) {
     redirectWithEditError(locale, agentId, "invalid-contract");
   }
 
@@ -416,6 +435,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     p_setup_requirements: setupRequirements,
     p_output_promise: outputPromise,
     p_execution_mode: executionMode,
+    p_runtime_type: runtimeType,
     p_data_policy: dataPolicy,
   };
 

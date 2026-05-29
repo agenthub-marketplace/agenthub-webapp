@@ -11,6 +11,8 @@ import { submitAgentForReviewAction } from '@/server/agents/actions';
 import { ArrowLeft, Check, Send } from 'lucide-react';
 import { CodeAlert } from './code-console-ui';
 
+const creatorExecutionModeOptions = EXECUTION_MODE_OPTIONS.filter((option) => option.value === 'llm_prompt');
+
 const copy = {
   back: 'Retour au dashboard',
   eyebrow: 'NOUVEL AGENT',
@@ -154,6 +156,7 @@ export default function CodeNewAgentContent({
 
         {!creatorProfileMissing && (
           <form ref={formRef} action={action} className="mt-8 space-y-6">
+            <input type="hidden" name="runtime_type" value="llm_prompt" />
             <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
               <Field label={copy.template} hint={copy.templateHint}>
                 <select name="agent_template" className={inputClass} defaultValue="" onChange={handleTemplateChange}>
@@ -287,7 +290,7 @@ export default function CodeNewAgentContent({
                 </Field>
                 <Field label={copy.executionMode} hint={copy.executionModeHint}>
                   <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
-                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                    {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

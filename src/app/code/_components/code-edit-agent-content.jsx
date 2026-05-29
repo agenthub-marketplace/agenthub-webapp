@@ -12,6 +12,8 @@ import { CodeAlert, cleanAdminNotes } from './code-console-ui';
 const inputClass =
   'w-full rounded-xl border border-[#D8DDEE] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/15';
 
+const creatorExecutionModeOptions = EXECUTION_MODE_OPTIONS.filter((option) => option.value === 'llm_prompt');
+
 const errorMessages = {
   required: 'Tous les champs sont requis.',
   'invalid-pricing': 'Le type de prix est invalide.',
@@ -103,6 +105,7 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
         {agent && (
           <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
             <input type="hidden" name="agent_id" value={agent.id} />
+            <input type="hidden" name="runtime_type" value="llm_prompt" />
 
             {adminNotes && (
               <section className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-5 text-sm text-[#92400E]">
@@ -209,8 +212,8 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
                   label="Mode d’exécution prévu"
                   hint="Pour activer le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe."
                 >
-                  <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'guided_workspace'}>
-                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
+                    {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

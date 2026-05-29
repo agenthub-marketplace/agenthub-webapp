@@ -176,7 +176,10 @@ const initialFormValues = {
   output_promise_examples: '',
   setup_items: '',
   execution_mode: 'llm_prompt',
+  runtime_type: 'llm_prompt',
 };
+
+const creatorExecutionModeOptions = EXECUTION_MODE_OPTIONS.filter((option) => option.value === 'llm_prompt');
 
 function Alert({ children, tone = 'warning', title }) {
   const classes =
@@ -280,6 +283,7 @@ export default function NewAgentContent({
 
         {!creatorProfileMissing && (
           <form ref={formRef} action={action} className="mt-8 space-y-6">
+            <input type="hidden" name="runtime_type" value={formValues.runtime_type} />
             <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
               <Field label={t.template} hint={t.templateHint}>
                 <select name="agent_template" className={inputClass} value={selectedTemplate} onChange={handleTemplateChange}>
@@ -415,7 +419,7 @@ export default function NewAgentContent({
                 </Field>
                 <Field label={t.executionMode} hint={t.executionModeHint}>
                   <select name="execution_mode" required className={inputClass} {...fieldProps('execution_mode')}>
-                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                    {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

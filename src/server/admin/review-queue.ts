@@ -1,6 +1,6 @@
 import "server-only";
 
-import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
+import { normalizeAgentContract, type AgentContract, type AgentRuntimeType } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AdminReviewQueueItem = {
@@ -16,6 +16,11 @@ export type AdminReviewQueueItem = {
   createdAt: string;
   resubmissionChangelog: string | null;
   contract: AgentContract;
+  runtimeSetting: {
+    creatorVisible: boolean;
+    enabled: boolean;
+    runEnabled: boolean;
+  } | null;
   latestAdminReview: {
     decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
     notes: string | null;
@@ -68,7 +73,15 @@ type AgentVersionReviewRow = {
   setup_requirements: unknown;
   output_promise: unknown;
   execution_mode: string | null;
+  runtime_type: string | null;
   data_policy: unknown;
+};
+
+type RuntimeSettingRow = {
+  creator_visible: boolean;
+  enabled: boolean;
+  run_enabled: boolean;
+  runtime_type: AgentRuntimeType;
 };
 
 type AdminReviewFeedbackRow = {
@@ -120,13 +133,14 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
   const latestReviewsByAgent = new Map<string, AdminReviewQueueItem["latestAdminReview"]>();
   const changelogByVersion = new Map<string, string | null>();
   const contractByVersion = new Map<string, AgentContract>();
+  const runtimeSettingsByType = new Map<AgentRuntimeType, AdminReviewQueueItem["runtimeSetting"]>();
 
   const uniqueActiveVersionIds = Array.from(new Set(activeVersionIds));
 
   if (uniqueActiveVersionIds.length > 0) {
     const { data: versions } = await supabase
       .from("agent_versions")
-      .select("id,changelog,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy")
+      .select("id,changelog,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy")
       .in("id", uniqueActiveVersionIds)
       .returns<AgentVersionReviewRow[]>();
 
@@ -139,10 +153,24 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
           setupRequirements: version.setup_requirements,
           outputPromise: version.output_promise,
           executionMode: version.execution_mode,
+          runtimeType: version.runtime_type,
           dataPolicy: version.data_policy,
         }),
       );
     }
+  }
+
+  const { data: runtimeSettings } = await supabase
+    .from("agent_runtime_settings")
+    .select("runtime_type,enabled,creator_visible,run_enabled")
+    .returns<RuntimeSettingRow[]>();
+
+  for (const setting of runtimeSettings ?? []) {
+    runtimeSettingsByType.set(setting.runtime_type, {
+      creatorVisible: setting.creator_visible,
+      enabled: setting.enabled,
+      runEnabled: setting.run_enabled,
+    });
   }
 
   if (agentIds.length > 0) {
@@ -178,6 +206,9 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       createdAt: agent.created_at,
       resubmissionChangelog: agent.active_version_id ? changelogByVersion.get(agent.active_version_id) ?? null : null,
       contract: agent.active_version_id ? contractByVersion.get(agent.active_version_id) ?? normalizeAgentContract({}) : normalizeAgentContract({}),
+      runtimeSetting: agent.active_version_id
+        ? runtimeSettingsByType.get((contractByVersion.get(agent.active_version_id) ?? normalizeAgentContract({})).runtimeType) ?? null
+        : null,
       latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
     })),
     error: null,

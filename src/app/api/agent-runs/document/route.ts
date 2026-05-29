@@ -1,59 +1,29 @@
 import { NextResponse } from "next/server";
 
-import { normalizeAgentContract } from "@/lib/agent-contract";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/env.server";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { getAgentTemplateByLabel } from "@/lib/agent-templates";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getWorkspaceActionLabels, type WorkspaceAction } from "@/lib/workspace-actions";
-import { buildAgentRunPrompt } from "@/server/llm/prompt";
+import { loadDocumentRuntimeContext } from "@/server/documents/runtime";
+import { buildDocumentRunPrompt } from "@/server/llm/document-prompt";
 import { runOpenAIText } from "@/server/llm/openai";
-import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type AgentRow = {
-  description: string;
+type DocumentFileRow = {
+  agent_run_id: string | null;
+  extracted_text: string | null;
   id: string;
-  name: string;
-  slug: string;
-  status: string;
-  summary: string;
-};
-
-type RentalRunRow = {
-  agent_id: string;
-  agent_version_id: string | null;
-  agents: AgentRow | AgentRow[] | null;
-  id: string;
+  mime_type: string;
+  original_filename: string;
+  rental_request_id: string;
+  size_bytes: number;
   status: string;
   user_id: string;
 };
-
-type AgentVersionRow = {
-  capabilities: string[] | null;
-  data_policy: unknown;
-  deliverables: string[] | null;
-  execution_mode: string | null;
-  id: string;
-  limitations: string[] | null;
-  output_promise: unknown;
-  required_inputs: string[] | null;
-  runtime_type: string | null;
-  setup_requirements: unknown;
-  workspace_mode: string | null;
-};
-
-type RuntimeSettingRow = {
-  enabled: boolean;
-  run_enabled: boolean;
-};
-
-function readSingle<T>(value: T | T[] | null) {
-  return Array.isArray(value) ? value[0] ?? null : value;
-}
 
 function jsonError(statusCode: number, status: string, error: string) {
   return NextResponse.json({ error, status }, { status: statusCode });
@@ -67,20 +37,6 @@ async function parseRequest(request: Request) {
   }
 }
 
-function normalizeInputText(value: unknown) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-
-  if (trimmed.length < 3 || trimmed.length > serverEnv.llmRunMaxInputChars) {
-    return null;
-  }
-
-  return trimmed;
-}
-
 function normalizeActionIndex(value: unknown) {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 4) {
     return null;
@@ -89,18 +45,18 @@ function normalizeActionIndex(value: unknown) {
   return value;
 }
 
-async function hasApprovedVersion(
-  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
-  agentVersionId: string,
-) {
-  const { data, error } = await supabase
-    .from("admin_reviews")
-    .select("id")
-    .eq("agent_version_id", agentVersionId)
-    .eq("decision", "approved")
-    .limit(1);
+function normalizeInstruction(value: unknown, fallback: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return fallback;
+  }
 
-  return !error && Boolean(data?.length);
+  const trimmed = value.trim();
+
+  if (trimmed.length > serverEnv.llmRunMaxInputChars) {
+    return null;
+  }
+
+  return trimmed;
 }
 
 async function countRuns(
@@ -151,6 +107,7 @@ function responseRun(input: {
   action: WorkspaceAction;
   completedAt: string | null;
   createdAt: string;
+  documentFile: DocumentFileRow;
   errorCode?: string | null;
   id: string;
   inputText: string;
@@ -162,6 +119,13 @@ function responseRun(input: {
     actionLabel: input.action.label,
     completedAt: input.completedAt,
     createdAt: input.createdAt,
+    documentFile: {
+      id: input.documentFile.id,
+      mimeType: input.documentFile.mime_type,
+      originalFilename: input.documentFile.original_filename,
+      sizeBytes: input.documentFile.size_bytes,
+      status: input.documentFile.status,
+    },
     errorCode: input.errorCode ?? null,
     id: input.id,
     inputText: input.inputText,
@@ -177,8 +141,8 @@ export async function POST(request: Request) {
     return jsonError(401, "unauthorized", "auth-required");
   }
 
-  if (!serverEnv.llmRunsEnabled || !serverEnv.openaiApiKey) {
-    return jsonError(403, "disabled", "llm-runs-disabled");
+  if (!serverEnv.documentRunsEnabled || !serverEnv.openaiApiKey) {
+    return jsonError(403, "disabled", "document-runs-disabled");
   }
 
   const body = await parseRequest(request);
@@ -188,11 +152,11 @@ export async function POST(request: Request) {
   }
 
   const rentalId = typeof body.rentalId === "string" ? body.rentalId : null;
+  const fileId = typeof body.fileId === "string" ? body.fileId : null;
   const actionIndex = normalizeActionIndex(body.actionIndex);
-  const inputText = normalizeInputText(body.inputText);
   const locale = isLocale(body.locale) ? (body.locale as Locale) : null;
 
-  if (!rentalId || actionIndex === null || !inputText || !locale) {
+  if (!rentalId || !fileId || actionIndex === null || !locale) {
     return jsonError(400, "failed", "invalid-request");
   }
 
@@ -202,83 +166,53 @@ export async function POST(request: Request) {
     return jsonError(500, "failed", "missing-service-client");
   }
 
-  const { data: rental, error: rentalError } = await supabase
-    .from("rental_requests")
-    .select("id,user_id,agent_id,agent_version_id,status,agents!rental_requests_agent_id_fkey(id,name,slug,summary,description,status)")
-    .eq("id", rentalId)
-    .maybeSingle<RentalRunRow>();
-
-  const agent = readSingle(rental?.agents ?? null);
-
-  if (rentalError || !rental || !agent || rental.user_id !== profile.id) {
-    return jsonError(404, "unauthorized", "access-not-found");
-  }
-
-  if (!(ACCESS_OPEN_STATUSES as readonly string[]).includes(rental.status)) {
-    return jsonError(403, "not_eligible", "access-not-active");
-  }
-
-  if (!rental.agent_version_id) {
-    return jsonError(403, "not_eligible", "missing-agent-version");
-  }
-
-  if (agent.status === "suspended" || agent.status === "archived") {
-    return jsonError(403, "not_eligible", agent.status === "archived" ? "agent-archived" : "agent-suspended");
-  }
-
-  if (agent.status !== "approved" && !(await hasApprovedVersion(supabase, rental.agent_version_id))) {
-    return jsonError(403, "not_eligible", "agent-not-approved");
-  }
-
-  const { data: version, error: versionError } = await supabase
-    .from("agent_versions")
-    .select("id,capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy")
-    .eq("id", rental.agent_version_id)
-    .eq("agent_id", rental.agent_id)
-    .maybeSingle<AgentVersionRow>();
-
-  if (versionError || !version) {
-    return jsonError(403, "not_eligible", "agent-version-not-found");
-  }
-
-  const contract = normalizeAgentContract({
-    dataPolicy: version.data_policy,
-    executionMode: version.execution_mode,
-    outputPromise: version.output_promise,
-    runtimeType: version.runtime_type,
-    setupRequirements: version.setup_requirements,
-    workspaceMode: version.workspace_mode,
+  const { context, error } = await loadDocumentRuntimeContext({
+    profileId: profile.id,
+    rentalId,
+    supabase,
   });
 
-  if (contract.runtimeType !== "llm_prompt" || contract.executionMode !== "llm_prompt") {
-    return jsonError(403, "not_eligible", "agent-not-llm-enabled");
+  if (error || !context) {
+    return jsonError(error?.statusCode ?? 500, "not_eligible", error?.error ?? "document-runtime-unavailable");
   }
 
-  const { data: runtimeSetting, error: runtimeSettingError } = await supabase
-    .from("agent_runtime_settings")
-    .select("enabled,run_enabled")
-    .eq("runtime_type", contract.runtimeType)
-    .maybeSingle<RuntimeSettingRow>();
-
-  if (runtimeSettingError || !runtimeSetting?.enabled || !runtimeSetting.run_enabled) {
-    return jsonError(403, "not_eligible", "agent-runtime-disabled");
-  }
-
-  if (contract.dataPolicy.requires_files || contract.dataPolicy.external_tools.length > 0) {
-    return jsonError(403, "not_eligible", "agent-requires-unsupported-inputs");
-  }
-
-  const template = getAgentTemplateByLabel(agent.name);
+  const template = getAgentTemplateByLabel(context.agent.name);
   const actions = getWorkspaceActionLabels({
     locale,
     templateActions: template?.workspace_actions ?? [],
     templateActionsEn: template?.workspace_actions_en ?? [],
-    workspaceMode: contract.workspaceMode,
+    workspaceMode: context.contract.workspaceMode,
   });
   const action = actions[actionIndex];
 
   if (!action) {
     return jsonError(400, "failed", "invalid-action");
+  }
+
+  const inputText = normalizeInstruction(body.inputText, `Document action: ${action.label}`);
+
+  if (!inputText) {
+    return jsonError(400, "failed", "invalid-input");
+  }
+
+  const { data: documentFile, error: fileError } = await supabase
+    .from("agent_run_files")
+    .select("id,user_id,rental_request_id,agent_run_id,original_filename,mime_type,size_bytes,status,extracted_text")
+    .eq("id", fileId)
+    .eq("user_id", profile.id)
+    .eq("rental_request_id", context.rental.id)
+    .maybeSingle<DocumentFileRow>();
+
+  if (fileError || !documentFile) {
+    return jsonError(404, "not_eligible", "document-file-not-found");
+  }
+
+  if (documentFile.agent_run_id) {
+    return jsonError(409, "not_eligible", "document-file-already-used");
+  }
+
+  if (documentFile.status !== "extracted" || !documentFile.extracted_text?.trim()) {
+    return jsonError(403, "not_eligible", "document-file-not-extracted");
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -293,7 +227,7 @@ export async function POST(request: Request) {
       status: "failed",
     })
     .eq("user_id", profile.id)
-    .eq("rental_request_id", rental.id)
+    .eq("rental_request_id", context.rental.id)
     .eq("status", "running")
     .lt("created_at", staleRunCutoff);
 
@@ -305,7 +239,7 @@ export async function POST(request: Request) {
     .from("agent_runs")
     .select("id")
     .eq("user_id", profile.id)
-    .eq("rental_request_id", rental.id)
+    .eq("rental_request_id", context.rental.id)
     .eq("status", "running")
     .limit(1);
 
@@ -317,41 +251,45 @@ export async function POST(request: Request) {
     return jsonError(409, "rate_limited", "run-already-in-progress");
   }
 
-  let rentalRunCount = 0;
-  let userRunCount = 0;
-
   try {
-    [rentalRunCount, userRunCount] = await Promise.all([
-      countRuns(supabase, { rentalId: rental.id, since, userId: profile.id }),
+    const [rentalRunCount, userRunCount] = await Promise.all([
+      countRuns(supabase, { rentalId: context.rental.id, since, userId: profile.id }),
       countRuns(supabase, { since, userId: profile.id }),
     ]);
+
+    if (rentalRunCount >= serverEnv.llmRunsPerRentalPerDay) {
+      return jsonError(429, "rate_limited", "rental-run-limit-reached");
+    }
+
+    if (userRunCount >= serverEnv.llmRunsPerUserPerDay) {
+      return jsonError(429, "rate_limited", "user-run-limit-reached");
+    }
   } catch {
     return jsonError(500, "failed", "run-state-load-failed");
   }
 
-  if (rentalRunCount >= serverEnv.llmRunsPerRentalPerDay) {
-    return jsonError(429, "rate_limited", "rental-run-limit-reached");
-  }
-
-  if (userRunCount >= serverEnv.llmRunsPerUserPerDay) {
-    return jsonError(429, "rate_limited", "user-run-limit-reached");
-  }
-
   const normalizedVersion = {
-    capabilities: version.capabilities ?? [],
-    deliverables: version.deliverables ?? [],
-    id: version.id,
-    limitations: version.limitations ?? [],
-    outputPromise: contract.outputPromise,
-    requiredInputs: version.required_inputs ?? [],
+    capabilities: context.version.capabilities ?? [],
+    deliverables: context.version.deliverables ?? [],
+    id: context.version.id,
+    limitations: context.version.limitations ?? [],
+    outputPromise: context.contract.outputPromise,
+    requiredInputs: context.version.required_inputs ?? [],
   };
-  const prompt = buildAgentRunPrompt({
+  const prompt = buildDocumentRunPrompt({
     action,
-    agent,
+    agent: context.agent,
+    document: {
+      extractedText: documentFile.extracted_text.slice(0, serverEnv.documentMaxExtractedChars),
+      id: documentFile.id,
+      mimeType: documentFile.mime_type,
+      originalFilename: documentFile.original_filename,
+      sizeBytes: documentFile.size_bytes,
+    },
     locale,
     maxOutputTokens: serverEnv.llmRunMaxOutputTokens,
     model: serverEnv.openaiModel,
-    userInput: inputText,
+    userInstruction: inputText,
     version: normalizedVersion,
   });
 
@@ -360,14 +298,14 @@ export async function POST(request: Request) {
     .insert({
       action_key: action.key,
       action_label: action.label,
-      agent_id: rental.agent_id,
-      agent_version_id: rental.agent_version_id,
+      agent_id: context.rental.agent_id,
+      agent_version_id: context.rental.agent_version_id,
       input_chars: inputText.length,
       input_text: inputText,
       model: serverEnv.openaiModel,
       prompt_snapshot: prompt.promptSnapshot,
       provider: "openai",
-      rental_request_id: rental.id,
+      rental_request_id: context.rental.id,
       status: "running",
       user_id: profile.id,
     })
@@ -380,6 +318,28 @@ export async function POST(request: Request) {
 
   if (createRunError || !createdRun) {
     return jsonError(500, "failed", "run-create-failed");
+  }
+
+  const { data: linkedFile, error: fileLinkError } = await supabase
+    .from("agent_run_files")
+    .update({ agent_run_id: createdRun.id })
+    .eq("id", documentFile.id)
+    .is("agent_run_id", null)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (fileLinkError || !linkedFile) {
+    await supabase
+      .from("agent_runs")
+      .update({
+        completed_at: new Date().toISOString(),
+        error_code: fileLinkError ? "document-file-link-failed" : "document-file-already-used",
+        status: "failed",
+      })
+      .eq("id", createdRun.id)
+      .eq("status", "running");
+
+    return jsonError(fileLinkError ? 500 : 409, "failed", fileLinkError ? "document-file-link-failed" : "document-file-already-used");
   }
 
   try {
@@ -416,6 +376,7 @@ export async function POST(request: Request) {
         action,
         completedAt,
         createdAt: createdRun.created_at,
+        documentFile,
         id: createdRun.id,
         inputText,
         outputText,
@@ -424,8 +385,8 @@ export async function POST(request: Request) {
       runId: createdRun.id,
       status: "succeeded",
     });
-  } catch (error) {
-    const code = errorCode(error);
+  } catch (runError) {
+    const code = errorCode(runError);
     const completedAt = new Date().toISOString();
 
     await supabase
@@ -445,6 +406,7 @@ export async function POST(request: Request) {
           action,
           completedAt,
           createdAt: createdRun.created_at,
+          documentFile,
           errorCode: code,
           id: createdRun.id,
           inputText,

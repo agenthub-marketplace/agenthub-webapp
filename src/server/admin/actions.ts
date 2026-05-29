@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdminAccess } from "@/lib/auth/session";
+import { isAgentRuntimeType, type AgentRuntimeType } from "@/lib/agent-contract";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,6 +23,16 @@ type AgentModerationRow = {
   active_version_id: string | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   status: "approved" | "suspended" | "submitted" | "in_review" | "rejected" | "draft" | "archived";
+};
+
+type AgentVersionRuntimeRow = {
+  execution_mode: string | null;
+  runtime_type: string | null;
+};
+
+type RuntimeSettingRow = {
+  enabled: boolean;
+  runtime_type: AgentRuntimeType;
 };
 
 function readText(formData: FormData, key: string) {
@@ -90,6 +101,39 @@ export async function reviewAgentAction(formData: FormData) {
 
   if (decision === "approve" && agent.risk_level === "forbidden_beta") {
     redirectWithError(locale, "forbidden-risk");
+  }
+
+  if (decision === "approve") {
+    if (!agent.active_version_id) {
+      redirectWithError(locale, "runtime-disabled");
+    }
+
+    const { data: version, error: versionError } = await supabase
+      .from("agent_versions")
+      .select("execution_mode,runtime_type")
+      .eq("id", agent.active_version_id)
+      .maybeSingle<AgentVersionRuntimeRow>();
+
+    if (versionError || !version) {
+      redirectWithError(locale, "runtime-disabled");
+    }
+
+    const runtimeType =
+      version.runtime_type && isAgentRuntimeType(version.runtime_type)
+        ? version.runtime_type
+        : version.execution_mode === "llm_prompt"
+          ? "llm_prompt"
+          : "static_guided";
+
+    const { data: runtimeSetting, error: runtimeSettingError } = await supabase
+      .from("agent_runtime_settings")
+      .select("runtime_type,enabled")
+      .eq("runtime_type", runtimeType)
+      .maybeSingle<RuntimeSettingRow>();
+
+    if (runtimeSettingError || !runtimeSetting?.enabled) {
+      redirectWithError(locale, "runtime-disabled");
+    }
   }
 
   if (decision === "changes" && notes.length < 10) {

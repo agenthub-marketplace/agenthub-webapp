@@ -54,6 +54,7 @@ export const AGENT_TEMPLATES = [
       examples: ['Post fondateur', 'Post expertise', 'Post retour d experience'],
     },
     execution_mode: 'llm_prompt',
+    runtime_type: 'llm_prompt',
     data_policy: {
       stores_user_data: true,
       requires_files: false,
@@ -103,6 +104,7 @@ export const AGENT_TEMPLATES = [
       examples: ['Email froid', 'Relance 3 jours', 'Version fondateur'],
     },
     execution_mode: 'llm_prompt',
+    runtime_type: 'llm_prompt',
     data_policy: {
       stores_user_data: true,
       requires_files: false,
@@ -152,6 +154,7 @@ export const AGENT_TEMPLATES = [
       examples: ['Email professionnel', 'Message LinkedIn', 'Description produit'],
     },
     execution_mode: 'llm_prompt',
+    runtime_type: 'llm_prompt',
     data_policy: {
       stores_user_data: true,
       requires_files: false,
@@ -201,6 +204,7 @@ export const AGENT_TEMPLATES = [
       examples: ['SWOT lancement produit', 'SWOT repositionnement', 'SWOT offre service'],
     },
     execution_mode: 'llm_prompt',
+    runtime_type: 'llm_prompt',
     data_policy: {
       stores_user_data: true,
       requires_files: false,
@@ -250,6 +254,7 @@ export const AGENT_TEMPLATES = [
       examples: ['Reunion projet', 'Comite hebdo', 'Point client'],
     },
     execution_mode: 'llm_prompt',
+    runtime_type: 'llm_prompt',
     data_policy: {
       stores_user_data: true,
       requires_files: false,
@@ -292,6 +297,7 @@ export function templateToCreatorFormValues(template, categories = []) {
     output_promise_summary: template.output_promise.summary,
     output_promise_examples: template.output_promise.examples.join('\n'),
     execution_mode: template.execution_mode,
+    runtime_type: template.runtime_type,
   };
 }
 

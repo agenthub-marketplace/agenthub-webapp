@@ -19,6 +19,11 @@ type ServerEnv = {
   llmRunMaxOutputTokens: number;
   llmRunsPerRentalPerDay: number;
   llmRunsPerUserPerDay: number;
+  documentRunsEnabled: boolean;
+  documentMaxFileBytes: number;
+  documentMaxExtractedChars: number;
+  documentFileRetentionDays: number;
+  documentAllowedMimeTypes: string[];
 };
 
 const readOptional = (key: string) => {
@@ -127,4 +132,15 @@ export const serverEnv: ServerEnv = {
   llmRunMaxOutputTokens: readInteger("LLM_RUN_MAX_OUTPUT_TOKENS", 900, { min: 128, max: 2000 }),
   llmRunsPerRentalPerDay: readInteger("LLM_RUNS_PER_RENTAL_PER_DAY", 10, { min: 1, max: 100 }),
   llmRunsPerUserPerDay: readInteger("LLM_RUNS_PER_USER_PER_DAY", 30, { min: 1, max: 300 }),
+  documentRunsEnabled: readBoolean("DOCUMENT_RUNS_ENABLED"),
+  documentMaxFileBytes: readInteger("DOCUMENT_MAX_FILE_BYTES", 3_500_000, { min: 1, max: 3_500_000 }),
+  documentMaxExtractedChars: readInteger("DOCUMENT_MAX_EXTRACTED_CHARS", 30_000, { min: 1_000, max: 30_000 }),
+  documentFileRetentionDays: readInteger("DOCUMENT_FILE_RETENTION_DAYS", 7, { min: 1, max: 30 }),
+  documentAllowedMimeTypes: (
+    readOptional("DOCUMENT_ALLOWED_MIME_TYPES") ??
+    "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  )
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean),
 };

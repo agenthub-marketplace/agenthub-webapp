@@ -76,6 +76,7 @@ type AgentRow = {
         setup_requirements: unknown;
         output_promise: unknown;
         execution_mode: string | null;
+        runtime_type?: string | null;
         data_policy: unknown;
       }
     | {
@@ -88,6 +89,7 @@ type AgentRow = {
         setup_requirements: unknown;
         output_promise: unknown;
         execution_mode: string | null;
+        runtime_type?: string | null;
         data_policy: unknown;
       }[]
     | null;
@@ -110,7 +112,7 @@ type AgentRow = {
 };
 
 const MARKETPLACE_SELECT_WITH_CONTRACT =
-  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy),agent_reviews(id,rating,title,body,created_at)";
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy),agent_reviews(id,rating,title,body,created_at)";
 
 const MARKETPLACE_SELECT_LEGACY =
   "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)";
@@ -149,6 +151,7 @@ function isMissingContractColumnError(error: { code?: string; details?: string |
     text.includes("setup_requirements") ||
     text.includes("output_promise") ||
     text.includes("execution_mode") ||
+    text.includes("runtime_type") ||
     text.includes("data_policy")
   );
 }
@@ -177,6 +180,7 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     setupRequirements: version?.setup_requirements,
     outputPromise: version?.output_promise,
     executionMode: version?.execution_mode,
+    runtimeType: version?.runtime_type,
     dataPolicy: version?.data_policy,
   });
   const creatorName = creator?.public_name ?? "AgentHub Creator";

@@ -146,6 +146,7 @@ type UserRentalRow = {
               setup_requirements?: unknown;
               output_promise?: unknown;
               execution_mode?: string | null;
+              runtime_type?: string | null;
               data_policy?: unknown;
             }
           | {
@@ -158,6 +159,7 @@ type UserRentalRow = {
               setup_requirements?: unknown;
               output_promise?: unknown;
               execution_mode?: string | null;
+              runtime_type?: string | null;
               data_policy?: unknown;
             }[]
           | null;
@@ -182,6 +184,7 @@ type UserRentalRow = {
               setup_requirements?: unknown;
               output_promise?: unknown;
               execution_mode?: string | null;
+              runtime_type?: string | null;
               data_policy?: unknown;
             }
           | {
@@ -194,6 +197,7 @@ type UserRentalRow = {
               setup_requirements?: unknown;
               output_promise?: unknown;
               execution_mode?: string | null;
+              runtime_type?: string | null;
               data_policy?: unknown;
             }[]
           | null;
@@ -264,7 +268,7 @@ function readSingle<T>(value: T | T[] | null) {
 }
 
 const USER_RENTAL_SELECT_WITH_CONTRACT =
-  "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,description,status,pricing_type,starting_price_cents,currency,agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy)),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)";
+  "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,description,status,pricing_type,starting_price_cents,currency,agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy)),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)";
 
 const USER_RENTAL_SELECT_LEGACY =
   "id,status,pricing_type,quoted_price_cents,currency,request_brief,required_inputs,created_at,agents!rental_requests_agent_id_fkey(name,slug,summary,description,status,pricing_type,starting_price_cents,currency,agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes)),rental_results!rental_results_rental_request_id_fkey(summary,delivered_at),agent_reviews!agent_reviews_rental_request_id_fkey(id,rating,title,body)";
@@ -280,6 +284,7 @@ function isMissingAgentContractSchemaError(error: { code?: string; message?: str
     errorText.includes("setup_requirements") ||
     errorText.includes("output_promise") ||
     errorText.includes("execution_mode") ||
+    errorText.includes("runtime_type") ||
     errorText.includes("data_policy") ||
     (errorText.includes("schema cache") && errorText.includes("agent_versions"))
   );
@@ -490,6 +495,7 @@ export async function getUserRentals(userId: string) {
         setupRequirements: version?.setup_requirements,
         outputPromise: version?.output_promise,
         executionMode: version?.execution_mode,
+        runtimeType: version?.runtime_type,
         dataPolicy: version?.data_policy,
       });
       const mappedAgent = agent

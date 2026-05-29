@@ -4,12 +4,14 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import WorkspaceRunActions from '@/components/workspace/WorkspaceRunActions';
+import DocumentWorkspaceActions from '@/components/workspace/DocumentWorkspaceActions';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
 import { serverEnv } from '@/lib/env.server';
 import { getWorkspaceActionLabels } from '@/lib/workspace-actions';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { getUserAgentRuns } from '@/server/llm/runs';
+import { isDocumentRuntimeRunEnabled } from '@/server/documents/runtime';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
@@ -184,12 +186,21 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     workspaceMode: contract.workspaceMode,
   });
   const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
+  const documentRuntimeRunEnabled =
+    contract.runtimeType === 'document_file' ? await isDocumentRuntimeRunEnabled() : false;
   const llmRunnerEnabled =
     serverEnv.llmRunsEnabled &&
     Boolean(serverEnv.openaiApiKey) &&
+    contract.runtimeType === 'llm_prompt' &&
     contract.executionMode === 'llm_prompt' &&
     !contract.dataPolicy.requires_files &&
     contract.dataPolicy.external_tools.length === 0 &&
+    rental.agent?.status === 'approved';
+  const documentRunnerEnabled =
+    serverEnv.documentRunsEnabled &&
+    Boolean(serverEnv.openaiApiKey) &&
+    documentRuntimeRunEnabled &&
+    contract.runtimeType === 'document_file' &&
     rental.agent?.status === 'approved';
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
   const stopAction = stopAgentAccessAction.bind(null, 'en');
@@ -255,14 +266,26 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </aside>
 
           <section className="space-y-6">
-            <WorkspaceRunActions
-              actions={actions}
-              enabled={llmRunnerEnabled}
-              initialRuns={agentRuns}
-              locale="en"
-              maxInputChars={serverEnv.llmRunMaxInputChars}
-              rentalId={rental.id}
-            />
+            {contract.runtimeType === 'document_file' ? (
+              <DocumentWorkspaceActions
+                actions={actions}
+                enabled={documentRunnerEnabled}
+                initialRuns={agentRuns}
+                locale="en"
+                maxFileBytes={serverEnv.documentMaxFileBytes}
+                maxInputChars={serverEnv.llmRunMaxInputChars}
+                rentalId={rental.id}
+              />
+            ) : (
+              <WorkspaceRunActions
+                actions={actions}
+                enabled={llmRunnerEnabled}
+                initialRuns={agentRuns}
+                locale="en"
+                maxInputChars={serverEnv.llmRunMaxInputChars}
+                rentalId={rental.id}
+              />
+            )}
 
             <div className="grid gap-5 md:grid-cols-2">
               <ListBlock title="What this agent can help with" items={rental.agent.capabilities} emptyText="No detailed capability was provided." />

@@ -1,6 +1,7 @@
 export type WorkspaceMode = "instant" | "guided" | "document_required";
 export type SetupRequirementType = "none" | "context" | "document";
 export type ExecutionMode = "guided_workspace" | "llm_prompt";
+export type AgentRuntimeType = "static_guided" | "llm_prompt" | "document_file" | "workflow_automation" | "creator_endpoint";
 
 export type SetupRequirements = {
   type: SetupRequirementType;
@@ -23,6 +24,7 @@ export type AgentContract = {
   setupRequirements: SetupRequirements;
   outputPromise: OutputPromise;
   executionMode: ExecutionMode;
+  runtimeType: AgentRuntimeType;
   dataPolicy: DataPolicy;
 };
 
@@ -49,6 +51,14 @@ export const EXECUTION_MODE_OPTIONS: { value: ExecutionMode; label: string }[] =
   { value: "llm_prompt", label: "LLM Runner texte (OpenAI)" },
 ];
 
+export const AGENT_RUNTIME_TYPE_LABELS: Record<AgentRuntimeType, string> = {
+  static_guided: "Static guided",
+  llm_prompt: "LLM Prompt",
+  document_file: "Document / File",
+  workflow_automation: "Workflow Automation",
+  creator_endpoint: "Creator Endpoint",
+};
+
 export const DEFAULT_AGENT_CONTRACT: AgentContract = {
   workspaceMode: "instant",
   setupRequirements: {
@@ -60,6 +70,7 @@ export const DEFAULT_AGENT_CONTRACT: AgentContract = {
     examples: [],
   },
   executionMode: "guided_workspace",
+  runtimeType: "static_guided",
   dataPolicy: {
     stores_user_data: false,
     requires_files: false,
@@ -84,6 +95,16 @@ export function isSetupRequirementType(value: string): value is SetupRequirement
 
 export function isExecutionMode(value: string): value is ExecutionMode {
   return value === "guided_workspace" || value === "llm_prompt";
+}
+
+export function isAgentRuntimeType(value: string): value is AgentRuntimeType {
+  return (
+    value === "static_guided" ||
+    value === "llm_prompt" ||
+    value === "document_file" ||
+    value === "workflow_automation" ||
+    value === "creator_endpoint"
+  );
 }
 
 export function buildSetupRequirements(type: SetupRequirementType, itemsText: string): SetupRequirements {
@@ -121,12 +142,20 @@ export function normalizeAgentContract(input: {
   setupRequirements?: unknown;
   outputPromise?: unknown;
   executionMode?: string | null;
+  runtimeType?: string | null;
   dataPolicy?: unknown;
 }): AgentContract {
   const setup = asObject(input.setupRequirements);
   const output = asObject(input.outputPromise);
   const data = asObject(input.dataPolicy);
   const workspaceMode = input.workspaceMode && isWorkspaceMode(input.workspaceMode) ? input.workspaceMode : DEFAULT_AGENT_CONTRACT.workspaceMode;
+  const executionMode = input.executionMode && isExecutionMode(input.executionMode) ? input.executionMode : DEFAULT_AGENT_CONTRACT.executionMode;
+  const runtimeType =
+    input.runtimeType && isAgentRuntimeType(input.runtimeType)
+      ? input.runtimeType
+      : executionMode === "llm_prompt"
+        ? "llm_prompt"
+        : "static_guided";
   const setupType = typeof setup.type === "string" && isSetupRequirementType(setup.type) ? setup.type : DEFAULT_AGENT_CONTRACT.setupRequirements.type;
 
   return {
@@ -139,7 +168,8 @@ export function normalizeAgentContract(input: {
       summary: typeof output.summary === "string" ? output.summary : "",
       examples: asStringArray(output.examples),
     },
-    executionMode: input.executionMode && isExecutionMode(input.executionMode) ? input.executionMode : DEFAULT_AGENT_CONTRACT.executionMode,
+    executionMode,
+    runtimeType,
     dataPolicy: {
       stores_user_data: typeof data.stores_user_data === "boolean" ? data.stores_user_data : DEFAULT_AGENT_CONTRACT.dataPolicy.stores_user_data,
       requires_files: typeof data.requires_files === "boolean" ? data.requires_files : DEFAULT_AGENT_CONTRACT.dataPolicy.requires_files,

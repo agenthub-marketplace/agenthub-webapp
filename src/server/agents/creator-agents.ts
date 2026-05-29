@@ -85,6 +85,7 @@ type AgentVersionEditRow = {
   setup_requirements: unknown;
   output_promise: unknown;
   execution_mode: string | null;
+  runtime_type: string | null;
   data_policy: unknown;
 };
 
@@ -340,7 +341,7 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
   if (agent.active_version_id) {
     const { data: versionRow } = await supabase
       .from("agent_versions")
-      .select("capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,data_policy")
+      .select("capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy")
       .eq("id", agent.active_version_id)
       .maybeSingle<AgentVersionEditRow>();
 
@@ -350,6 +351,7 @@ export async function getCreatorAgentForEdit(agentId: string): Promise<{
         setupRequirements: versionRow.setup_requirements,
         outputPromise: versionRow.output_promise,
         executionMode: versionRow.execution_mode,
+        runtimeType: versionRow.runtime_type,
         dataPolicy: versionRow.data_policy,
       });
 

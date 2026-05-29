@@ -24,6 +24,7 @@ export type AgentContractQualityInput = {
   setupRequirements?: unknown;
   outputPromise?: unknown;
   executionMode?: string | null;
+  runtimeType?: string | null;
   dataPolicy?: unknown;
 };
 
@@ -66,6 +67,7 @@ export function evaluateAgentContractQuality(input: AgentContractQualityInput): 
     setupRequirements: input.setupRequirements,
     outputPromise: input.outputPromise,
     executionMode: input.executionMode,
+    runtimeType: input.runtimeType,
     dataPolicy: input.dataPolicy,
   });
 

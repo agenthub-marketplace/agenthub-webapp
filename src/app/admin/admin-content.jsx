@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
-import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
+import { AGENT_RUNTIME_TYPE_LABELS, EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { Check, X, Edit, Lock, Search, Eye, Ban, Trash2, Flag, BarChart3 } from 'lucide-react';
 import { adminStats } from '@/lib/mock-data';
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -34,6 +34,7 @@ const reviewErrors = {
   'agent-must-be-in-review': 'Prenez d’abord cet agent en revue avant de décider.',
   'changes-notes-required': 'Ajoutez une demande de modification claire avant l’envoi.',
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être approuvés en beta.',
+  'runtime-disabled': 'Ce runtime AgentHub Code est désactivé et ne peut pas être approuvé.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
   'invalid-moderation': 'Action de modération invalide.',
@@ -205,7 +206,13 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                 <div className="mb-4">
                   <p className="font-label text-xs text-[#A78BCF] mb-2 flex items-center gap-1"><Lock className="w-3 h-3"/>Contrat agent à vérifier</p>
                   <div className="space-y-3 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
-                    <div className="grid gap-2 md:grid-cols-3">
+                    <div className="grid gap-2 md:grid-cols-4">
+                      <div className="rounded-lg border border-[#10B981]/30 bg-[#10B981]/10 p-2">
+                        <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Runtime type</p>
+                        <p className="font-label text-[10px] text-[#6EE7B7]">
+                          {AGENT_RUNTIME_TYPE_LABELS[activeSelection.contract.runtimeType] || activeSelection.contract.runtimeType}
+                        </p>
+                      </div>
                       <div className="rounded-lg border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 p-2">
                         <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Expérience workspace</p>
                         <p className="font-label text-[10px] text-[#C4B5FD]">
@@ -224,6 +231,18 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                           {optionLabel(EXECUTION_MODE_OPTIONS, activeSelection.contract.executionMode)}
                         </p>
                       </div>
+                    </div>
+                    <div className={`rounded-lg border p-2 ${activeSelection.runtimeSetting?.enabled ? 'border-[#10B981]/30 bg-[#10B981]/10 text-[#6EE7B7]' : 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#FCA5A5]'}`}>
+                      <p className="font-label mb-1 text-[10px]">Runtime settings</p>
+                      {activeSelection.runtimeSetting ? (
+                        <p>
+                          enabled: {activeSelection.runtimeSetting.enabled ? 'oui' : 'non'} · creator visible:{' '}
+                          {activeSelection.runtimeSetting.creatorVisible ? 'oui' : 'non'} · run enabled:{' '}
+                          {activeSelection.runtimeSetting.runEnabled ? 'oui' : 'non'}
+                        </p>
+                      ) : (
+                        <p>Configuration runtime introuvable. L’approbation est bloquée par sécurité.</p>
+                      )}
                     </div>
                     <div>
                       <p className="font-label mb-1 text-[10px] text-[#A78BCF]">Promesse de résultat</p>
@@ -307,7 +326,15 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                           <input type="hidden" name="agent_id" value={activeSelection.id} />
                           <input type="hidden" name="decision" value="approve" />
                           <input type="hidden" name="locale" value={locale} />
-                          <Button type="submit" size="sm" className="w-full bg-[#10B981] hover:bg-[#059669] text-white border-0"><Check className="w-4 h-4 mr-1"/>Approuver</Button>
+                          <Button
+                            type="submit"
+                            size="sm"
+                            disabled={!activeSelection.runtimeSetting?.enabled}
+                            className="w-full bg-[#10B981] hover:bg-[#059669] text-white border-0 disabled:opacity-50"
+                          >
+                            <Check className="w-4 h-4 mr-1"/>
+                            Approuver
+                          </Button>
                         </form>
                         <Button
                           size="sm"

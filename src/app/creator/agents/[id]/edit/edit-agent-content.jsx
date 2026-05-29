@@ -6,6 +6,8 @@ import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIO
 import { resubmitAgentChangesAction } from '@/server/agents/actions';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 
+const creatorExecutionModeOptions = EXECUTION_MODE_OPTIONS.filter((option) => option.value === 'llm_prompt');
+
 const inputClass =
   'w-full rounded-xl border border-[#D8DDEE] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/15';
 
@@ -104,6 +106,7 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
         {agent && (
           <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
             <input type="hidden" name="agent_id" value={agent.id} />
+            <input type="hidden" name="runtime_type" value="llm_prompt" />
             {adminNotes && (
               <section className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-5 text-sm text-[#92400E]">
                 <p className="font-label mb-2 text-xs text-[#92400E]">Retour admin</p>
@@ -208,8 +211,8 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                   label="Mode d’exécution prévu"
                   hint="Pour activer le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe."
                 >
-                  <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'guided_workspace'}>
-                    {EXECUTION_MODE_OPTIONS.map((option) => (
+                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
+                    {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
