@@ -1,121 +1,191 @@
 'use client';
-import Link from 'next/link';
-import { Search, ArrowRight, Wallet, Star, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import AgentCard from '@/components/AgentCard';
-import { agentsList, testimonials } from '@/lib/mock-data';
-import { useState } from 'react';
-import { useT } from '@/lib/i18n';
 
-function Page() {
-  const { t } = useT();
-  const [q, setQ] = useState('');
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ArrowRight, Box, CheckCircle2, Code2, GitBranch, Layers3, MessagesSquare, Rocket, Search, TerminalSquare, Users } from 'lucide-react';
+
+const choices = {
+  agenthub: {
+    href: '/agenthub',
+    eyebrow: 'Utiliser',
+    title: 'AgentHub',
+    prompt: 'Choisis ton espace',
+    description: 'Trouve, loue et utilise des agents IA vérifiés.',
+    icon: Box,
+    action: 'Explorer AgentHub',
+    features: ['Agents vérifiés', 'Accès immédiat', 'Communautés'],
+    cards: [
+      { label: 'des agents IA uniques', value: 'Découvrir', icon: Search },
+      { label: 'à des modèles conçus selon vos besoins', value: 'Accéder', icon: MessagesSquare },
+    ],
+    panel: 'bg-[#080612] text-[#F5F1FA]',
+    overlay: {
+      background:
+        'radial-gradient(circle at 25% 20%, rgba(139,92,246,0.26), transparent 34%), linear-gradient(145deg, #17102C 0%, #080612 68%)',
+    },
+    chip: 'border-[#33214F] bg-[#110D24]/80 text-[#D6C5E8]',
+    button: 'bg-white text-[#120C22]',
+    ghost: 'text-[#A78BCF]',
+  },
+  code: {
+    href: '/code',
+    eyebrow: 'Créer',
+    title: 'AgentHub',
+    titleSuffix: 'Code',
+    description: 'Crée, publie et pilote tes agents sur AgentHub Code.',
+    icon: Code2,
+    action: 'Ouvrir AgentHub Code',
+    features: ['Console créateur', 'Templates', 'Dashboard'],
+    cards: [
+      { label: 'vos agents IA', value: 'Publier', icon: Rocket },
+      { label: 'avec votre communauté', value: 'Interagir', icon: Users },
+    ],
+    panel: 'bg-[#F7F8FC] text-[#111827]',
+    overlay: {
+      background:
+        'radial-gradient(circle at 74% 20%, rgba(124,58,237,0.12), transparent 34%), linear-gradient(145deg, #FFFFFF 0%, #EEF1F8 100%)',
+    },
+    chip: 'border-[#D8DDEE] bg-white/80 text-[#5B6175]',
+    button: 'bg-[#111827] text-white',
+    ghost: 'text-[#6B7280]',
+  },
+};
+
+export default function PortalPage() {
+  const router = useRouter();
+
+  const enterSpace = (key) => {
+    router.push(choices[key].href);
+  };
 
   return (
-    <div className="min-h-screen ">
-      <Navbar />
-
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 hero-gradient pointer-events-none" />
-        <div className="absolute inset-0 grid-pattern opacity-20 pointer-events-none" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-[#8B5CF6]/15 rounded-full blur-3xl animate-float pointer-events-none" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#F2E9D8]/5 rounded-full blur-3xl animate-float pointer-events-none" style={{ animationDelay: '4s' }} />
-
-        <div className="container relative pt-20 sm:pt-16 pb-20 sm:pb-28 text-center px-4">
-          <h1 className="font-display font-bold tracking-tight mb-4 sm:mb-6 max-w-6xl mx-auto text-[#F5F1FA] leading-[1.1] text-[28px] sm:text-4xl md:text-6xl lg:text-7xl">
-            {t('land.title1')} <span className="block italic text-transparent bg-clip-text bg-gradient-to-r from-[#A78BCF] via-[#8B5CF6] to-[#F2E9D8]">{t('land.title2')}</span>
-          </h1>
-          <p className="text-[14px] sm:text-base md:text-lg text-[#D6C5E8] max-w-2xl mx-auto mb-6 sm:mb-10 leading-snug">{t('land.subtitle')}</p>
-
-          <form onSubmit={(e) => { e.preventDefault(); window.location.href = '/search'; }} className="max-w-2xl mx-auto mb-5">
-            <div className="flex flex-col sm:relative gap-3 sm:gap-0">
-              <div className="relative">
-                <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-[#A78BCF]" />
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder={t('land.searchph')} className="w-full h-[52px] sm:h-16 pl-11 sm:pl-14 pr-4 sm:pr-32 text-[14px] sm:text-base bg-[#110D24] border border-[#251A40] rounded-xl sm:rounded-2xl text-[#F5F1FA] placeholder:text-[#A78BCF]/70 focus:border-[#8B5CF6] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6]/20 transition-all"/>
-              </div>
-              <button type="submit" className="w-full sm:w-auto sm:absolute sm:right-2 sm:top-1/2 sm:-translate-y-1/2 h-[48px] sm:h-12 px-5 text-sm bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A78BCF] text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2">
-                {t('land.search')} <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </form>
-
-          <p className="text-xs sm:text-sm text-[#A78BCF]">{t('land.trusted', { n: '12\u202f400' })}</p>
+    <main className="min-h-screen overflow-hidden bg-[#080612]">
+      <header className="fixed inset-x-0 top-0 z-40">
+        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-[0_0_18px_rgba(139,92,246,0.28)]">
+              <Image src="/logo.png" alt="AgentHub" width={36} height={36} className="object-contain p-1" priority />
+            </span>
+            <span className="font-display text-lg font-bold tracking-tight text-white drop-shadow-sm">AgentHub</span>
+          </Link>
         </div>
-      </section>
+      </header>
 
-      <section className="section-light">
-        <div className="container pt-14 pb-2">
-          <div className="flex items-end justify-between mb-6 gap-3 flex-wrap">
-            <div>
-              <p className="font-label text-xs text-[#A78BCF] mb-2">{t('land.trending')}</p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-[#F5F1FA]">{t('land.availableagents')}</h2>
-            </div>
-            <Link href="/search"><Button className="bg-[#1A152F] hover:bg-[#2D1F50] text-white h-11 px-6 border-0">{t('a.viewall')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
-          </div>
-        </div>
-        <div className="marquee-wrapper marquee-mask overflow-hidden py-10 pb-14">
-          <div className="marquee-track gap-4 px-4">
-            {[...agentsList, ...agentsList].map((a, i) => (
-              <div key={`${a.id}-${i}`} className="w-[300px] shrink-0">
-                <AgentCard agent={a} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section className="flex min-h-screen flex-col md:flex-row">
+        {Object.entries(choices).map(([key, choice]) => {
+          const Icon = choice.icon;
 
-      <section className="container py-16">
-        <div className="text-center mb-12">
-          <p className="font-label text-xs text-[#A78BCF] mb-3">{t('land.how')}</p>
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-[#F5F1FA]">{t('land.howtitle')}</h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { n: '01', title: t('land.step1.t'), desc: t('land.step1.d'), icon: Search },
-            { n: '02', title: t('land.step2.t'), desc: t('land.step2.d'), icon: Wallet },
-            { n: '03', title: t('land.step3.t'), desc: t('land.step3.d'), icon: Check },
-          ].map((s, i) => (
-            <div key={i} className="card-hover bg-elevated border border-[#251A40] rounded-2xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-12 h-12 rounded-xl bg-[#251A40] flex items-center justify-center"><s.icon className="w-5 h-5 text-[#A78BCF]" /></div>
-                <span className="font-stat text-3xl text-cream/50">{s.n}</span>
-              </div>
-              <h3 className="font-display text-2xl font-bold mb-2 text-[#F5F1FA]">{s.title}</h3>
-              <p className="text-[#D6C5E8] leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => enterSpace(key)}
+              className={`group relative flex min-h-[50vh] flex-1 overflow-hidden px-6 pb-10 pt-28 text-left md:min-h-screen md:px-10 lg:px-16 ${
+                choice.panel
+              }`}
+              aria-label={`Entrer dans ${choice.title}`}
+            >
+              <div className="absolute inset-0" style={choice.overlay} />
+              <div className="relative z-10 flex w-full flex-col justify-end md:justify-center">
+                <div
+                  className={`mb-9 flex items-center gap-4 ${
+                    key === 'agenthub' ? 'md:ml-auto md:mr-24 lg:mr-32' : 'md:ml-24 lg:ml-32'
+                  }`}
+                >
+                  <span className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border backdrop-blur ${choice.chip}`}>
+                    <span className="absolute inset-2 rotate-45 rounded-md border border-current opacity-20" />
+                    <Icon className="relative h-4 w-4" />
+                  </span>
+                  <span className={`h-px w-12 ${key === 'code' ? 'bg-[#CBD2E3]' : 'bg-[#3B245C]'}`} />
+                  <span className={`font-label text-xs ${choice.ghost}`}>{choice.eyebrow}</span>
+                </div>
 
-      <section className="section-light">
-        <div className="container py-16">
-        <div className="text-center mb-12">
-          <p className="font-label text-xs text-[#A78BCF] mb-3">{t('land.reviews')}</p>
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-[#F5F1FA]">{t('land.usersay')}</h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {testimonials.map((tm,i) => (
-            <div key={i} className="card-hover bg-[#110D24] border border-[#251A40] rounded-2xl p-7">
-              <div className="flex gap-1 mb-4">{Array.from({length:tm.stars}).map((_,k)=><Star key={k} className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]"/>)}</div>
-              <p className="text-[#F5F1FA] mb-6 leading-relaxed">« {tm.quote} »</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6B3FA0] to-[#8B5CF6] flex items-center justify-center font-stat text-white">{tm.avatar}</div>
-                <div>
-                  <p className="font-display font-semibold text-[#F5F1FA]">{tm.name}</p>
-                  <p className="text-xs text-[#A78BCF]">{tm.job}</p>
+                <div className="max-w-xl lg:max-w-2xl">
+                  {choice.prompt && <p className={`font-label mb-3 text-xs ${choice.ghost}`}>{choice.prompt}</p>}
+                  <h1 className="font-display text-5xl font-bold leading-none tracking-tight sm:text-6xl lg:text-7xl">
+                    {choice.title}
+                    {choice.titleSuffix && (
+                      <span className="mt-1 block translate-x-32 text-4xl font-medium italic leading-none tracking-tight text-[#6B3FA0] sm:translate-x-44 sm:text-5xl lg:translate-x-56 lg:text-6xl">
+                        {choice.titleSuffix}
+                      </span>
+                    )}
+                  </h1>
+                  <p className={`mt-5 max-w-md text-lg leading-8 ${key === 'code' ? 'text-[#4B5563]' : 'text-[#D6C5E8]'}`}>
+                    {choice.description}
+                  </p>
+                </div>
+
+                <div className="mt-7 flex flex-wrap gap-2">
+                  {choice.features.map((feature) => (
+                    <span
+                      key={feature}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        key === 'code'
+                          ? 'border-[#D8DDEE] bg-white/70 text-[#4B5563]'
+                          : 'border-[#33214F] bg-[#110D24]/70 text-[#D6C5E8]'
+                      }`}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#8B5CF6]" />
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-7 grid max-w-md grid-cols-2 gap-3">
+                  {choice.cards.map((card) => {
+                    const CardIcon = card.icon;
+
+                    return (
+                    <span
+                      key={`${card.value}-${card.label}`}
+                      className={`min-h-[118px] rounded-2xl border p-4 transition-colors ${
+                        key === 'code'
+                          ? 'border-[#D8DDEE] bg-white/45 text-[#111827] shadow-none group-hover:border-[#8B5CF6]/45'
+                          : 'border-[#33214F] bg-[#110D24]/70 text-[#F5F1FA] group-hover:border-[#6B3FA0]/70'
+                      }`}
+                    >
+                      <span className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${key === 'code' ? 'bg-[#F1F3F8] text-[#6B3FA0]' : 'bg-[#251A40] text-[#D6C5E8]'}`}>
+                        <CardIcon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="block font-display text-lg font-bold leading-snug">{card.value}</span>
+                      {card.label && (
+                        <span className={`mt-1 block leading-5 ${key === 'code' ? 'text-sm text-[#6B7280]' : 'text-sm text-[#A78BCF]'}`}>
+                          {card.label}
+                        </span>
+                      )}
+                    </span>
+                    );
+                  })}
+                </div>
+
+                <div
+                  className={`mt-8 inline-flex w-fit items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm transition-transform group-hover:translate-x-1 ${choice.button}`}
+                >
+                  {choice.action}
+                  <ArrowRight className="h-4 w-4" />
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-        </div>
-      </section>
 
-      <Footer />
-    </div>
+              <div
+                className={`absolute top-28 hidden rounded-[2rem] border p-4 opacity-80 backdrop-blur md:block ${
+                  key === 'code'
+                    ? 'right-12 border-[#D8DDEE] bg-white/60 text-[#111827]'
+                    : 'left-12 border-[#33214F] bg-[#110D24]/55 text-[#F5F1FA]'
+                }`}
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  {(key === 'code' ? [GitBranch, Rocket, TerminalSquare, Users] : [Layers3, Search, MessagesSquare, ArrowRight]).map((DecorIcon, index) => (
+                    <span key={index} className={`flex h-10 w-10 items-center justify-center rounded-xl ${key === 'code' ? 'bg-[#F1F3F8] text-[#6B3FA0]' : 'bg-[#1A152F] text-[#A78BCF]'}`}>
+                      <DecorIcon className="h-4 w-4" />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </section>
+    </main>
   );
 }
-
-export default Page;

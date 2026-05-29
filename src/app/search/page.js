@@ -1,8 +1,5 @@
-import SearchClient from './search-client';
-import { getMarketplaceAgents } from '@/server/marketplace/agents';
+import { redirect } from 'next/navigation';
 
-export default async function Page() {
-  const { agents, categories, error } = await getMarketplaceAgents();
-
-  return <SearchClient initialAgents={agents} initialCategories={categories} loadError={error} locale="fr" />;
+export default function SearchPage() {
+  redirect('/agenthub/search');
 }

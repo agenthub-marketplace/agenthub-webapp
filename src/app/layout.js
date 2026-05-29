@@ -3,7 +3,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { LanguageProvider } from '@/lib/i18n'
 
 export const metadata = {
-  title: 'AgentHub — L’agent IA qui correspond à vos besoins',
+  title: 'AgentHub - La marketplace des agents IA',
   description: 'Marketplace d’accès à des agents IA spécialisés.',
   icons: { icon: '/logo.png' },
 }

@@ -5,8 +5,8 @@ export default async function AgentRentPage({ params }) {
   const slug = resolvedParams?.slug;
 
   if (typeof slug !== "string" || !slug) {
-    redirect("/marketplace");
+    redirect("/agenthub/search");
   }
 
-  redirect(`/agents/${slug}`);
+  redirect(`/agenthub/agents/${slug}`);
 }

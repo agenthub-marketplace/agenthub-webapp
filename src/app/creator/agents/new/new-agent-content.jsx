@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import Link from 'next/link';
-import Navbar from '@/components/Navbar';
+import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
 import { Button } from '@/components/ui/button';
 import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
 import { AGENT_TEMPLATES, templateToCreatorFormValues } from '@/lib/agent-templates';
@@ -143,28 +143,28 @@ const copy = {
 function Field({ children, hint, label, wide = false }) {
   return (
     <label className={`block ${wide ? 'md:col-span-2' : ''}`}>
-      <span className="font-label mb-1.5 block text-xs text-[#9B72CF]">{label}</span>
+      <span className="font-label mb-1.5 block text-xs text-[#6B3FA0]">{label}</span>
       {children}
-      {hint && <span className="mt-1.5 block text-xs text-[#7F6B9C]">{hint}</span>}
+      {hint && <span className="mt-1.5 block text-xs text-[#6B7280]">{hint}</span>}
     </label>
   );
 }
 
 const inputClass =
-  'w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none transition-colors placeholder:text-[#6F5B8F] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/20';
+  'w-full rounded-xl border border-[#D8DDEE] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/15';
 
 function Alert({ children, tone = 'warning', title }) {
   const classes =
     tone === 'error'
-      ? 'border-[#EF4444]/35 bg-[#EF4444]/10 text-[#FCA5A5]'
-      : 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]';
+      ? 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]'
+      : 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]';
 
   return (
     <div className={`rounded-2xl border p-5 ${classes}`}>
       <div className="flex gap-3">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
-          {title && <p className="font-display font-semibold text-[#F4EFFA]">{title}</p>}
+          {title && <p className="font-display font-semibold text-[#111827]">{title}</p>}
           <p className="text-sm leading-relaxed">{children}</p>
         </div>
       </div>
@@ -185,7 +185,7 @@ export default function NewAgentContent({
   const formRef = useRef(null);
   const errorMessage = error && t.errors[error] ? t.errors[error] : null;
   const canSubmit = categories.length > 0 && !creatorProfileMissing && !profileError;
-  const dashboardPath = locale === 'en' ? '/en/creator/dashboard' : '/creator/dashboard';
+  const dashboardPath = locale === 'en' ? '/en/creator/dashboard' : '/code/dashboard';
 
   function handleTemplateChange(event) {
     const template = AGENT_TEMPLATES.find((item) => item.key === event.target.value);
@@ -206,21 +206,21 @@ export default function NewAgentContent({
   }
 
   return (
-    <div className="min-h-screen">
-      <Navbar profile={profile} />
+    <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
+      <AgentHubCodeNavbar profile={profile} />
       <main className="container max-w-5xl py-8">
-        <Link href={dashboardPath} className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#9B72CF] hover:text-[#F4EFFA]">
+        <Link href={dashboardPath} className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#6B3FA0] hover:text-[#111827]">
           <ArrowLeft className="h-4 w-4" />
           {t.back}
         </Link>
 
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="font-label mb-2 text-xs text-[#9B72CF]">{t.eyebrow}</p>
-            <h1 className="font-display text-4xl font-bold text-[#F4EFFA] md:text-5xl">{t.title}</h1>
-            <p className="mt-3 max-w-2xl text-[#C8B1E4]">{t.subtitle}</p>
+            <p className="font-label mb-2 text-xs text-[#6B3FA0]">{t.eyebrow}</p>
+            <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">{t.title}</h1>
+            <p className="mt-3 max-w-2xl text-[#4B5563]">{t.subtitle}</p>
           </div>
-          <div className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-4 text-sm text-[#C8B1E4]">
+          <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4 text-sm text-[#4B5563] shadow-sm">
             <div className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
               <span>{t.safety}</span>
@@ -237,7 +237,7 @@ export default function NewAgentContent({
 
         {!creatorProfileMissing && (
           <form ref={formRef} action={action} className="mt-8 space-y-6">
-            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
+            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
               <Field label={t.template} hint={t.templateHint}>
                 <select name="agent_template" className={inputClass} defaultValue="" onChange={handleTemplateChange}>
                   <option value="">{t.templatePlaceholder}</option>
@@ -250,8 +250,8 @@ export default function NewAgentContent({
               </Field>
             </section>
 
-            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">{t.core}</h2>
+            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.core}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.name}>
                   <input name="name" required placeholder="LegalDraft Pro" className={inputClass} />
@@ -278,8 +278,8 @@ export default function NewAgentContent({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">{t.delivery}</h2>
+            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.delivery}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.does} hint={t.lineHint}>
                   <textarea name="does" required rows={5} className={inputClass} />
@@ -334,8 +334,8 @@ export default function NewAgentContent({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#F4EFFA]">{t.contract}</h2>
+            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.contract}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.workspaceMode}>
                   <select name="workspace_mode" required className={inputClass} defaultValue="instant">
@@ -384,7 +384,7 @@ export default function NewAgentContent({
               <Button
                 type="submit"
                 disabled={!canSubmit}
-                className="h-12 border-0 bg-[#532B88] px-6 text-white glow-primary hover:bg-[#7C3AED] disabled:opacity-50"
+                className="h-12 border-0 bg-[#111827] px-6 text-white shadow-sm hover:bg-[#2B1A44] disabled:opacity-50"
               >
                 <Send className="mr-2 h-4 w-4" />
                 {t.submit}

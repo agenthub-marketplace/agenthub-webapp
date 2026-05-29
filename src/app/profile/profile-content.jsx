@@ -42,7 +42,7 @@ function ProfilePage({ profile }) {
               </div>
               <p className="text-sm text-[#A78BCF] mb-3">{email ? `${email} · ` : ''}{memberSince}</p>
               <div className="flex gap-3">
-                <Link href="/workspace">
+                <Link href="/agenthub/workspace">
                   <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]" size="sm">
                     <MessageSquare className="w-3.5 h-3.5 mr-2"/>{t('nav.workspace')}
                   </Button>
@@ -99,7 +99,7 @@ function ProfilePage({ profile }) {
               <p className="font-label text-xs text-[#A78BCF] mb-1.5">{t('profile.favsub')}</p>
               <h2 className="font-display text-2xl md:text-3xl font-bold text-[#F5F1FA]">{t('profile.favorites')}</h2>
             </div>
-            <Link href="/search" className="hidden md:flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]">{t('a.viewall')} <ArrowRight className="w-4 h-4"/></Link>
+            <Link href="/agenthub/search" className="hidden md:flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]">{t('a.viewall')} <ArrowRight className="w-4 h-4"/></Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {favorites.map(a => (

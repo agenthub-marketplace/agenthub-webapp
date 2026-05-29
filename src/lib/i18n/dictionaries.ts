@@ -201,7 +201,7 @@ export const dictionaries = {
       deliverables: "Livrables",
       rentalSummary: "Résumé d’accès",
       creator: "Créateur",
-      price: "Prix",
+      price: "Crédits",
       estimatedDuration: "Durée estimée",
       rating: "Note",
       delivery: "Livraison",

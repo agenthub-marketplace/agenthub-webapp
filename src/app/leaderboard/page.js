@@ -2,7 +2,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentCard from '@/components/AgentCard';
 import AgentAvatar from '@/components/AgentAvatar';
@@ -38,7 +38,7 @@ function LeaderboardContent() {
 
   return (
     <div className="min-h-screen ">
-      <Navbar />
+      <AgentHubNavbar />
       <div className="container py-10">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A152F] border border-[#532B88]/40 mb-5">
@@ -73,17 +73,17 @@ function LeaderboardContent() {
             <div className="absolute top-10 left-1/2 -translate-x-1/2 w-80 h-80 bg-[#8B5CF6]/8 rounded-full blur-3xl"/>
             <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-4 items-end max-w-3xl mx-auto">
               {/* 2nd */}
-              <Link href={`/agents/${top3[1].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-2 sm:order-1">
+              <Link href={`/agenthub/agents/${top3[1].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-2 sm:order-1">
                 <p className="font-display font-bold text-[#C8B1E4]" style={{ fontSize: '36px', lineHeight: 1 }}>2</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[1].gradient} size="md"/></div>
+                <div className="flex justify-center my-3"><AgentAvatar index={top3[1].gradient} size="md" shape="circle"/></div>
                 <p className="font-display font-bold text-[#F4EFFA] mb-1 break-words">{top3[1].name}</p>
                 <p className="text-xs text-[#A78BCF]">{top3[1].rentals} {t('lb.col.rentals').toLowerCase()}</p>
                 <p className="font-stat text-sm text-[#F59E0B] mt-1">★ {top3[1].rating}</p>
               </Link>
               {/* 1st */}
-              <Link href={`/agents/${top3[0].slug}`} className="card-hover bg-[#1A1130] border border-[#532B88] rounded-2xl p-6 text-center glow-soft sm:-mt-4 order-1 sm:order-2" style={{ boxShadow: '0 0 32px rgba(139,92,246,0.25)' }}>
+              <Link href={`/agenthub/agents/${top3[0].slug}`} className="card-hover bg-[#1A1130] border border-[#532B88] rounded-2xl p-6 text-center glow-soft sm:-mt-4 order-1 sm:order-2" style={{ boxShadow: '0 0 32px rgba(139,92,246,0.25)' }}>
                 <p className="font-display font-bold text-[#F4EFFA]" style={{ fontSize: '48px', lineHeight: 1 }}>1</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[0].gradient} size="lg"/></div>
+                <div className="flex justify-center my-3"><AgentAvatar index={top3[0].gradient} size="lg" shape="circle"/></div>
                 <div className="flex items-center justify-center gap-1.5 mb-1 flex-wrap">
                   <p className="font-display font-bold text-lg text-[#F5F1FA] break-words">{top3[0].name}</p>
                   {top3[0].verified && <ShieldCheck className="w-4 h-4 text-[#10B981]"/>}
@@ -93,9 +93,9 @@ function LeaderboardContent() {
                 <p className="text-sm text-[#D6C5E8]"><span className="font-stat text-[#F5F1FA]">{top3[0].rentals}</span> {t('lb.col.rentals').toLowerCase()}</p>
               </Link>
               {/* 3rd */}
-              <Link href={`/agents/${top3[2].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-3">
+              <Link href={`/agenthub/agents/${top3[2].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-3">
                 <p className="font-display font-bold text-[#C8B1E4]" style={{ fontSize: '36px', lineHeight: 1 }}>3</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[2].gradient} size="md"/></div>
+                <div className="flex justify-center my-3"><AgentAvatar index={top3[2].gradient} size="md" shape="circle"/></div>
                 <p className="font-display font-bold text-[#F4EFFA] mb-1 break-words">{top3[2].name}</p>
                 <p className="text-xs text-[#A78BCF]">{top3[2].rentals} {t('lb.col.rentals').toLowerCase()}</p>
                 <p className="font-stat text-sm text-[#F59E0B] mt-1">★ {top3[2].rating}</p>
@@ -123,7 +123,7 @@ function LeaderboardContent() {
                   <tr key={row.rank} className={`border-b border-[#251A40] hover:bg-[#1A152F] ${row.rank===1 ? 'bg-[#1A1130] border-l-2 border-l-[#532B88]' : ''}`}>
                     <td className="p-4 font-stat text-[#F5F1FA]">{row.rank}</td>
                     <td>
-                      <Link href={`/agents/${row.slug}`} className="flex items-center gap-2 hover:text-[#8B5CF6]">
+                      <Link href={`/agenthub/agents/${row.slug}`} className="flex items-center gap-2 hover:text-[#8B5CF6]">
                         <AgentAvatar index={row.gradient} size="xs"/>
                         <span className="font-display font-semibold text-[#F5F1FA]">{row.name}</span>
                         {row.verified && <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]"/>}
@@ -156,7 +156,7 @@ function LeaderboardContent() {
         <div className="mt-12 text-center bg-gradient-to-br from-[#1A152F] to-[#110D24] border border-[#251A40] rounded-2xl p-8">
           <h3 className="font-display text-2xl md:text-3xl font-bold text-[#F5F1FA] mb-2">{t('lb.join')}</h3>
           <p className="text-[#A78BCF] mb-5">{t('lb.joinsub')}</p>
-          <Link href="/creator/agents/new"><Button className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 h-11 px-6">{t('lb.createmine')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
+          <Link href="/code/agents/new"><Button className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 h-11 px-6">{t('lb.createmine')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
         </div>
       </div>
       <Footer/>

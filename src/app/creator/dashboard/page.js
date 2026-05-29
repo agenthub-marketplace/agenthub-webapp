@@ -1,23 +1,25 @@
-import { requireCreatorAccess } from '@/lib/auth/session';
-import { getCreatorAgentsForUser } from '@/server/agents/creator-agents';
-import { getCreatorRentalsForUser } from '@/server/rentals/creator-rentals';
-import CreatorDashboardContent from './creator-dashboard-content';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+function withQuery(path, query) {
+  const serializedQuery = new URLSearchParams(
+    Object.entries(query ?? {}).flatMap(([key, value]) => {
+      if (typeof value === 'string') {
+        return [[key, value]];
+      }
+
+      if (Array.isArray(value)) {
+        return value.map((item) => [key, item]);
+      }
+
+      return [];
+    }),
+  ).toString();
+
+  return serializedQuery ? `${path}?${serializedQuery}` : path;
+}
 
 export default async function CreatorDashboardPage({ searchParams }) {
-  const profile = await requireCreatorAccess('fr', '/creator/dashboard');
-  const creatorAgentsResult = await getCreatorAgentsForUser();
-  const creatorRentalsResult = await getCreatorRentalsForUser();
-  const params = searchParams ? await searchParams : {};
+  const query = searchParams ? await searchParams : {};
 
-  return (
-    <CreatorDashboardContent
-      creatorAgentsResult={creatorAgentsResult}
-      creatorRentalsResult={creatorRentalsResult}
-      locale="fr"
-      profile={profile}
-      submittedSlug={typeof params?.submitted === 'string' ? params.submitted : null}
-    />
-  );
+  redirect(withQuery('/code/dashboard', query));
 }

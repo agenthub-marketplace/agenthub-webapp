@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import AgentCard from '@/components/AgentCard';
 import { agentsList, userReviews } from '@/lib/mock-data';
+import { formatCreditsFromCents } from '@/lib/format-credits';
 import { Download, Edit3, Heart, Star, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/lib/i18n';
@@ -366,7 +367,7 @@ function DashboardPage({
                           {rentalStatusLabel(rental.status, lang)}
                         </span>
                         <span className="font-stat text-[#F5F1FA]">
-                          €{Math.round((rental.priceCents ?? 0) / 100)}
+                          {formatCreditsFromCents(rental.priceCents)}
                         </span>
                       </div>
                       <p className="text-xs text-[#A78BCF] mb-4">
@@ -570,7 +571,7 @@ function DashboardPage({
                       <td className="p-3 text-[#F5F1FA] font-display font-semibold">{h.agent}</td>
                       <td className="text-[#D6C5E8]">{h.mode}</td>
                       <td className="text-[#A78BCF]">{h.dates}</td>
-                      <td className="text-right font-stat text-[#F5F1FA]">€{Math.round(h.price / 100)}</td>
+                      <td className="text-right font-stat text-[#F5F1FA]">{formatCreditsFromCents(h.price)}</td>
                       <td>
                         <div className="flex gap-0.5">
                           {Array.from({ length: h.rating ?? 0 }).map((_,i)=><Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]"/>)}
@@ -706,7 +707,7 @@ function DashboardPage({
                     </div>
                     <div className="mb-4 flex items-center justify-between text-sm text-[#D6C5E8]">
                       <span>{new Date(payment.createdAt).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR')}</span>
-                      <span className="font-stat text-[#F5F1FA]">€{Math.round((payment.amountCents ?? 0) / 100)}</span>
+                      <span className="font-stat text-[#F5F1FA]">{formatCreditsFromCents(payment.amountCents)}</span>
                     </div>
                     {payment.status === 'paid_blocked' && (
                       <div className="mb-4 rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">

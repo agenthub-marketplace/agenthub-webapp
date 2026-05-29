@@ -110,8 +110,8 @@ function OnboardingCreator() {
               <h1 className="font-display text-3xl md:text-5xl font-bold mb-3 text-[#F5F1FA]">Vous êtes prêt à publier</h1>
               <p className="text-[#D6C5E8] mb-8">Créez votre premier agent IA</p>
               <div className="flex flex-wrap gap-3 justify-center">
-                <Button onClick={()=>router.push('/creator/agents/new')} className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-7">Créer mon premier agent <ArrowRight className="w-4 h-4 ml-2"/></Button>
-                <Button onClick={()=>router.push('/search')} variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F] h-12 px-6">Explorer d’abord</Button>
+                <Button onClick={()=>router.push('/code/agents/new')} className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-7">Créer mon premier agent <ArrowRight className="w-4 h-4 ml-2"/></Button>
+                <Button onClick={()=>router.push('/agenthub/search')} variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F] h-12 px-6">Explorer d’abord</Button>
               </div>
             </div>
           )}

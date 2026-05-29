@@ -3,17 +3,17 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Bot, CheckCircle2, Clock, Plus, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Bot, CheckCircle2, Clock, Euro, Plus, ShieldAlert, Sparkles, Users } from 'lucide-react';
 
 const copy = {
   fr: {
     eyebrow: 'Mode créateur',
-    title: 'Tableau de bord créateur',
-    subtitle: 'Gérez vos agents soumis à validation et suivez leur statut beta.',
-    create: 'Soumettre un agent',
+    title: 'Console AgentHub Code',
+    subtitle: 'Publiez, suivez la validation et pilotez l’activité de vos agents.',
+    create: 'Créer un agent',
     realAgents: 'Agents soumis',
     emptyTitle: 'Aucun agent soumis',
     emptyText: 'Créez votre premier agent pour démarrer la validation manuelle AgentHub.',
@@ -110,19 +110,19 @@ const copy = {
 };
 
 const statusTone = {
-  draft: 'border-[#6F5B8F]/40 bg-[#6F5B8F]/10 text-[#C8B1E4]',
-  submitted: 'border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#F6C177]',
-  in_review: 'border-[#8B5CF6]/40 bg-[#8B5CF6]/10 text-[#C4B5FD]',
-  approved: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#6EE7B7]',
-  rejected: 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]',
-  suspended: 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#FCA5A5]',
-  pending: 'border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#F6C177]',
-  accepted: 'border-[#8B5CF6]/40 bg-[#8B5CF6]/10 text-[#C4B5FD]',
-  in_progress: 'border-[#0EA5E9]/40 bg-[#0EA5E9]/10 text-[#7DD3FC]',
-  delivered: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#6EE7B7]',
-  active: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#6EE7B7]',
-  expired: 'border-[#6B7280]/40 bg-[#6B7280]/10 text-[#D1D5DB]',
-  cancelled: 'border-[#6B7280]/40 bg-[#6B7280]/10 text-[#D1D5DB]',
+  draft: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
+  submitted: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
+  in_review: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
+  approved: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
+  rejected: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
+  suspended: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
+  pending: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
+  accepted: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
+  in_progress: 'border-[#7DD3FC] bg-[#F0F9FF] text-[#075985]',
+  delivered: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
+  active: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
+  expired: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
+  cancelled: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
 };
 
 const accessAnalyticsStatuses = ['active', 'accepted', 'in_progress', 'delivered'];
@@ -166,7 +166,7 @@ function getAgentStatusLabel(agent, t) {
 }
 
 function Panel({ children, className = '' }) {
-  return <div className={`rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5 ${className}`}>{children}</div>;
+  return <div className={`rounded-2xl border border-[#E3E7F2] bg-white p-5 shadow-sm ${className}`}>{children}</div>;
 }
 
 export default function CreatorDashboardContent({
@@ -181,8 +181,8 @@ export default function CreatorDashboardContent({
   const agents = creatorAgentsResult?.agents ?? [];
   const rentals = creatorRentalsResult?.rentals ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
-  const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/creator/agents/new';
-  const editAgentPath = (agentId) => `/creator/agents/${agentId}/edit`;
+  const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/code/agents/new';
+  const editAgentPath = (agentId) => `/code/agents/${agentId}/edit`;
 
   useEffect(() => {
     const refresh = () => {
@@ -195,42 +195,51 @@ export default function CreatorDashboardContent({
     return () => window.clearInterval(interval);
   }, [router]);
 
-  const stats = [
-    { label: t.statuses.submitted, value: agents.filter((agent) => agent.status === 'submitted').length },
-    { label: t.statuses.in_review, value: agents.filter((agent) => agent.status === 'in_review').length },
-    { label: t.statuses.approved, value: agents.filter((agent) => agent.status === 'approved').length },
-    { label: t.statuses.rejected, value: agents.filter((agent) => agent.status === 'rejected').length },
-  ];
   const activeAccessRentals = rentals.filter((rental) => accessAnalyticsStatuses.includes(rental.status));
   const estimatedRevenueCents = activeAccessRentals.reduce((sum, rental) => sum + (rental.priceCents ?? 0), 0);
+  const stats = [
+    { label: t.realAgents, value: agents.length, icon: Bot },
+    { label: t.statuses.in_review, value: agents.filter((agent) => agent.status === 'in_review').length, icon: ShieldAlert },
+    { label: t.statuses.approved, value: agents.filter((agent) => agent.status === 'approved').length, icon: CheckCircle2 },
+    { label: locale === 'en' ? 'Active access' : 'Accès actifs', value: activeAccessRentals.length, icon: Users },
+  ];
 
   return (
-    <div className="min-h-screen">
-      <Navbar profile={profile} />
+    <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
+      <AgentHubCodeNavbar profile={profile} />
       <main className="container py-10">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="font-label mb-2 text-xs text-[#9B72CF]">{t.eyebrow}</p>
-            <h1 className="font-display text-4xl font-bold text-[#F4EFFA] md:text-5xl">{t.title}</h1>
-            <p className="mt-2 text-[#C8B1E4]">{t.subtitle}</p>
+        <div className="mb-8 overflow-hidden rounded-3xl border border-[#E3E7F2] bg-white p-6 shadow-sm md:p-8">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <p className="font-label mb-2 text-xs text-[#6B3FA0]">{t.eyebrow}</p>
+              <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">{t.title}</h1>
+              <p className="mt-3 max-w-2xl text-[#4B5563]">{t.subtitle}</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+              <Link href="/code/docs">
+                <Button variant="outline" className="h-11 border-[#D8DDEE] bg-white px-5 text-[#111827] hover:border-[#8B5CF6] hover:bg-[#F1F3F8]">
+                  Docs
+                </Button>
+              </Link>
+              {hasProfile ? (
+                <Link href={newAgentPath}>
+                  <Button className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44]">
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t.create}
+                  </Button>
+                </Link>
+              ) : (
+                <Button disabled className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm disabled:opacity-50">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t.create}
+                </Button>
+              )}
+            </div>
           </div>
-          {hasProfile ? (
-            <Link href={newAgentPath}>
-              <Button className="h-11 border-0 bg-[#532B88] px-5 text-white glow-primary hover:bg-[#7C3AED]">
-                <Plus className="mr-2 h-4 w-4" />
-                {t.create}
-              </Button>
-            </Link>
-          ) : (
-            <Button disabled className="h-11 border-0 bg-[#532B88] px-5 text-white glow-primary hover:bg-[#7C3AED] disabled:opacity-50">
-              <Plus className="mr-2 h-4 w-4" />
-              {t.create}
-            </Button>
-          )}
         </div>
 
         {submittedSlug && (
-          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+          <div className="mb-6 rounded-2xl border border-[#86EFAC] bg-[#F0FDF4] p-4 text-sm text-[#166534]">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
               {t.submitted}
@@ -239,11 +248,11 @@ export default function CreatorDashboardContent({
         )}
 
         {creatorAgentsResult?.creatorProfileMissing && (
-          <Panel className="mb-6 border-[#F59E0B]/35 bg-[#F59E0B]/10">
-            <div className="flex gap-3 text-[#F6C177]">
+          <Panel className="mb-6 border-[#FCD34D] bg-[#FFFBEB]">
+            <div className="flex gap-3 text-[#92400E]">
               <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
-                <h2 className="font-display text-lg font-bold text-[#F4EFFA]">{t.missingTitle}</h2>
+                <h2 className="font-display text-lg font-bold text-[#111827]">{t.missingTitle}</h2>
                 <p className="mt-1 text-sm leading-relaxed">{t.missingText}</p>
               </div>
             </div>
@@ -251,8 +260,8 @@ export default function CreatorDashboardContent({
         )}
 
         {creatorAgentsResult?.error && (
-          <Panel className="mb-6 border-[#EF4444]/35 bg-[#EF4444]/10">
-            <div className="flex items-center gap-2 text-sm text-[#FCA5A5]">
+          <Panel className="mb-6 border-[#FCA5A5] bg-[#FEF2F2]">
+            <div className="flex items-center gap-2 text-sm text-[#991B1B]">
               <AlertTriangle className="h-4 w-4" />
               {t.loadError}
             </div>
@@ -262,63 +271,66 @@ export default function CreatorDashboardContent({
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {stats.map((stat) => (
             <Panel key={stat.label}>
-              <p className="font-label mb-2 text-xs text-[#9B72CF]">{stat.label}</p>
-              <p className="font-stat text-3xl text-[#F4EFFA] glow-text">{stat.value}</p>
+              <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+                <stat.icon className="h-4 w-4" />
+              </div>
+              <p className="font-label mb-2 text-xs text-[#6B7280]">{stat.label}</p>
+              <p className="font-stat text-3xl text-[#111827]">{stat.value}</p>
             </Panel>
           ))}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="space-y-6">
-            <div className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E]">
-              <div className="flex items-center justify-between border-b border-[#2F184B] p-5">
+            <div className="overflow-hidden rounded-2xl border border-[#E3E7F2] bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
                 <div>
-                  <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.rentalsTitle}</h2>
-                  <p className="mt-1 text-xs text-[#9B72CF]">
+                  <h2 className="font-display text-xl font-bold text-[#111827]">{t.rentalsTitle}</h2>
+                  <p className="mt-1 text-xs text-[#6B7280]">
                     {locale === 'en'
                       ? 'Beta accesses are activated automatically. Stripe is not connected yet.'
                       : 'Les accès beta sont activés automatiquement. Stripe n’est pas encore connecté.'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="block font-stat text-sm text-[#9B72CF]">{activeAccessRentals.length}</span>
-                  <span className="text-xs text-[#6F5B8F]">€{Math.round(estimatedRevenueCents / 100)}</span>
+                  <span className="block font-stat text-sm text-[#6B3FA0]">{activeAccessRentals.length}</span>
+                  <span className="text-xs text-[#6B7280]">€{Math.round(estimatedRevenueCents / 100)}</span>
                 </div>
               </div>
 
               {creatorRentalsResult?.error && (
-                <div className="p-5 text-sm text-[#FCA5A5]">{t.rentalsLoadError}</div>
+                <div className="p-5 text-sm text-[#991B1B]">{t.rentalsLoadError}</div>
               )}
 
               {!creatorRentalsResult?.error && rentals.length === 0 ? (
                 <div className="p-8 text-center">
-                  <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{t.rentalsEmptyTitle}</h3>
-                  <p className="mx-auto mt-2 max-w-md text-sm text-[#C8B1E4]">{t.rentalsEmptyText}</p>
+                  <h3 className="font-display text-lg font-bold text-[#111827]">{t.rentalsEmptyTitle}</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-[#6B7280]">{t.rentalsEmptyText}</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[#2F184B]">
+                <div className="divide-y divide-[#E3E7F2]">
                   {rentals.map((rental) => (
                     <article key={rental.id} className="grid gap-4 p-5 xl:grid-cols-[1fr_auto]">
                       <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{rental.agent?.name ?? 'AgentHub agent'}</h3>
+                          <h3 className="font-display text-lg font-bold text-[#111827]">{rental.agent?.name ?? 'AgentHub agent'}</h3>
                           <StatusBadge status={rental.status} label={t.rentalStatuses[rental.status] || rental.status} />
                         </div>
-                        <p className="text-sm text-[#C8B1E4]">
+                        <p className="text-sm text-[#4B5563]">
                           {rental.agent?.summary ?? (locale === 'en' ? 'Direct access activated.' : 'Accès direct activé.')}
                         </p>
-                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9B72CF]">
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#6B7280]">
                           <span>{rental.pricingType}</span>
                           <span>€{Math.round((rental.priceCents ?? 0) / 100)}</span>
                           <span>{new Date(rental.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}</span>
                         </div>
                       </div>
                       <div className="flex flex-wrap items-start gap-2 xl:justify-end">
-                        <div className="rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2 text-right">
-                          <p className="font-label text-[10px] text-[#9B72CF]">
+                        <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] px-3 py-2 text-right">
+                          <p className="font-label text-[10px] text-[#6B3FA0]">
                             {locale === 'en' ? 'Direct access' : 'Accès direct'}
                           </p>
-                          <p className="text-xs text-[#C8B1E4]">
+                          <p className="text-xs text-[#6B7280]">
                             {locale === 'en' ? 'No creator action required' : 'Aucune action créateur requise'}
                           </p>
                         </div>
@@ -329,53 +341,61 @@ export default function CreatorDashboardContent({
               )}
             </div>
 
-            <div className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E]">
-            <div className="flex items-center justify-between border-b border-[#2F184B] p-5">
-              <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.realAgents}</h2>
-              <span className="font-stat text-sm text-[#9B72CF]">{agents.length}</span>
+            <div className="overflow-hidden rounded-2xl border border-[#E3E7F2] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
+              <h2 className="font-display text-xl font-bold text-[#111827]">{t.realAgents}</h2>
+              <span className="font-stat text-sm text-[#6B3FA0]">{agents.length}</span>
             </div>
 
             {agents.length === 0 ? (
               <div className="flex min-h-[260px] flex-col items-center justify-center p-8 text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5F3FF] text-[#6B3FA0]">
                   <Bot className="h-6 w-6" />
                 </div>
-                <h3 className="font-display text-xl font-bold text-[#F4EFFA]">{t.emptyTitle}</h3>
-                <p className="mt-2 max-w-md text-sm text-[#C8B1E4]">{t.emptyText}</p>
+                <h3 className="font-display text-xl font-bold text-[#111827]">{t.emptyTitle}</h3>
+                <p className="mt-2 max-w-md text-sm text-[#6B7280]">{t.emptyText}</p>
+                {hasProfile && (
+                  <Link href={newAgentPath} className="mt-5">
+                    <Button className="border-0 bg-[#111827] text-white hover:bg-[#2B1A44]">
+                      <Plus className="mr-2 h-4 w-4" />
+                      {t.create}
+                    </Button>
+                  </Link>
+                )}
               </div>
             ) : (
-              <div className="divide-y divide-[#2F184B]">
+              <div className="divide-y divide-[#E3E7F2]">
                 {agents.map((agent) => (
                   <article key={agent.id} className="grid gap-4 p-5 md:grid-cols-[1fr_auto]">
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{agent.name}</h3>
+                        <h3 className="font-display text-lg font-bold text-[#111827]">{agent.name}</h3>
                         <StatusBadge status={agent.status} label={getAgentStatusLabel(agent, t)} />
                       </div>
-                      <p className="text-sm text-[#C8B1E4]">{agent.summary}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#9B72CF]">
+                      <p className="text-sm text-[#4B5563]">{agent.summary}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#6B7280]">
                         {agent.categoryName && <span>{agent.categoryName}</span>}
                         <span>{agent.pricingType}</span>
                         <span>{agent.riskLevel}</span>
                       </div>
                       {agent.latestAdminReview && (
-                        <div className="mt-4 rounded-xl border border-[#2F184B] bg-[#080612] p-3">
-                          <p className="font-label mb-1 text-[10px] text-[#9B72CF]">{t.adminFeedbackTitle}</p>
+                        <div className="mt-4 rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+                          <p className="font-label mb-1 text-[10px] text-[#6B3FA0]">{t.adminFeedbackTitle}</p>
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             <StatusBadge
                               status={agent.latestAdminReview.decision}
                               label={getAdminReviewLabel(agent.latestAdminReview, t)}
                             />
-                            <span className="text-xs text-[#7F6B9C]">
+                            <span className="text-xs text-[#6B7280]">
                               {new Date(agent.latestAdminReview.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}
                             </span>
                           </div>
-                          <p className="text-sm leading-relaxed text-[#C8B1E4]">
+                          <p className="text-sm leading-relaxed text-[#4B5563]">
                             {cleanAdminNotes(agent.latestAdminReview.notes) || t.adminFeedbackEmpty}
                           </p>
                           {agent.status === 'in_review' && isChangesRequest(agent.latestAdminReview) && (
                             <Link href={editAgentPath(agent.id)} className="mt-3 inline-flex">
-                              <Button size="sm" variant="outline" className="bg-transparent border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10">
+                              <Button size="sm" variant="outline" className="border-[#F59E0B] bg-white text-[#92400E] hover:bg-[#FFFBEB]">
                                 Modifier l’agent
                               </Button>
                             </Link>
@@ -383,7 +403,7 @@ export default function CreatorDashboardContent({
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-[#9B72CF]">
+                    <div className="flex items-center gap-2 text-xs text-[#6B7280]">
                       <Clock className="h-4 w-4" />
                       {new Date(agent.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR')}
                     </div>
@@ -395,12 +415,26 @@ export default function CreatorDashboardContent({
           </section>
 
           <Panel>
-            <p className="font-label mb-2 text-xs text-[#9B72CF]">{t.stripeTitle}</p>
-            <p className="text-sm leading-relaxed text-[#C8B1E4]">{t.stripeText}</p>
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+              <Euro className="h-4 w-4" />
+            </div>
+            <p className="font-label mb-2 text-xs text-[#6B3FA0]">{t.stripeTitle}</p>
+            <p className="text-sm leading-relaxed text-[#4B5563]">{t.stripeText}</p>
+            <div className="mt-5 rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
+              <Sparkles className="mb-3 h-4 w-4 text-[#6B3FA0]" />
+              <p className="font-display text-sm font-bold text-[#111827]">
+                {locale === 'en' ? 'Publication checklist' : 'Checklist publication'}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[#6B7280]">
+                {locale === 'en'
+                  ? 'A clear promise, bounded inputs and visible limits help validation move faster.'
+                  : 'Une promesse claire, des inputs cadrés et des limites visibles accélèrent la validation.'}
+              </p>
+            </div>
           </Panel>
         </div>
       </main>
-      <Footer />
+      <Footer variant="code" />
     </div>
   );
 }

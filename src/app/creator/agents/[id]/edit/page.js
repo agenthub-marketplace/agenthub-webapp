@@ -1,22 +1,26 @@
-import { requireCreatorAccess } from '@/lib/auth/session';
-import { getAgentCategoryOptions, getCreatorAgentForEdit } from '@/server/agents/creator-agents';
-import EditAgentContent from './edit-agent-content';
+import { redirect } from 'next/navigation';
 
-export default async function EditAgentPage({ params, searchParams }) {
+function withQuery(path, query) {
+  const serializedQuery = new URLSearchParams(
+    Object.entries(query ?? {}).flatMap(([key, value]) => {
+      if (typeof value === 'string') {
+        return [[key, value]];
+      }
+
+      if (Array.isArray(value)) {
+        return value.map((item) => [key, item]);
+      }
+
+      return [];
+    }),
+  ).toString();
+
+  return serializedQuery ? `${path}?${serializedQuery}` : path;
+}
+
+export default async function CreatorEditAgentRedirectPage({ params, searchParams }) {
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
-  const profile = await requireCreatorAccess('fr', '/creator/dashboard');
-  const [agentResult, categories] = await Promise.all([
-    getCreatorAgentForEdit(id),
-    getAgentCategoryOptions(),
-  ]);
 
-  return (
-    <EditAgentContent
-      agentResult={agentResult}
-      categories={categories}
-      error={typeof query?.error === 'string' ? query.error : null}
-      profile={profile}
-    />
-  );
+  redirect(withQuery(`/code/agents/${id}/edit`, query));
 }

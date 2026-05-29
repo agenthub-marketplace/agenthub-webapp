@@ -1,21 +1,28 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Navbar from '@/components/Navbar';
+import { useSearchParams } from 'next/navigation';
+import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentCard from '@/components/AgentCard';
 import { Search, X, Filter, ChevronDown, Star } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { formatCredits } from '@/lib/format-credits';
 import { translate, useT } from '@/lib/i18n';
 
 export default function SearchClient({ initialAgents = [], initialCategories = [], loadError = null, locale = null }) {
   const { t, lang } = useT();
+  const searchParams = useSearchParams();
   const effectiveLang = locale || lang;
   const copy = (key, vars) => (locale ? translate(locale, key, vars) : t(key, vars));
-  const [query, setQuery] = useState('');
+  const queryParam = searchParams.get('q') ?? '';
+  const [queryState, setQueryState] = useState(() => ({ source: queryParam, value: queryParam }));
+  const query = queryState.source === queryParam ? queryState.value : queryParam;
+  const setQuery = (value) => setQueryState({ source: queryParam, value });
   const [selectedCats, setSelectedCats] = useState([]);
+  const [agentTypes, setAgentTypes] = useState([]);
   const [maxPrice, setMaxPrice] = useState([200]);
   const [modes, setModes] = useState([]);
   const [level, setLevel] = useState('any');
@@ -39,6 +46,13 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
     if (selectedCats.length) {
       result = result.filter((agent) => selectedCats.includes(agent.categoryId));
+    }
+
+    if (agentTypes.length) {
+      result = result.filter((agent) => {
+        const agentType = agent.contract?.executionMode === 'llm_prompt' ? 'dialogue' : 'automation';
+        return agentTypes.includes(agentType);
+      });
     }
 
     result = result.filter((agent) => agent.fromPrice === null || agent.fromPrice <= maxPrice[0]);
@@ -65,7 +79,20 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
     else if (sort === 'rentals') result.sort((a, b) => b.rentals - a.rentals);
 
     return result;
-  }, [initialAgents, query, selectedCats, maxPrice, modes, level, minStars, certifiedOnly, sort]);
+  }, [initialAgents, query, selectedCats, agentTypes, maxPrice, modes, level, minStars, certifiedOnly, sort]);
+
+  const agentTypeOptions = [
+    { id: 'dialogue', label: 'Agent de Dialogue' },
+    { id: 'automation', label: "Agent d'automatisation" },
+  ];
+
+  const accessModeOptions = [
+    { id: 'task', label: 'Agent à la location' },
+    { id: 'project', label: "Agent à l'achat" },
+  ];
+
+  const getAccessModeLabel = (mode) => accessModeOptions.find((option) => option.id === mode)?.label ?? mode;
+  const getAgentTypeLabel = (type) => agentTypeOptions.find((option) => option.id === type)?.label ?? type;
 
   const activeChips = [
     ...selectedCats.map((id) => ({
@@ -73,8 +100,9 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
       label: initialCategories.find((category) => category.id === id)?.name,
       remove: () => setSelectedCats(selectedCats.filter((selected) => selected !== id)),
     })),
-    ...(maxPrice[0] < 200 ? [{ id: 'price', label: `${copy('srch.maxprice')} €${maxPrice[0]}`, remove: () => setMaxPrice([200]) }] : []),
-    ...(modes.length ? modes.map((mode) => ({ id: `m-${mode}`, label: mode === 'task' ? copy('g.pertask') : copy('g.perproject'), remove: () => setModes(modes.filter((selected) => selected !== mode)) })) : []),
+    ...(agentTypes.length ? agentTypes.map((type) => ({ id: `type-${type}`, label: getAgentTypeLabel(type), remove: () => setAgentTypes(agentTypes.filter((selected) => selected !== type)) })) : []),
+    ...(maxPrice[0] < 200 ? [{ id: 'price', label: `${copy('srch.maxprice')} ${formatCredits(maxPrice[0])}`, remove: () => setMaxPrice([200]) }] : []),
+    ...(modes.length ? modes.map((mode) => ({ id: `m-${mode}`, label: getAccessModeLabel(mode), remove: () => setModes(modes.filter((selected) => selected !== mode)) })) : []),
     ...(level !== 'any' ? [{ id: 'lvl', label: `${copy('srch.level')}: ${copy(`g.${level}`)}`, remove: () => setLevel('any') }] : []),
     ...(minStars > 0 ? [{ id: 'st', label: `${minStars}+ ★`, remove: () => setMinStars(0) }] : []),
     ...(certifiedOnly ? [{ id: 'cert', label: copy('srch.certifiedonly'), remove: () => setCertifiedOnly(false) }] : []),
@@ -82,6 +110,7 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
   const resetAll = () => {
     setSelectedCats([]);
+    setAgentTypes([]);
     setMaxPrice([200]);
     setModes([]);
     setLevel('any');
@@ -89,14 +118,9 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
     setCertifiedOnly(false);
   };
 
-  const modeOptions = [
-    { id: 'task', label: copy('g.pertask') },
-    { id: 'project', label: copy('g.perproject') },
-  ];
-
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <AgentHubNavbar />
       <div className="container py-8">
         <div className="relative mb-6">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9B72CF]" />
@@ -164,13 +188,23 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
               </div>
 
               <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.maxprice')} <span className="font-stat text-[#9B72CF] normal-case ml-2">€{maxPrice[0]}</span></h4>
+                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">Type d’agent</h4>
+                {agentTypeOptions.map((type) => (
+                  <label key={type.id} className="flex items-center gap-2 cursor-pointer mb-2">
+                    <Checkbox checked={agentTypes.includes(type.id)} onCheckedChange={(checked) => setAgentTypes(checked ? [...agentTypes, type.id] : agentTypes.filter((selected) => selected !== type.id))} className="border-[#2F184B] data-[state=checked]:bg-[#532B88] data-[state=checked]:border-[#532B88]" />
+                    <span className="text-sm text-[#C8B1E4]">{type.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.maxprice')} <span className="font-stat text-[#9B72CF] normal-case ml-2">{formatCredits(maxPrice[0])}</span></h4>
                 <Slider value={maxPrice} onValueChange={setMaxPrice} min={0} max={200} step={1} />
               </div>
 
               <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.mode')}</h4>
-                {modeOptions.map((mode) => (
+                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">Mode d’accès</h4>
+                {accessModeOptions.map((mode) => (
                   <label key={mode.id} className="flex items-center gap-2 cursor-pointer mb-2">
                     <Checkbox checked={modes.includes(mode.id)} onCheckedChange={(checked) => setModes(checked ? [...modes, mode.id] : modes.filter((selected) => selected !== mode.id))} className="border-[#2F184B] data-[state=checked]:bg-[#532B88] data-[state=checked]:border-[#532B88]" />
                     <span className="text-sm text-[#C8B1E4]">{mode.label}</span>

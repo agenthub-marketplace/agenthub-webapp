@@ -54,7 +54,7 @@ function OnboardingUser() {
         <div className="flex items-center justify-between mb-8">
           {step > 0 ? <button onClick={()=>setStep(step-1)} className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Précédent</button> : <Link href="/" className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Retour</Link>}
           <p className="text-sm text-[#A78BCF]">Étape {step+1} / {STEPS.length}</p>
-          {step < STEPS.length - 1 && <Link href="/dashboard" className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">Passer</Link>}
+          {step < STEPS.length - 1 && <Link href="/agenthub/dashboard" className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">Passer</Link>}
         </div>
 
         <div className="flex-1 flex flex-col justify-center">
@@ -143,14 +143,14 @@ function OnboardingUser() {
               <p className="text-[#D6C5E8] mb-8">Voici 3 agents recommandés pour vous</p>
               <div className="grid sm:grid-cols-3 gap-3 mb-8 text-left">
                 {recommended.map(a => (
-                  <Link key={a.id} href={`/agents/${a.slug}`} className="bg-[#110D24] border border-[#251A40] rounded-xl p-4 card-hover">
+                  <Link key={a.id} href={`/agenthub/agents/${a.slug}`} className="bg-[#110D24] border border-[#251A40] rounded-xl p-4 card-hover">
                     <AgentAvatar index={a.gradient} size="md" className="mb-3"/>
                     <p className="font-display font-bold text-sm text-[#F5F1FA]">{a.name}</p>
                     <p className="text-xs text-[#A78BCF]">{a.pitch}</p>
                   </Link>
                 ))}
               </div>
-              <Button onClick={()=>router.push('/search')} className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-8">Commencer à explorer <ArrowRight className="w-4 h-4 ml-2"/></Button>
+              <Button onClick={()=>router.push('/agenthub/search')} className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-8">Commencer à explorer <ArrowRight className="w-4 h-4 ml-2"/></Button>
             </div>
           )}
         </div>

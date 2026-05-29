@@ -1,23 +1,25 @@
-import { requireCreatorAccess } from '@/lib/auth/session';
-import { getAgentCategoryOptions, getCreatorProfileForUser } from '@/server/agents/creator-agents';
-import NewAgentContent from './new-agent-content';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+function withQuery(path, query) {
+  const serializedQuery = new URLSearchParams(
+    Object.entries(query ?? {}).flatMap(([key, value]) => {
+      if (typeof value === 'string') {
+        return [[key, value]];
+      }
 
-export default async function NewAgentPage({ searchParams }) {
-  const profile = await requireCreatorAccess('fr', '/creator/agents/new');
-  const creatorProfile = await getCreatorProfileForUser();
-  const categories = await getAgentCategoryOptions();
-  const params = searchParams ? await searchParams : {};
+      if (Array.isArray(value)) {
+        return value.map((item) => [key, item]);
+      }
 
-  return (
-    <NewAgentContent
-      categories={categories}
-      creatorProfileMissing={creatorProfile.creatorProfileMissing}
-      error={typeof params?.error === 'string' ? params.error : null}
-      locale="fr"
-      profile={profile}
-      profileError={creatorProfile.error}
-    />
-  );
+      return [];
+    }),
+  ).toString();
+
+  return serializedQuery ? `${path}?${serializedQuery}` : path;
+}
+
+export default async function CreatorNewAgentPage({ searchParams }) {
+  const query = searchParams ? await searchParams : {};
+
+  redirect(withQuery('/code/agents/new', query));
 }

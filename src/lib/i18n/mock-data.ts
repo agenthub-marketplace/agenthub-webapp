@@ -16,7 +16,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
       "Transforme des idées brutes en posts LinkedIn soignés et plans de contenu hebdomadaires.",
     longDescription:
       "Un agent de rédaction pour indépendants et consultants qui veulent publier régulièrement sur LinkedIn sans partir d’une page blanche. Il structure les idées, rédige les posts et prépare des variantes prêtes à publier.",
-    priceLabel: "Dès 29 € / tâche",
+    priceLabel: "Dès 29 crédits / tâche",
     estimatedDuration: "30-60 minutes",
     deliverables: [
       "3 brouillons de posts LinkedIn finalisés",
@@ -42,7 +42,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
       "Résume les contrats, signale les risques courants et prépare les questions pour une revue juridique.",
     longDescription:
       "Un agent d’analyse documentaire qui aide les petites entreprises à comprendre leurs contrats avant de consulter un juriste. Il met en évidence obligations, clauses inhabituelles, renouvellements et questions ouvertes.",
-    priceLabel: "Dès 79 € / projet",
+    priceLabel: "Dès 79 crédits / projet",
     estimatedDuration: "Même jour ouvré",
     deliverables: [
       "Résumé du contrat en langage clair",
@@ -63,7 +63,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Construit des listes de prospects ciblées à partir d’un ICP clair.",
     longDescription:
       "Un agent de recherche pour freelances et petites équipes B2B qui ont besoin de listes de prospects ciblées. Il transforme un profil client en recherche organisée avec notes de pertinence.",
-    priceLabel: "Dès 45 € / heure",
+    priceLabel: "Dès 45 crédits / heure",
     estimatedDuration: "2-4 heures",
     deliverables: ["Tableur de prospects", "Notes de pertinence", "Segmentation suggérée"],
     requiredInputs: ["Profil client idéal", "Zone géographique cible", "Secteurs ou types d’entreprises exclus"],
@@ -80,7 +80,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Extrait les détails des factures et prépare un suivi de paiement propre.",
     longDescription:
       "Un agent administratif qui aide les indépendants à organiser les factures, repérer les informations manquantes et créer un tableau de suivi simple.",
-    priceLabel: "Dès 19 € / tâche",
+    priceLabel: "Dès 19 crédits / tâche",
     estimatedDuration: "20-45 minutes",
     deliverables: ["Tableau récapitulatif des factures", "Checklist des informations manquantes", "Notes de relance paiement"],
     requiredInputs: ["Fichiers de factures", "Devise préférée", "Statut de paiement client optionnel"],
@@ -97,7 +97,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Crée des snapshots de marché concis pour offres, niches et concurrents.",
     longDescription:
       "Un agent de recherche pour fondateurs et consultants qui valident un marché. Il rassemble des constats structurés, notes concurrentielles, signaux d’audience et prochaines étapes.",
-    priceLabel: "Dès 120 € / projet",
+    priceLabel: "Dès 120 crédits / projet",
     estimatedDuration: "1-2 jours ouvrés",
     deliverables: ["Brief marché", "Comparaison concurrentielle", "Notes d’opportunités et risques"],
     requiredInputs: ["Marché ou niche", "Client cible", "Questions de recherche"],
@@ -114,7 +114,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Nettoie des tableurs désordonnés et rend un CSV prêt à analyser.",
     longDescription:
       "Un agent pratique pour nettoyer de petits datasets opérationnels. Il normalise les colonnes, signale les doublons et documente les hypothèses.",
-    priceLabel: "Dès 39 € / tâche",
+    priceLabel: "Dès 39 crédits / tâche",
     estimatedDuration: "1-3 heures",
     deliverables: ["Fichier CSV nettoyé", "Rapport doublons et anomalies", "Notes de nettoyage"],
     requiredInputs: ["CSV ou tableur", "Format de colonnes souhaité", "Règles de nettoyage connues"],
@@ -131,7 +131,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Rédige des séquences email personnalisées à partir d’une liste de prospects.",
     longDescription:
       "Un agent de copywriting outbound qui aide créateurs et consultants à transformer une offre simple en séquences email concises par segment.",
-    priceLabel: "Dès 50 € / heure",
+    priceLabel: "Dès 50 crédits / heure",
     estimatedDuration: "2 heures",
     deliverables: ["Séquence de 3 emails", "Options d’objets", "Champs de personnalisation"],
     requiredInputs: ["Description de l’offre", "Segment prospect", "Ton et contraintes souhaités"],
@@ -148,7 +148,7 @@ const agentFr: Record<string, Partial<MockAgent>> = {
     shortDescription: "Cartographie les routines admin répétitives et propose un plan d’automatisation sûr.",
     longDescription:
       "Un agent de design workflow qui transforme les routines admin floues en brief d’automatisation clair avec étapes, outils, risques et chemin simple.",
-    priceLabel: "Dès 95 € / projet",
+    priceLabel: "Dès 95 crédits / projet",
     estimatedDuration: "1 jour ouvré",
     deliverables: ["Carte du workflow", "Liste d’opportunités d’automatisation", "Brief d’implémentation"],
     requiredInputs: ["Description du workflow actuel", "Outils utilisés", "Contraintes connues"],

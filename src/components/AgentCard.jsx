@@ -3,13 +3,17 @@ import Link from 'next/link';
 import { Star, ShieldCheck, TrendingUp } from 'lucide-react';
 import AgentAvatar from '@/components/AgentAvatar';
 import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
+import { euroLabelToCredits, formatCredits } from '@/lib/format-credits';
 import { useT } from '@/lib/i18n';
 
 export default function AgentCard({ agent, variant = 'dark' }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const ratingLabel = agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'New';
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
-  const priceModeLabel = agent.priceMode === 'project' ? t('g.perproject') : t('g.pertask');
+  const creditLabel = hasPrice ? formatCredits(agent.fromPrice) : euroLabelToCredits(agent.priceLabel);
+  const priceModeLabel = agent.priceMode === 'project'
+    ? (lang === 'en' ? 'Agent purchase' : "Agent à l'achat")
+    : (lang === 'en' ? 'Agent rental' : 'Agent à la location');
   const workspaceLabel = WORKSPACE_MODE_LABELS[agent.contract?.workspaceMode] || null;
   const isLight = variant === 'light';
   const card = isLight
@@ -22,7 +26,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
   const divider = isLight ? 'border-[#E8DFCB]' : 'border-[#251A40]';
   const avatarChip = isLight ? 'bg-[#F4EFE0] border-[#E8DFCB] text-[#5B4880]' : 'bg-[#1A152F] border-[#251A40] text-[#D6C5E8]';
   return (
-    <Link href={`/agents/${agent.slug}`} className="block group">
+    <Link href={`/agenthub/agents/${agent.slug}`} className="block group">
       <div className={`card-hover ${card} rounded-2xl p-5 h-full flex flex-col`}>
         <div className="flex items-start justify-between mb-4">
           <AgentAvatar index={agent.gradient} size="lg" />
@@ -56,7 +60,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
           <div className="text-right">
             {hasPrice ? (
               <>
-                <span className={`font-stat text-base ${title}`}>{agent.priceLabel ?? `€${agent.fromPrice}`}</span>
+                <span className={`font-stat text-base ${title}`}>{creditLabel}</span>
                 <span className={`block text-xs ${muted}`}>{priceModeLabel}</span>
               </>
             ) : (
