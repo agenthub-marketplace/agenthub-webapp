@@ -8,7 +8,7 @@ import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ReviewDecision = "approve" | "reject" | "changes" | "start_review";
-type ModerationAction = "suspend" | "restore";
+type ModerationAction = "suspend" | "restore" | "archive";
 
 type AgentReviewRow = {
   id: string;
@@ -21,7 +21,7 @@ type AgentModerationRow = {
   id: string;
   active_version_id: string | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
-  status: "approved" | "suspended" | "submitted" | "in_review" | "rejected" | "draft";
+  status: "approved" | "suspended" | "submitted" | "in_review" | "rejected" | "draft" | "archived";
 };
 
 function readText(formData: FormData, key: string) {
@@ -34,7 +34,7 @@ function isReviewDecision(value: string): value is ReviewDecision {
 }
 
 function isModerationAction(value: string): value is ModerationAction {
-  return value === "suspend" || value === "restore";
+  return value === "suspend" || value === "restore" || value === "archive";
 }
 
 function readLocale(formData: FormData): Locale {
@@ -170,7 +170,7 @@ export async function moderateAgentPublicationAction(formData: FormData) {
   }
 
   const expectedStatus = action === "suspend" ? "approved" : "suspended";
-  const nextStatus = action === "suspend" ? "suspended" : "approved";
+  const nextStatus = action === "suspend" ? "suspended" : action === "restore" ? "approved" : "archived";
 
   const { data: agent, error: agentError } = await supabase
     .from("agents")

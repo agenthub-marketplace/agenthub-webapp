@@ -43,9 +43,9 @@ function accessStopMessage(value) {
 }
 
 function unavailableRentalCopy(rental) {
-  if (rental.agent?.status === 'suspended') {
+  if (rental.agent?.status === 'suspended' || rental.agent?.status === 'archived') {
     return {
-      label: 'Agent suspendu',
+      label: rental.agent?.status === 'archived' ? 'Agent archivé' : 'Agent suspendu',
       text: 'Ce workspace est fermé pendant la vérification AgentHub.',
       tone: 'warning',
     };

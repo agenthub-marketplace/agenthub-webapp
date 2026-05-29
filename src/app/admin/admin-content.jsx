@@ -47,6 +47,7 @@ const agentStatusLabels = {
   approved: 'Publié',
   rejected: 'Rejeté',
   suspended: 'Suspendu',
+  archived: 'Archivé',
 };
 
 const agentStatusClasses = {
@@ -56,6 +57,7 @@ const agentStatusClasses = {
   approved: 'border-[#10B981]/30 bg-[#10B981]/10 text-[#6EE7B7]',
   rejected: 'border-[#EF4444]/30 bg-[#EF4444]/10 text-[#FCA5A5]',
   suspended: 'border-[#F97316]/30 bg-[#F97316]/10 text-[#FDBA74]',
+  archived: 'border-[#6B7280]/30 bg-[#6B7280]/10 text-[#D1D5DB]',
 };
 
 function hasChangesRequest(agent) {
@@ -390,7 +392,7 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
             <div className="border-b border-[#251A40] p-5">
               <p className="font-display text-xl font-bold text-[#F5F1FA]">Tous les agents</p>
               <p className="mt-1 text-xs text-[#A78BCF]">
-                Backup sécurité : suspendez temporairement un agent publié pour le retirer de la marketplace, puis remettez-le en ligne après vérification.
+                Backup sécurité : suspendez temporairement un agent publié pour le retirer de la marketplace. Les agents suspendus peuvent ensuite être archivés pour nettoyer cette liste sans supprimer l’historique.
               </p>
             </div>
             {managedAgentsError && (
@@ -436,16 +438,28 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                         </form>
                       )}
                       {agent.status === 'suspended' && (
-                        <form action={moderateAgentPublicationAction}>
-                          <input type="hidden" name="agent_id" value={agent.id} />
-                          <input type="hidden" name="moderation_action" value="restore" />
-                          <input type="hidden" name="locale" value={locale} />
-                          <input type="hidden" name="reason" value="Admin restored publication after safety review" />
-                          <Button type="submit" size="sm" className="border-0 bg-[#10B981] text-white hover:bg-[#059669]">
-                            <Check className="mr-1 h-4 w-4" />
-                            Remettre en ligne
-                          </Button>
-                        </form>
+                        <>
+                          <form action={moderateAgentPublicationAction}>
+                            <input type="hidden" name="agent_id" value={agent.id} />
+                            <input type="hidden" name="moderation_action" value="restore" />
+                            <input type="hidden" name="locale" value={locale} />
+                            <input type="hidden" name="reason" value="Admin restored publication after safety review" />
+                            <Button type="submit" size="sm" className="border-0 bg-[#10B981] text-white hover:bg-[#059669]">
+                              <Check className="mr-1 h-4 w-4" />
+                              Remettre en ligne
+                            </Button>
+                          </form>
+                          <form action={moderateAgentPublicationAction}>
+                            <input type="hidden" name="agent_id" value={agent.id} />
+                            <input type="hidden" name="moderation_action" value="archive" />
+                            <input type="hidden" name="locale" value={locale} />
+                            <input type="hidden" name="reason" value="Admin archived suspended agent after safety removal" />
+                            <Button type="submit" size="sm" variant="outline" className="bg-transparent border-[#6B7280] text-[#D1D5DB] hover:bg-[#6B7280]/10">
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              Archiver définitivement
+                            </Button>
+                          </form>
+                        </>
                       )}
                       {!['approved', 'suspended'].includes(agent.status) && (
                         <span className="rounded-lg border border-[#251A40] px-3 py-2 text-xs text-[#7F6B9C]">

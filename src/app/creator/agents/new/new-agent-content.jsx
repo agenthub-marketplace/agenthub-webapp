@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
 import { Button } from '@/components/ui/button';
@@ -153,6 +153,31 @@ function Field({ children, hint, label, wide = false }) {
 const inputClass =
   'w-full rounded-xl border border-[#D8DDEE] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/15';
 
+const initialFormValues = {
+  name: '',
+  category_id: '',
+  short_description: '',
+  target_user: '',
+  long_description: '',
+  does: '',
+  does_not_do: '',
+  required_inputs: '',
+  deliverables: '',
+  sample_output: '',
+  known_limits: '',
+  pricing_type: 'task',
+  starting_price_eur: '',
+  risk_level: 'low',
+  pricing_hint: '',
+  execution_method: '',
+  workspace_mode: 'instant',
+  setup_type: 'none',
+  output_promise_summary: '',
+  output_promise_examples: '',
+  setup_items: '',
+  execution_mode: 'llm_prompt',
+};
+
 function Alert({ children, tone = 'warning', title }) {
   const classes =
     tone === 'error'
@@ -183,26 +208,44 @@ export default function NewAgentContent({
   const t = copy[locale] || copy.fr;
   const action = submitAgentForReviewAction.bind(null, locale);
   const formRef = useRef(null);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [formValues, setFormValues] = useState(initialFormValues);
   const errorMessage = error && t.errors[error] ? t.errors[error] : null;
   const canSubmit = categories.length > 0 && !creatorProfileMissing && !profileError;
   const dashboardPath = locale === 'en' ? '/en/creator/dashboard' : '/code/dashboard';
 
-  function handleTemplateChange(event) {
-    const template = AGENT_TEMPLATES.find((item) => item.key === event.target.value);
-    const values = templateToCreatorFormValues(template, categories);
-    const form = formRef.current;
+  function fieldProps(name) {
+    return {
+      value: formValues[name] ?? '',
+      onChange: (event) => {
+        setFormValues((current) => ({
+          ...current,
+          [name]: event.target.value,
+        }));
+      },
+    };
+  }
 
-    if (!values || !form) {
+  function handleTemplateChange(event) {
+    const templateKey = event.target.value;
+    setSelectedTemplate(templateKey);
+
+    if (!templateKey) {
+      setFormValues(initialFormValues);
       return;
     }
 
-    Object.entries(values).forEach(([name, value]) => {
-      const field = form.elements.namedItem(name);
+    const template = AGENT_TEMPLATES.find((item) => item.key === templateKey);
+    const values = templateToCreatorFormValues(template, categories);
 
-      if (field && 'value' in field) {
-        field.value = value;
-      }
-    });
+    if (!values) {
+      return;
+    }
+
+    setFormValues((current) => ({
+      ...current,
+      ...values,
+    }));
   }
 
   return (
@@ -239,7 +282,7 @@ export default function NewAgentContent({
           <form ref={formRef} action={action} className="mt-8 space-y-6">
             <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
               <Field label={t.template} hint={t.templateHint}>
-                <select name="agent_template" className={inputClass} defaultValue="" onChange={handleTemplateChange}>
+                <select name="agent_template" className={inputClass} value={selectedTemplate} onChange={handleTemplateChange}>
                   <option value="">{t.templatePlaceholder}</option>
                   {AGENT_TEMPLATES.map((template) => (
                     <option key={template.key} value={template.key}>
@@ -254,10 +297,10 @@ export default function NewAgentContent({
               <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.core}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.name}>
-                  <input name="name" required placeholder="LegalDraft Pro" className={inputClass} />
+                  <input name="name" required placeholder="LegalDraft Pro" className={inputClass} {...fieldProps('name')} />
                 </Field>
                 <Field label={t.category}>
-                  <select name="category_id" required className={inputClass} defaultValue="">
+                  <select name="category_id" required className={inputClass} {...fieldProps('category_id')}>
                     <option value="" disabled />
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
@@ -267,13 +310,13 @@ export default function NewAgentContent({
                   </select>
                 </Field>
                 <Field label={t.shortDescription}>
-                  <input name="short_description" required className={inputClass} />
+                  <input name="short_description" required className={inputClass} {...fieldProps('short_description')} />
                 </Field>
                 <Field label={t.targetUser}>
-                  <input name="target_user" required className={inputClass} />
+                  <input name="target_user" required className={inputClass} {...fieldProps('target_user')} />
                 </Field>
                 <Field label={t.longDescription} wide>
-                  <textarea name="long_description" required rows={5} className={inputClass} />
+                  <textarea name="long_description" required rows={5} className={inputClass} {...fieldProps('long_description')} />
                 </Field>
               </div>
             </section>
@@ -282,25 +325,25 @@ export default function NewAgentContent({
               <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.delivery}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.does} hint={t.lineHint}>
-                  <textarea name="does" required rows={5} className={inputClass} />
+                  <textarea name="does" required rows={5} className={inputClass} {...fieldProps('does')} />
                 </Field>
                 <Field label={t.doesNotDo} hint={t.lineHint}>
-                  <textarea name="does_not_do" required rows={5} className={inputClass} />
+                  <textarea name="does_not_do" required rows={5} className={inputClass} {...fieldProps('does_not_do')} />
                 </Field>
                 <Field label={t.requiredInputs} hint={t.lineHint}>
-                  <textarea name="required_inputs" required rows={4} className={inputClass} />
+                  <textarea name="required_inputs" required rows={4} className={inputClass} {...fieldProps('required_inputs')} />
                 </Field>
                 <Field label={t.deliverables} hint={t.lineHint}>
-                  <textarea name="deliverables" required rows={4} className={inputClass} />
+                  <textarea name="deliverables" required rows={4} className={inputClass} {...fieldProps('deliverables')} />
                 </Field>
                 <Field label={t.sampleOutput}>
-                  <textarea name="sample_output" required rows={4} className={inputClass} />
+                  <textarea name="sample_output" required rows={4} className={inputClass} {...fieldProps('sample_output')} />
                 </Field>
                 <Field label={t.knownLimits} hint={t.lineHint}>
-                  <textarea name="known_limits" required rows={4} className={inputClass} />
+                  <textarea name="known_limits" required rows={4} className={inputClass} {...fieldProps('known_limits')} />
                 </Field>
                 <Field label={t.pricingType}>
-                  <select name="pricing_type" required className={inputClass} defaultValue="task">
+                  <select name="pricing_type" required className={inputClass} {...fieldProps('pricing_type')}>
                     <option value="task">{t.task}</option>
                     <option value="project">{t.project}</option>
                   </select>
@@ -315,10 +358,11 @@ export default function NewAgentContent({
                     inputMode="decimal"
                     placeholder="99"
                     className={inputClass}
+                    {...fieldProps('starting_price_eur')}
                   />
                 </Field>
                 <Field label={t.riskLevel}>
-                  <select name="risk_level" required className={inputClass} defaultValue="low">
+                  <select name="risk_level" required className={inputClass} {...fieldProps('risk_level')}>
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
@@ -326,10 +370,10 @@ export default function NewAgentContent({
                   </select>
                 </Field>
                 <Field label={t.pricingHint} hint={t.pricingDetailsHint}>
-                  <input name="pricing_hint" required placeholder="Ex: includes one deliverable and one revision" className={inputClass} />
+                  <input name="pricing_hint" required placeholder="Ex: includes one deliverable and one revision" className={inputClass} {...fieldProps('pricing_hint')} />
                 </Field>
                 <Field label={t.executionMethod}>
-                  <input name="execution_method" required placeholder={locale === 'en' ? 'Example: user context, text input, public URLs' : 'Exemple : contexte utilisateur, texte, URLs publiques'} className={inputClass} />
+                  <input name="execution_method" required placeholder={locale === 'en' ? 'Example: user context, text input, public URLs' : 'Exemple : contexte utilisateur, texte, URLs publiques'} className={inputClass} {...fieldProps('execution_method')} />
                 </Field>
               </div>
             </section>
@@ -338,7 +382,7 @@ export default function NewAgentContent({
               <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{t.contract}</h2>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label={t.workspaceMode}>
-                  <select name="workspace_mode" required className={inputClass} defaultValue="instant">
+                  <select name="workspace_mode" required className={inputClass} {...fieldProps('workspace_mode')}>
                     {WORKSPACE_MODE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -347,7 +391,7 @@ export default function NewAgentContent({
                   </select>
                 </Field>
                 <Field label={t.setupType}>
-                  <select name="setup_type" required className={inputClass} defaultValue="none">
+                  <select name="setup_type" required className={inputClass} {...fieldProps('setup_type')}>
                     {SETUP_REQUIREMENT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -360,16 +404,17 @@ export default function NewAgentContent({
                     name="output_promise_summary"
                     placeholder={locale === 'en' ? 'What the user can expect after opening the workspace' : 'Ce que l’utilisateur peut obtenir en ouvrant le workspace'}
                     className={inputClass}
+                    {...fieldProps('output_promise_summary')}
                   />
                 </Field>
                 <Field label={t.outputPromiseExamples} hint={t.lineHint}>
-                  <textarea name="output_promise_examples" rows={4} className={inputClass} />
+                  <textarea name="output_promise_examples" rows={4} className={inputClass} {...fieldProps('output_promise_examples')} />
                 </Field>
                 <Field label={t.setupItems} hint={t.lineHint}>
-                  <textarea name="setup_items" rows={4} className={inputClass} />
+                  <textarea name="setup_items" rows={4} className={inputClass} {...fieldProps('setup_items')} />
                 </Field>
                 <Field label={t.executionMode} hint={t.executionModeHint}>
-                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
+                  <select name="execution_mode" required className={inputClass} {...fieldProps('execution_mode')}>
                     {EXECUTION_MODE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}

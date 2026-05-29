@@ -1,6 +1,6 @@
 # AgentHub current state
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ## Summary
 
@@ -82,9 +82,18 @@ Stripe sandbox is the production test path for closed beta.
 
 ## Progress framing
 
-- Closed internal beta: advanced / almost ready.
+- Closed internal beta: Day 1 base validated.
 - Public limited beta: not launched yet.
 - Real paid V1: later.
+
+Day 1 validation on 2026-05-28:
+
+- Admin archive flow was used to clean the existing agent catalog.
+- Creator template submission flow was validated with 5 agents.
+- Admin review and approval flow was validated.
+- User rent/access/workspace flow was validated.
+- LLM Runner v0 was validated with Meeting Notes Checklist on realistic meeting notes.
+- The product remains a prompt-orchestrated text runner, not fine-tuned agents and not the full execution gateway.
 
 ## Later phases
 
@@ -113,3 +122,11 @@ The next milestone is a closed beta with a small number of clean LLM-ready agent
 - Stored run history.
 - Verified review after access.
 - Notion or equivalent feedback tracking.
+
+Operational references:
+
+- Closed beta test plan: `docs/beta-closed-test-plan.md`.
+- Beta ops runbook: `docs/beta-ops-runbook.md`.
+- Read-only sanity SQL: `scripts/beta-sanity.sql`.
+
+Current rule: the frontend is frozen except for P0/P1 fixes. Backend, data, and beta operations are the active focus. Next operational step is a Day 2 limited tester launch with 3 to 5 internal testers.

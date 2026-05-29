@@ -10,6 +10,7 @@ export const AGENT_STATUSES = [
   "approved",
   "rejected",
   "suspended",
+  "archived",
 ] as const satisfies readonly AgentStatus[];
 
 export const RENTAL_REQUEST_STATUSES = [

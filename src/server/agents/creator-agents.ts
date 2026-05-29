@@ -236,6 +236,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
     .from("agents")
     .select("id,name,summary,status,pricing_type,risk_level,created_at,agent_categories(name)")
     .eq("creator_id", creatorProfileLookup.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false })
     .returns<CreatorAgentRow[]>();
 

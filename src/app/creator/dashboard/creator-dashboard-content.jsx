@@ -116,6 +116,7 @@ const statusTone = {
   approved: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
   rejected: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
   suspended: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
+  archived: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
   pending: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
   accepted: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
   in_progress: 'border-[#7DD3FC] bg-[#F0F9FF] text-[#075985]',
@@ -195,7 +196,8 @@ export default function CreatorDashboardContent({
     return () => window.clearInterval(interval);
   }, [router]);
 
-  const activeAccessRentals = rentals.filter((rental) => accessAnalyticsStatuses.includes(rental.status));
+  const visibleRentals = rentals.filter((rental) => rental.agent && rental.agent.status !== 'archived');
+  const activeAccessRentals = visibleRentals.filter((rental) => accessAnalyticsStatuses.includes(rental.status));
   const estimatedRevenueCents = activeAccessRentals.reduce((sum, rental) => sum + (rental.priceCents ?? 0), 0);
   const stats = [
     { label: t.realAgents, value: agents.length, icon: Bot },
@@ -302,14 +304,14 @@ export default function CreatorDashboardContent({
                 <div className="p-5 text-sm text-[#991B1B]">{t.rentalsLoadError}</div>
               )}
 
-              {!creatorRentalsResult?.error && rentals.length === 0 ? (
+              {!creatorRentalsResult?.error && visibleRentals.length === 0 ? (
                 <div className="p-8 text-center">
                   <h3 className="font-display text-lg font-bold text-[#111827]">{t.rentalsEmptyTitle}</h3>
                   <p className="mx-auto mt-2 max-w-md text-sm text-[#6B7280]">{t.rentalsEmptyText}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[#E3E7F2]">
-                  {rentals.map((rental) => (
+                  {visibleRentals.map((rental) => (
                     <article key={rental.id} className="grid gap-4 p-5 xl:grid-cols-[1fr_auto]">
                       <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">

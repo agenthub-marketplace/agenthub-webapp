@@ -66,12 +66,12 @@ function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 's
 }
 
 function unavailableCopy(rental) {
-  if (rental.agent?.status === 'suspended') {
+  if (rental.agent?.status === 'suspended' || rental.agent?.status === 'archived') {
     return {
-      eyebrow: 'AGENT SUSPENDED',
-      title: 'Agent suspended',
+      eyebrow: rental.agent?.status === 'archived' ? 'AGENT ARCHIVED' : 'AGENT SUSPENDED',
+      title: rental.agent?.status === 'archived' ? 'Agent archived' : 'Agent suspended',
       message:
-        'This agent has been suspended by AgentHub. Your workspace stays closed until the review is complete.',
+        'This agent has been removed by AgentHub. Your workspace stays closed until the review is complete.',
     };
   }
 

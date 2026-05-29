@@ -1,6 +1,6 @@
 # AgentHub closed beta test plan
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ## Objective
 
@@ -20,6 +20,7 @@ Closed beta validates the flow and perceived value, not real revenue.
 - Declined card: `4000 0000 0000 9995`
 - No real charges are made in Stripe test mode.
 - Do not enter real sensitive data, confidential documents, medical data, legal secrets, financial account data, or personal HR evaluation data.
+- Frontend changes are frozen except P0/P1 fixes.
 
 ## Roles
 
@@ -35,6 +36,15 @@ Closed beta validates the flow and perceived value, not real revenue.
 3. Text Rewrite Assistant
 4. Business SWOT Analyst
 5. Meeting Notes Checklist
+
+Day 1 validation:
+
+- Existing catalog was archived by admin to restart from a clean beta baseline.
+- Creator submission from templates works.
+- Admin review and approval works.
+- User rental/access works.
+- Workspace LLM Runner v0 works on Meeting Notes Checklist with a realistic raw-notes input.
+- The generated output was acceptable for closed beta: decisions, action items, owners, open questions, and follow-up items were extracted.
 
 Each test agent should have:
 
@@ -125,6 +135,8 @@ For each issue, collect:
 - Rental ID.
 - Payment ID.
 - Stripe session ID.
+
+Use `docs/beta-ops-runbook.md` for triage cadence and `scripts/beta-sanity.sql` for daily backend checks.
 
 ## Severity rules
 

@@ -27,7 +27,7 @@ export type AdminAgentManagementItem = {
   id: string;
   name: string;
   summary: string;
-  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended" | "archived";
   riskLevel: "low" | "medium" | "high" | "forbidden_beta";
   pricingType: "task" | "project";
   categoryName: string | null;
@@ -53,7 +53,7 @@ type AgentManagementRow = {
   id: string;
   name: string;
   summary: string;
-  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
+  status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended" | "archived";
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
   pricing_type: "task" | "project";
   created_at: string;
@@ -194,6 +194,7 @@ export async function getAdminAgentManagementList(): Promise<AdminAgentManagemen
   const { data, error } = await supabase
     .from("agents")
     .select("id,name,summary,status,risk_level,pricing_type,created_at,agent_categories(name),creator_profiles(public_name)")
+    .neq("status", "archived")
     .order("updated_at", { ascending: false })
     .limit(100)
     .returns<AgentManagementRow[]>();

@@ -15,6 +15,7 @@ export type CreatorRental = {
     name: string;
     slug: string;
     summary: string;
+    status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended" | "archived";
   } | null;
 };
 
@@ -62,8 +63,9 @@ export async function getCreatorRentalsForUser(): Promise<CreatorRentalsResult> 
 
   const { data, error } = await supabase
     .from("rental_requests")
-    .select("id,status,pricing_type,quoted_price_cents,currency,created_at,updated_at,agents!rental_requests_agent_id_fkey(name,slug,summary)")
+    .select("id,status,pricing_type,quoted_price_cents,currency,created_at,updated_at,agents!rental_requests_agent_id_fkey!inner(name,slug,summary,status)")
     .eq("creator_id", creatorProfile.id)
+    .neq("agents.status", "archived")
     .order("created_at", { ascending: false })
     .returns<CreatorRentalRow[]>();
 

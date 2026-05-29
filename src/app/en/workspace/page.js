@@ -51,9 +51,9 @@ function accessStopMessage(value) {
 }
 
 function unavailableRentalCopy(rental) {
-  if (rental.agent?.status === 'suspended') {
+  if (rental.agent?.status === 'suspended' || rental.agent?.status === 'archived') {
     return {
-      label: 'Agent suspended',
+      label: rental.agent?.status === 'archived' ? 'Agent archived' : 'Agent suspended',
       text: 'This workspace is closed during AgentHub review.',
       tone: 'warning',
     };

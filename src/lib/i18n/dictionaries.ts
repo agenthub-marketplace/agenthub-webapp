@@ -37,6 +37,7 @@ export const dictionaries = {
     },
     statuses: {
       approved: "Approuvé",
+      archived: "Archivé",
       cancelled: "Annulé",
       completed: "Terminé",
       disputed: "Contesté",
@@ -286,6 +287,7 @@ export const dictionaries = {
     },
     statuses: {
       approved: "Approved",
+      archived: "Archived",
       cancelled: "Cancelled",
       completed: "Completed",
       disputed: "Disputed",

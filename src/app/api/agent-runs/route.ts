@@ -216,8 +216,8 @@ export async function POST(request: Request) {
     return jsonError(403, "not_eligible", "missing-agent-version");
   }
 
-  if (agent.status === "suspended") {
-    return jsonError(403, "not_eligible", "agent-suspended");
+  if (agent.status === "suspended" || agent.status === "archived") {
+    return jsonError(403, "not_eligible", agent.status === "archived" ? "agent-archived" : "agent-suspended");
   }
 
   if (agent.status !== "approved" && !(await hasApprovedVersion(supabase, rental.agent_version_id))) {

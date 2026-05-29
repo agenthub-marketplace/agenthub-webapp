@@ -4,7 +4,8 @@ export type AgentStatus =
   | "in_review"
   | "approved"
   | "rejected"
-  | "suspended";
+  | "suspended"
+  | "archived";
 
 export type PricingType = "task" | "duration" | "project";
 

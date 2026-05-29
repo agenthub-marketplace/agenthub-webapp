@@ -38,10 +38,10 @@ function getNotificationStorageKey(profile) {
  *   } | null
  * }} props
  */
-export default function Navbar({ experience = 'agenthub', profile = null }) {
+export default function Navbar({ experience = 'agenthub', profile }) {
   const { t, lang, setLang } = useT();
   const pathname = usePathname() || '';
-  const [fetchedProfile, setFetchedProfile] = useState(undefined);
+  const [fetchedProfile, setFetchedProfile] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -91,7 +91,7 @@ export default function Navbar({ experience = 'agenthub', profile = null }) {
     };
   }, [profile]);
 
-  const authResolved = Boolean(profile) || fetchedProfile !== undefined;
+  const authResolved = true;
   const resolvedProfile = profile ?? fetchedProfile ?? null;
   const isSignedIn = Boolean(resolvedProfile);
   const isCodeExperience = experience === 'code';
