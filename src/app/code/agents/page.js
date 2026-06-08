@@ -5,13 +5,12 @@ import CodeAgentsContent from '../_components/code-agents-content';
 export const dynamic = 'force-dynamic';
 
 export default async function AgentHubCodeAgentsPage() {
-  const profile = await requireCreatorAccess('fr', '/code/agents');
+  await requireCreatorAccess('fr', '/code/agents');
   const creatorAgentsResult = await getCreatorAgentsForUser();
 
   return (
     <CodeAgentsContent
       creatorAgentsResult={creatorAgentsResult}
-      profile={profile}
     />
   );
 }

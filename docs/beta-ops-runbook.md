@@ -385,10 +385,42 @@ Decision:
 
 - Stripe Connect;
 - creator payouts;
-- uploads;
+- public creator-visible uploads;
 - emails;
 - persistent notifications;
 - n8n;
 - external tools;
 - full execution gateway;
 - frontend redesign.
+
+## Workflow automation beta checks
+
+Only use these checks after `workflow_automation` is intentionally enabled for a controlled beta creator.
+
+- Confirm `WORKFLOW_RUNS_ENABLED=true` only in the target environment.
+- Confirm `WORKFLOW_WORKER_SECRET` and `WORKFLOW_WEBHOOK_SIGNING_SECRET` are server-only.
+- Confirm `agent_runtime_settings.workflow_automation.enabled=true` and `run_enabled=true`.
+- Confirm the creator is present in `creator_runtime_access`.
+- Confirm every `webhook_step` uses an approved `creator_webhook_endpoints` row.
+- Confirm workspace launch creates one `agent_runs` row and one `agent_workflow_runs` row.
+- Confirm `agent_workflow_steps` reaches `succeeded` or a clear `failed` error.
+- Confirm creator cannot read user workflow outputs.
+- Confirm user A cannot read user B workflow runs.
+- Confirm webhook payload contains no secrets or payment data.
+
+## Creator endpoint beta checks
+
+Only use these checks after `creator_endpoint` is intentionally enabled for a controlled beta creator.
+
+- Confirm `CREATOR_ENDPOINT_RUNS_ENABLED=true` only in the target environment.
+- Confirm `CREATOR_ENDPOINT_SIGNING_SECRET` is server-only.
+- Confirm `agent_runtime_settings.creator_endpoint.enabled=true` and `run_enabled=true`.
+- Confirm the creator is present in `creator_runtime_access` with `runtime_type='creator_endpoint'`.
+- Confirm the endpoint is HTTPS and not localhost/private IP.
+- Confirm the endpoint row is approved in `creator_api_endpoints`.
+- Confirm the agent version config is approved in `agent_version_creator_endpoints`.
+- Confirm workspace launch creates one `agent_runs` row and one `agent_endpoint_runs` row.
+- Confirm endpoint response returns JSON with `output_text`.
+- Confirm creator cannot read user endpoint outputs through RLS.
+- Confirm user A cannot read user B endpoint runs.
+- Confirm endpoint payload contains no secrets, payment details, or service role data.

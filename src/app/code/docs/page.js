@@ -12,7 +12,6 @@ import {
   Sparkles,
   TerminalSquare,
 } from 'lucide-react';
-import AgentHubCodeShell from '@/components/AgentHubCodeShell';
 import { Button } from '@/components/ui/button';
 
 const guideSections = [
@@ -83,9 +82,8 @@ const validationSteps = [
 
 export default function AgentHubCodeDocsPage() {
   return (
-    <AgentHubCodeShell>
-      <main className="bg-[#F7F8FC]">
-        <section className="border-b border-[#E3E7F2] bg-white">
+      <main className="px-4 py-8 lg:px-8">
+        <section className="border-b border-[#DDD6FE] bg-[radial-gradient(circle_at_78%_18%,#F3E8FF_0%,#FFFFFF_34%,#FFFFFF_100%)]">
           <div className="container grid gap-8 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
             <div>
               <p className="font-label mb-4 text-xs text-[#6B3FA0]">GUIDE CRÉATEUR</p>
@@ -109,7 +107,7 @@ export default function AgentHubCodeDocsPage() {
                 </Link>
               </div>
             </div>
-            <aside className="rounded-3xl border border-[#D8DDEE] bg-[#FBFCFF] p-5 shadow-[0_18px_60px_rgba(17,24,39,0.08)]">
+            <aside className="rounded-3xl border border-[#DDD6FE] bg-white/90 p-5 shadow-[0_18px_60px_rgba(109,64,160,0.12)]">
               <div className="mb-5 flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5F3FF] text-[#6B3FA0]">
                   <ListChecks className="h-5 w-5" />
@@ -121,7 +119,7 @@ export default function AgentHubCodeDocsPage() {
               </div>
               <div className="space-y-3">
                 {checklist.slice(0, 4).map((item) => (
-                  <div key={item} className="flex gap-3 rounded-2xl border border-[#E3E7F2] bg-white p-3 text-sm leading-6 text-[#4B5563]">
+                  <div key={item} className="flex gap-3 rounded-2xl border border-[#E9D5FF] bg-[#FCFAFF] p-3 text-sm leading-6 text-[#4B5563]">
                     <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-[#6B3FA0]" />
                     <span>{item}</span>
                   </div>
@@ -149,7 +147,7 @@ export default function AgentHubCodeDocsPage() {
           </div>
         </section>
 
-        <section className="bg-[#F1F3F8]">
+        <section className="bg-[#F5F3FF]">
           <div className="container grid gap-8 py-14 md:py-16 lg:grid-cols-[360px_1fr]">
             <div>
               <p className="font-label mb-3 text-xs text-[#6B3FA0]">TEMPLATES</p>
@@ -160,8 +158,8 @@ export default function AgentHubCodeDocsPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {templates.map((template) => (
-                <article key={template.title} className="rounded-2xl border border-[#D8DDEE] bg-white p-5 shadow-sm">
-                  <span className="inline-flex rounded-full border border-[#D8DDEE] bg-[#FBFCFF] px-3 py-1 text-xs font-semibold text-[#6B3FA0]">
+                <article key={template.title} className="rounded-2xl border border-[#DDD6FE] bg-white p-5 shadow-[0_10px_28px_rgba(109,64,160,0.06)]">
+                  <span className="inline-flex rounded-full border border-[#C4B5FD] bg-[#F5F3FF] px-3 py-1 text-xs font-semibold text-[#6B3FA0]">
                     {template.tag}
                   </span>
                   <h3 className="mt-5 font-display text-lg font-bold text-[#111827]">{template.title}</h3>
@@ -233,6 +231,5 @@ export default function AgentHubCodeDocsPage() {
           </div>
         </section>
       </main>
-    </AgentHubCodeShell>
   );
 }

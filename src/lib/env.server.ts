@@ -24,6 +24,20 @@ type ServerEnv = {
   documentMaxExtractedChars: number;
   documentFileRetentionDays: number;
   documentAllowedMimeTypes: string[];
+  workflowRunsEnabled: boolean;
+  workflowWorkerSecret?: string;
+  workflowWebhookSigningSecret?: string;
+  workflowMaxSteps: number;
+  workflowMaxWebhookSteps: number;
+  workflowStepTimeoutMs: number;
+  workflowRunsPerRentalPerDay: number;
+  workflowRunsPerUserPerDay: number;
+  creatorEndpointRunsEnabled: boolean;
+  creatorEndpointSigningSecret?: string;
+  creatorEndpointTimeoutMs: number;
+  creatorEndpointMaxResponseChars: number;
+  creatorEndpointRunsPerRentalPerDay: number;
+  creatorEndpointRunsPerUserPerDay: number;
 };
 
 const readOptional = (key: string) => {
@@ -143,4 +157,18 @@ export const serverEnv: ServerEnv = {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean),
+  workflowRunsEnabled: readBoolean("WORKFLOW_RUNS_ENABLED"),
+  workflowWorkerSecret: readOptional("WORKFLOW_WORKER_SECRET"),
+  workflowWebhookSigningSecret: readOptional("WORKFLOW_WEBHOOK_SIGNING_SECRET"),
+  workflowMaxSteps: readInteger("WORKFLOW_MAX_STEPS", 5, { min: 2, max: 5 }),
+  workflowMaxWebhookSteps: readInteger("WORKFLOW_MAX_WEBHOOK_STEPS", 2, { min: 0, max: 2 }),
+  workflowStepTimeoutMs: readInteger("WORKFLOW_STEP_TIMEOUT_MS", 15_000, { min: 1_000, max: 15_000 }),
+  workflowRunsPerRentalPerDay: readInteger("WORKFLOW_RUNS_PER_RENTAL_PER_DAY", 5, { min: 1, max: 50 }),
+  workflowRunsPerUserPerDay: readInteger("WORKFLOW_RUNS_PER_USER_PER_DAY", 15, { min: 1, max: 100 }),
+  creatorEndpointRunsEnabled: readBoolean("CREATOR_ENDPOINT_RUNS_ENABLED"),
+  creatorEndpointSigningSecret: readOptional("CREATOR_ENDPOINT_SIGNING_SECRET"),
+  creatorEndpointTimeoutMs: readInteger("CREATOR_ENDPOINT_TIMEOUT_MS", 15_000, { min: 1_000, max: 15_000 }),
+  creatorEndpointMaxResponseChars: readInteger("CREATOR_ENDPOINT_MAX_RESPONSE_CHARS", 12_000, { min: 1_000, max: 12_000 }),
+  creatorEndpointRunsPerRentalPerDay: readInteger("CREATOR_ENDPOINT_RUNS_PER_RENTAL_PER_DAY", 5, { min: 1, max: 50 }),
+  creatorEndpointRunsPerUserPerDay: readInteger("CREATOR_ENDPOINT_RUNS_PER_USER_PER_DAY", 15, { min: 1, max: 100 }),
 };

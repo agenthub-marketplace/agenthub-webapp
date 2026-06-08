@@ -6,7 +6,7 @@ import { AGENT_RUNTIME_TYPE_LABELS, EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OP
 import { Check, X, Edit, Lock, Search, Eye, Ban, Trash2, Flag, BarChart3 } from 'lucide-react';
 import { adminStats } from '@/lib/mock-data';
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { moderateAgentPublicationAction, reviewAgentAction } from '@/server/admin/actions';
+import { approveCreatorEndpointAssetsAction, approveWorkflowAutomationAssetsAction, moderateAgentPublicationAction, reviewAgentAction } from '@/server/admin/actions';
 
 const USERS = [
   { name: 'Marie Dupont', email: 'marie.dupont@example.com', type: 'Utilisateur', joined: '12 août 2025', rentals: 14, status: 'Actif' },
@@ -35,6 +35,15 @@ const reviewErrors = {
   'changes-notes-required': 'Ajoutez une demande de modification claire avant l’envoi.',
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être approuvés en beta.',
   'runtime-disabled': 'Ce runtime AgentHub Code est désactivé et ne peut pas être approuvé.',
+  'workflow-invalid': 'La définition workflow est invalide.',
+  'workflow-not-approved': 'Le workflow automation doit être approuvé avant publication.',
+  'workflow-approval-failed': 'Impossible d’approuver le workflow automation.',
+  'workflow-endpoint-approval-failed': 'Impossible d’approuver l’endpoint webhook creator.',
+  'workflow-endpoint-not-approved': 'Un endpoint webhook du workflow n’est pas encore approuvé.',
+  'creator-endpoint-invalid': 'La configuration endpoint creator est invalide.',
+  'creator-endpoint-approval-failed': 'Impossible d’approuver l’endpoint creator.',
+  'creator-endpoint-config-approval-failed': 'Impossible d’approuver la configuration endpoint.',
+  'creator-endpoint-not-approved': 'L’endpoint creator doit être approuvé avant publication.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
   'invalid-moderation': 'Action de modération invalide.',
@@ -270,6 +279,59 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                     )}
                   </div>
                 </div>
+                {activeSelection.workflow && (
+                  <div className="mb-4 rounded-lg border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-label mb-1 text-[10px] text-[#F59E0B]">Workflow automation beta</p>
+                        <p>Statut workflow : {activeSelection.workflow.status}</p>
+                      </div>
+                      <form action={approveWorkflowAutomationAssetsAction}>
+                        <input type="hidden" name="agent_id" value={activeSelection.id} />
+                        <input type="hidden" name="locale" value={locale} />
+                        <Button type="submit" size="sm" className="border-0 bg-[#F59E0B] text-[#111827] hover:bg-[#FBBF24]">
+                          Approuver assets workflow
+                        </Button>
+                      </form>
+                    </div>
+                    <ol className="space-y-2">
+                      {activeSelection.workflow.steps.map((step, index) => (
+                        <li key={`${step.label}-${index}`} className="rounded-lg border border-[#F59E0B]/25 bg-[#0A0816] p-2">
+                          <span className="font-label text-[10px]">{index + 1}. {step.type}</span>
+                          <p className="mt-1 text-[#D6C5E8]">{step.label}</p>
+                          {step.endpointId && (
+                            <p className="mt-1 text-[10px] text-[#F6C177]">
+                              Endpoint : {step.endpointStatus || 'introuvable'}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+                {activeSelection.creatorEndpoint && (
+                  <div className="mb-4 rounded-lg border border-[#C4B5FD]/35 bg-[#8B5CF6]/10 p-3 text-xs text-[#D6C5E8]">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-label mb-1 text-[10px] text-[#C4B5FD]">Creator endpoint beta</p>
+                        <p>Statut config : {activeSelection.creatorEndpoint.status}</p>
+                        <p className="mt-1 text-[10px] text-[#A78BCF]">
+                          Endpoint : {activeSelection.creatorEndpoint.endpointStatus || 'introuvable'}
+                        </p>
+                      </div>
+                      <form action={approveCreatorEndpointAssetsAction}>
+                        <input type="hidden" name="agent_id" value={activeSelection.id} />
+                        <input type="hidden" name="locale" value={locale} />
+                        <Button type="submit" size="sm" className="border-0 bg-[#8B5CF6] text-white hover:bg-[#7C3AED]">
+                          Approuver endpoint
+                        </Button>
+                      </form>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-[#C8B1E4]">
+                      L’endpoint est appelé uniquement côté serveur par AgentHub, avec signature HMAC et timeout.
+                    </p>
+                  </div>
+                )}
                 <div className="mb-4 rounded-lg border border-[#251A40] bg-[#0A0816] p-3 text-xs text-[#D6C5E8]">
                   <p className="font-label mb-2 text-[10px] text-[#A78BCF]">Checklist admin</p>
                   <div className="grid gap-2 sm:grid-cols-2">

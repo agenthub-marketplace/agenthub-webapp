@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
+import { AGENT_RUNTIME_TYPE_LABELS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 
 export const statusLabels = {
   draft: 'Brouillon',
@@ -50,6 +51,9 @@ export const statusTone = {
   stopped: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
   expired: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
   cancelled: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
+  running: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
+  succeeded: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
+  failed: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
 };
 
 export function isChangesRequest(review) {
@@ -106,6 +110,22 @@ export function formatMoney(cents, currency = 'eur') {
   }).format((cents ?? 0) / 100);
 }
 
+export function formatRating(rating, reviews = 0) {
+  if (!reviews || !rating) {
+    return 'Aucun avis';
+  }
+
+  return `${rating.toFixed(1)} (${reviews})`;
+}
+
+export function getRuntimeTypeLabel(runtimeType) {
+  return AGENT_RUNTIME_TYPE_LABELS[runtimeType] || runtimeType || 'Runtime non défini';
+}
+
+export function getWorkspaceModeLabel(workspaceMode) {
+  return WORKSPACE_MODE_LABELS[workspaceMode] || workspaceMode || 'Workspace non défini';
+}
+
 export function StatusBadge({ label, status }) {
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-label ${statusTone[status] || statusTone.draft}`}>
@@ -114,11 +134,33 @@ export function StatusBadge({ label, status }) {
   );
 }
 
-export function CodePanel({ children, className = '' }) {
+const panelToneClasses = {
+  default: 'border-[#DDD6FE] bg-white',
+  violet: 'border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)]',
+  blue: 'border-[#BFDBFE] bg-[linear-gradient(135deg,#FFFFFF_0%,#EFF6FF_100%)]',
+  green: 'border-[#BBF7D0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)]',
+  amber: 'border-[#FDE68A] bg-[linear-gradient(135deg,#FFFFFF_0%,#FFFBEB_100%)]',
+  slate: 'border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F8FAFC_100%)]',
+};
+
+export function CodePanel({ children, className = '', tone = 'default' }) {
   return (
-    <div className={`rounded-2xl border border-[#E3E7F2] bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-2xl border p-5 shadow-[0_10px_30px_rgba(109,64,160,0.05)] transition duration-200 hover:brightness-[0.97] hover:shadow-[0_14px_36px_rgba(109,64,160,0.08)] ${panelToneClasses[tone] || panelToneClasses.default} ${className}`}>
       {children}
     </div>
+  );
+}
+
+export function CodePageHeader({ action, description, eyebrow = 'AGENTHUB CODE', title }) {
+  return (
+    <section className="mb-8 grid gap-5 overflow-hidden rounded-3xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_58%,#F3E8FF_100%)] p-6 shadow-[0_18px_50px_rgba(109,64,160,0.08)] md:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div>
+        <p className="font-label mb-2 text-xs text-[#6B3FA0]">{eyebrow}</p>
+        <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">{title}</h1>
+        {description && <p className="mt-3 max-w-2xl text-[#4B5563]">{description}</p>}
+      </div>
+      {action && <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">{action}</div>}
+    </section>
   );
 }
 

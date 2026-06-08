@@ -45,7 +45,7 @@ const copy = {
     outputPromiseExamples: 'Exemples d’utilisation',
     executionMode: 'Mode d’exécution prévu',
     executionModeHint:
-      'Pour tester le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe.',
+      'Pour tester l’Agent IA dans le workspace, choisissez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée, pas un runtime marketplace séparé.',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Données nécessaires',
     knownLimits: 'Limites connues',
@@ -109,7 +109,7 @@ const copy = {
     outputPromiseExamples: 'Usage examples',
     executionMode: 'Planned execution mode',
     executionModeHint:
-      'To test the workspace LLM runner, choose “LLM Runner texte (OpenAI)”. The agent must not require files or external tools.',
+      'To test the workspace AI Agent, choose “Agent IA (OpenAI server-side)”. Documents are a controlled capability, not a separate marketplace runtime.',
     riskLevel: 'Risk level',
     executionMethod: 'Required data',
     knownLimits: 'Known limits',

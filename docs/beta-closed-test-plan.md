@@ -79,7 +79,7 @@ Each test agent should have:
 3. Start a new agent from one of the five templates.
 4. Confirm fields are prefilled.
 5. Edit price, output promise, capabilities, limitations.
-6. Confirm execution mode is `LLM Runner texte (OpenAI)`.
+6. Confirm execution mode is `Agent IA (OpenAI server-side)`.
 7. Submit for review.
 8. If admin requests changes, edit and resubmit.
 9. Confirm creator does not see private user run inputs, notes, Stripe details, or user-only workspace history.

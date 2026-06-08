@@ -3,8 +3,6 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
-import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import {
   Activity,
@@ -12,7 +10,6 @@ import {
   Box,
   CheckCircle2,
   Clock3,
-  Euro,
   FileText,
   Gauge,
   Plus,
@@ -21,10 +18,10 @@ import {
 } from 'lucide-react';
 import {
   CodeAlert,
+  CodePageHeader,
   CodePanel,
   EmptyCodeState,
   StatusBadge,
-  accessAnalyticsStatuses,
   cleanAdminNotes,
   formatDate,
   formatMoney,
@@ -36,9 +33,9 @@ import {
   statusLabels,
 } from './code-console-ui';
 
-function MetricCard({ detail, icon: Icon, label, value }) {
+function MetricCard({ detail, icon: Icon, label, tone = 'default', value }) {
   return (
-    <CodePanel>
+    <CodePanel tone={tone}>
       <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
         <Icon className="h-4 w-4" />
       </div>
@@ -52,16 +49,17 @@ function MetricCard({ detail, icon: Icon, label, value }) {
 export default function CodeDashboardContent({
   creatorAgentsResult,
   creatorRentalsResult,
-  profile,
   submittedSlug,
 }) {
   const router = useRouter();
   const agents = creatorAgentsResult?.agents ?? [];
+  const recentRuns = creatorAgentsResult?.recentRuns ?? [];
   const rentals = creatorRentalsResult?.rentals ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
-  const activeAccessRentals = rentals.filter((rental) => accessAnalyticsStatuses.includes(rental.status));
-  const estimatedRevenueCents = activeAccessRentals.reduce((sum, rental) => sum + (rental.priceCents ?? 0), 0);
-  const inReviewAgents = agents.filter((agent) => agent.status === 'submitted' || agent.status === 'in_review');
+  const publishedAgents = agents.filter((agent) => agent.status === 'approved');
+  const inReviewAgents = agents.filter((agent) => agent.status === 'in_review');
+  const submittedAgents = agents.filter((agent) => agent.status === 'submitted');
+  const draftAgents = agents.filter((agent) => agent.status === 'draft');
   const changesRequested = agents.filter((agent) => agent.status === 'in_review' && isChangesRequest(agent.latestAdminReview));
   const recentAgents = agents.slice(0, 4);
   const recentRentals = rentals.slice(0, 5);
@@ -84,22 +82,16 @@ export default function CodeDashboardContent({
   }, [router]);
 
   return (
-    <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
-      <AgentHubCodeNavbar profile={profile} />
-      <main className="container py-8 md:py-10">
-        <section className="mb-8 overflow-hidden rounded-3xl border border-[#E3E7F2] bg-white shadow-sm">
-          <div className="grid gap-6 p-6 md:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <p className="font-label mb-2 text-xs text-[#6B3FA0]">DASHBOARD</p>
-              <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">Suivi AgentHub Code</h1>
-              <p className="mt-3 max-w-2xl text-[#4B5563]">
-                Pilotez la validation, les accès clients et l’activité de vos agents depuis une console pensée pour les créateurs.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+    <main className="px-4 py-8 lg:px-8">
+      <CodePageHeader
+        eyebrow="ESPACE CRÉATEUR"
+        title="Créer, publier et suivre vos agents."
+        description="Gardez une vue claire sur vos brouillons, les agents en validation, les corrections demandées et l’activité après publication."
+        action={
+          <>
               <Link href="/code/agents">
                 <Button variant="outline" className="h-11 border-[#D8DDEE] bg-white px-5 text-[#111827] hover:border-[#8B5CF6] hover:bg-[#F1F3F8]">
-                  Mes agents
+                  Voir mes agents
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
@@ -107,18 +99,18 @@ export default function CodeDashboardContent({
                 <Link href="/code/agents/new">
                   <Button className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44]">
                     <Plus className="mr-2 h-4 w-4" />
-                    Créer un agent
+                    Nouvel agent
                   </Button>
                 </Link>
               ) : (
                 <Button disabled className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm disabled:opacity-50">
                   <Plus className="mr-2 h-4 w-4" />
-                  Créer un agent
+                  Nouvel agent
                 </Button>
               )}
-            </div>
-          </div>
-        </section>
+          </>
+        }
+      />
 
         <div className="mb-6 space-y-4">
           {submittedSlug && (
@@ -139,11 +131,12 @@ export default function CodeDashboardContent({
           )}
         </div>
 
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <MetricCard icon={Box} label="Agents soumis" value={agents.length} detail={`${inReviewAgents.length} en validation`} />
-          <MetricCard icon={ShieldAlert} label="À surveiller" value={changesRequested.length} detail="retours admin ouverts" />
-          <MetricCard icon={Users} label="Accès actifs" value={activeAccessRentals.length} detail="utilisateurs en cours" />
-          <MetricCard icon={Euro} label="Volume beta" value={formatMoney(estimatedRevenueCents)} detail="Stripe Connect prévu" />
+        <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
+          <MetricCard icon={Box} tone="green" label="Publiés" value={publishedAgents.length} detail="visibles sur la marketplace" />
+          <MetricCard icon={Clock3} tone="violet" label="En validation" value={inReviewAgents.length + submittedAgents.length} detail={`${submittedAgents.length} en attente`} />
+          <MetricCard icon={ShieldAlert} tone="amber" label="À corriger" value={changesRequested.length} detail="action créateur requise" />
+          <MetricCard icon={FileText} tone="blue" label="Brouillons" value={draftAgents.length} detail="à compléter" />
+          <MetricCard icon={Activity} tone="slate" label="Activations" value={rentals.length} detail="accès utilisateurs" />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -151,8 +144,42 @@ export default function CodeDashboardContent({
             <div className="overflow-hidden rounded-2xl border border-[#E3E7F2] bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
                 <div>
-                  <h2 className="font-display text-xl font-bold text-[#111827]">Activité clients</h2>
-                  <p className="mt-1 text-xs text-[#6B7280]">Accès, locations et activations de vos agents.</p>
+                  <h2 className="font-display text-xl font-bold text-[#111827]">Utilisations récentes</h2>
+                  <p className="mt-1 text-xs text-[#6B7280]">Suivi technique limité, sans contenus privés des utilisateurs.</p>
+                </div>
+                <Activity className="h-5 w-5 text-[#6B3FA0]" />
+              </div>
+
+              {recentRuns.length === 0 ? (
+                <div className="p-5 text-sm leading-6 text-[#6B7280]">
+                  Aucune utilisation visible pour ce compte. Les créateurs ne voient pas les contenus privés des utilisateurs.
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E3E7F2]">
+                  {recentRuns.map((run) => (
+                    <article key={run.id} className="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
+                      <div>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <h3 className="font-display text-base font-bold text-[#111827]">{run.agentName}</h3>
+                          <StatusBadge status={run.status} label={run.status === 'succeeded' ? 'Réussi' : run.status === 'failed' ? 'Échec' : 'En cours'} />
+                        </div>
+                        <p className="text-sm text-[#4B5563]">{run.actionLabel}</p>
+                        <p className="mt-2 text-xs text-[#6B7280]">
+                          {formatDate(run.createdAt)}
+                        </p>
+                      </div>
+                      {run.errorCode && <span className="text-xs text-[#991B1B]">{run.errorCode}</span>}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-[#E3E7F2] bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
+                <div>
+                  <h2 className="font-display text-xl font-bold text-[#111827]">Accès utilisateurs</h2>
+                  <p className="mt-1 text-xs text-[#6B7280]">Activations et accès ouverts sur vos agents publiés.</p>
                 </div>
                 <Activity className="h-5 w-5 text-[#6B3FA0]" />
               </div>
@@ -162,7 +189,7 @@ export default function CodeDashboardContent({
                   <EmptyCodeState
                     icon={Users}
                     title="Aucune activité client"
-                    text="Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents approuvés."
+                    text="Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents publiés."
                   />
                 </div>
               ) : (
@@ -266,11 +293,11 @@ export default function CodeDashboardContent({
           </section>
 
           <aside className="space-y-6">
-            <CodePanel>
+            <CodePanel tone="violet">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="font-label text-xs text-[#6B3FA0]">VALIDATION</p>
-                  <h2 className="font-display mt-1 text-xl font-bold text-[#111827]">Pipeline qualité</h2>
+                  <p className="font-label text-xs text-[#6B3FA0]">PUBLICATION</p>
+                  <h2 className="font-display mt-1 text-xl font-bold text-[#111827]">États de vos agents</h2>
                 </div>
                 <Gauge className="h-5 w-5 text-[#6B3FA0]" />
               </div>
@@ -286,12 +313,26 @@ export default function CodeDashboardContent({
               </div>
             </CodePanel>
 
-            <CodePanel>
+            <CodePanel tone="amber">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <p className="font-label mb-2 text-xs text-[#6B3FA0]">À FAIRE</p>
+              <h2 className="font-display text-xl font-bold text-[#111827]">Prochaines actions</h2>
+              <div className="mt-4 space-y-3 text-sm text-[#4B5563]">
+                {changesRequested.length > 0 && <p>Corriger {changesRequested.length} agent{changesRequested.length > 1 ? 's' : ''} avec retours admin.</p>}
+                {submittedAgents.length > 0 && <p>Suivre {submittedAgents.length} agent{submittedAgents.length > 1 ? 's' : ''} soumis en attente de validation.</p>}
+                {publishedAgents.length === 0 && <p>Publier au moins un agent validé pour tester le parcours complet.</p>}
+                {changesRequested.length === 0 && submittedAgents.length === 0 && publishedAgents.length > 0 && <p>Surveiller les runs, les accès actifs et les avis vérifiés.</p>}
+              </div>
+            </CodePanel>
+
+            <CodePanel tone="blue">
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
                 <FileText className="h-4 w-4" />
               </div>
               <p className="font-label mb-2 text-xs text-[#6B3FA0]">CHECKLIST</p>
-              <h2 className="font-display text-xl font-bold text-[#111827]">Publier sans friction</h2>
+              <h2 className="font-display text-xl font-bold text-[#111827]">Avant validation</h2>
               <ul className="mt-4 space-y-3 text-sm text-[#4B5563]">
                 {['Promesse claire', 'Inputs cadrés', 'Limites visibles', 'Exemple de sortie vérifiable'].map((item) => (
                   <li key={item} className="flex items-center gap-2">
@@ -304,7 +345,5 @@ export default function CodeDashboardContent({
           </aside>
         </div>
       </main>
-      <Footer variant="code" />
-    </div>
   );
 }

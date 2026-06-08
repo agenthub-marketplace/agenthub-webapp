@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { Bell, Bot, Box, ChevronDown, Code2, Gauge, Home, LogOut, Menu, PlusCircle, Search, Settings as SettingsIcon, ShieldCheck, Trophy, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Flag from '@/components/Flag';
-import CreatorIcon from '@/components/icons/CreatorIcon';
 import { languages } from '@/lib/mock-data';
 import { useT } from '@/lib/i18n';
 
@@ -118,19 +117,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
         see: 'Voir',
       };
   const unreadNotifications = notifications.filter((notification) => !readNotificationIds.includes(notification.id));
-  const canAccessCreator = resolvedProfile?.role === 'creator' || resolvedProfile?.role === 'admin';
   const roleLinks = [
-    ...(!isCodeExperience && canAccessCreator
-      ? [
-          {
-            href: '/code/dashboard',
-            label: t('nav.creatormode'),
-            icon: CreatorIcon,
-            featured: true,
-            activePrefix: '/code',
-          },
-        ]
-      : []),
     ...(resolvedProfile?.role === 'admin'
       ? [
           {
@@ -186,7 +173,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
       ];
   const switcherHref = isCodeExperience ? agentHubHomeHref : codeHomeHref;
   const switcherLabel = isCodeExperience ? 'AgentHub' : 'AgentHub Code';
-  const showUserCredits = isSignedIn && !isCodeExperience;
+  const showUserCredits = false;
   const navChrome = isCodeExperience
     ? scrolled
       ? 'bg-white border-b border-[#E3E7F2] shadow-[0_12px_34px_rgba(17,24,39,0.06)]'
@@ -204,7 +191,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   const activeNavClass = isCodeExperience ? 'bg-[#EEF1F8] text-[#111827]' : 'bg-[#1A152F] text-[#F5F1FA]';
   const switcherClass = isCodeExperience
     ? 'hidden rounded-xl border border-[#D8DDEE] bg-white px-3 py-2 text-sm font-medium text-[#374151] transition-colors hover:border-[#8B5CF6] hover:bg-[#F1F3F8] hover:text-[#111827] md:inline-flex'
-    : 'hidden rounded-xl border border-[#2F184B] bg-[#110D24] px-3 py-2 text-sm font-medium text-[#D6C5E8] transition-colors hover:border-[#6B3FA0] hover:bg-[#1A152F] hover:text-white md:inline-flex';
+    : 'hidden rounded-lg px-2.5 py-2 text-sm font-medium text-[#A78BCF] transition-colors hover:bg-[#15112A] hover:text-[#F5F1FA] md:inline-flex';
   const drawerLinks = [
     { href: isCodeExperience ? codeHomeHref : agentHubHomeHref, label: t('nav.m.home'), icon: Home },
     ...links,

@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
-import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
 import { resubmitAgentChangesAction } from '@/server/agents/actions';
@@ -62,7 +60,7 @@ function outputExamples(agent) {
   return lines(agent?.version?.outputPromise?.examples);
 }
 
-export default function CodeEditAgentContent({ agentResult, categories = [], error, profile }) {
+export default function CodeEditAgentContent({ agentResult, categories = [], error }) {
   const agent = agentResult?.agent;
   const adminNotes = cleanAdminNotes(agent?.latestAdminReview?.notes);
   const adminFeedbackTitle = agent?.latestAdminReview?.isChangesRequest
@@ -72,9 +70,7 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
       : 'Retour admin';
 
   return (
-    <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
-      <AgentHubCodeNavbar profile={profile} />
-      <main className="container max-w-5xl py-8">
+      <main className="max-w-5xl px-4 py-8 lg:px-8">
         <Link href="/code/agents" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#6B3FA0] hover:text-[#111827]">
           <ArrowLeft className="h-4 w-4" />
           Retour à mes agents
@@ -105,7 +101,7 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
         {agent && (
           <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
             <input type="hidden" name="agent_id" value={agent.id} />
-            <input type="hidden" name="runtime_type" value="llm_prompt" />
+            <input type="hidden" name="runtime_type" value={agent.version?.runtimeType ?? 'llm_prompt'} />
 
             {adminNotes && (
               <section className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-5 text-sm text-[#92400E]">
@@ -210,9 +206,9 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
                 </Field>
                 <Field
                   label="Mode d’exécution prévu"
-                  hint="Pour activer le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe."
+                  hint="Pour la beta creator, gardez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée de l’Agent IA, pas un runtime marketplace séparé."
                 >
-                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
+                  <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'llm_prompt'}>
                     {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -246,7 +242,5 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
           </form>
         )}
       </main>
-      <Footer variant="code" />
-    </div>
   );
 }

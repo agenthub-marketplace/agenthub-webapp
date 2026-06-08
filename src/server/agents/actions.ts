@@ -20,6 +20,8 @@ import { PRICING_TYPES, RISK_LEVELS, type RiskLevel } from "@/lib/domain/status"
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
+import { isCreatorEndpointRuntimeEnabled } from "@/server/endpoints/runtime";
+import { isCreatorWorkflowRuntimeEnabled, isSafeResolvedWorkflowEndpointUrl, parseWorkflowStepsText } from "@/server/workflows/runtime";
 import type { PricingType } from "@/types/agent";
 
 const requiredFields = [
@@ -47,11 +49,11 @@ function readText(formData: FormData, key: string) {
 }
 
 function redirectWithError(locale: Locale, error: string): never {
-  redirect(`${localizedPath("/creator/agents/new", locale)}?error=${encodeURIComponent(error)}`);
+  redirect(`${localizedPath("/code/agents/new", locale)}?error=${encodeURIComponent(error)}`);
 }
 
 function redirectWithEditError(locale: Locale, agentId: string, error: string): never {
-  redirect(`${localizedPath(`/creator/agents/${agentId}/edit`, locale)}?error=${encodeURIComponent(error)}`);
+  redirect(`${localizedPath(`/code/agents/${agentId}/edit`, locale)}?error=${encodeURIComponent(error)}`);
 }
 
 function slugify(value: string) {
@@ -74,6 +76,12 @@ function isRiskLevel(value: string): value is RiskLevel {
   return (RISK_LEVELS as readonly string[]).includes(value);
 }
 
+type CreatorEndpointStatus = "submitted" | "approved" | "rejected" | "suspended";
+
+function canReuseExistingEndpoint(status: CreatorEndpointStatus) {
+  return status === "submitted" || status === "approved";
+}
+
 function readPriceCents(value: string) {
   const normalizedValue = value.replace(",", ".");
   const price = Number(normalizedValue);
@@ -83,6 +91,19 @@ function readPriceCents(value: string) {
   }
 
   return Math.round(price * 100);
+}
+
+async function cleanupDraftAgent(
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
+  agentId: string,
+  creatorId: string,
+) {
+  await supabase
+    .from("agents")
+    .delete()
+    .eq("id", agentId)
+    .eq("creator_id", creatorId)
+    .eq("status", "draft");
 }
 
 function getSupabaseErrorText(error: unknown) {
@@ -166,14 +187,13 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     !isExecutionMode(executionMode) ||
     !isAgentRuntimeType(runtimeType) ||
     executionMode !== "llm_prompt" ||
-    runtimeType !== "llm_prompt"
+    !["llm_prompt", "workflow_automation", "creator_endpoint"].includes(runtimeType)
   ) {
     redirectWithError(locale, "invalid-contract");
   }
 
   const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
   const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
-  const dataPolicy = buildDataPolicy(workspaceMode, executionMode);
 
   const creatorProfile = await getCreatorProfileForUser();
 
@@ -184,6 +204,49 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
   if (creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     redirectWithError(locale, "creator-profile-missing");
   }
+
+  if (runtimeType === "workflow_automation" && !(await isCreatorWorkflowRuntimeEnabled(creatorProfile.id))) {
+    redirectWithError(locale, "invalid-contract");
+  }
+
+  if (runtimeType === "creator_endpoint" && !(await isCreatorEndpointRuntimeEnabled(creatorProfile.id))) {
+    redirectWithError(locale, "invalid-contract");
+  }
+
+  const workflowEndpointUrl = readText(formData, "workflow_endpoint_url");
+  const workflowEndpointName = readText(formData, "workflow_endpoint_name") || `${values.name} workflow endpoint`;
+  const creatorEndpointUrl = readText(formData, "creator_endpoint_url");
+  const creatorEndpointName = readText(formData, "creator_endpoint_name") || `${values.name} creator endpoint`;
+  const hasWebhookStep = readText(formData, "workflow_steps")
+    .split(/\r?\n/)
+    .some((line) => line.trim().toLowerCase().startsWith("webhook:"));
+
+  if (runtimeType === "workflow_automation" && workflowEndpointUrl && !(await isSafeResolvedWorkflowEndpointUrl(workflowEndpointUrl))) {
+    redirectWithError(locale, "invalid-workflow-endpoint");
+  }
+
+  if (runtimeType === "workflow_automation" && hasWebhookStep && !workflowEndpointUrl) {
+    redirectWithError(locale, "invalid-workflow");
+  }
+
+  if (runtimeType === "creator_endpoint" && (!creatorEndpointUrl || !(await isSafeResolvedWorkflowEndpointUrl(creatorEndpointUrl)))) {
+    redirectWithError(locale, "invalid-creator-endpoint");
+  }
+
+  const dataPolicy =
+    runtimeType === "workflow_automation"
+      ? {
+          stores_user_data: true,
+          requires_files: false,
+          external_tools: hasWebhookStep ? ["creator_webhook"] : [],
+        }
+      : runtimeType === "creator_endpoint"
+        ? {
+            stores_user_data: true,
+            requires_files: false,
+            external_tools: [],
+          }
+      : buildDataPolicy(workspaceMode, executionMode);
 
   const agentId = randomUUID();
   const versionId = randomUUID();
@@ -276,6 +339,130 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "version-insert-failed");
   }
 
+  if (runtimeType === "workflow_automation") {
+    let endpointId: string | null = null;
+
+    if (workflowEndpointUrl) {
+      const { data: endpoint, error: endpointError } = await supabase
+        .from("creator_webhook_endpoints")
+        .insert({
+          creator_id: creatorProfile.id,
+          endpoint_url: workflowEndpointUrl,
+          name: workflowEndpointName,
+          status: "submitted",
+        })
+        .select("id")
+        .maybeSingle<{ id: string }>();
+
+      if (endpointError?.code === "23505") {
+        const { data: existingEndpoint, error: existingEndpointError } = await supabase
+          .from("creator_webhook_endpoints")
+          .select("id,status")
+          .eq("creator_id", creatorProfile.id)
+          .eq("endpoint_url", workflowEndpointUrl)
+          .maybeSingle<{ id: string; status: CreatorEndpointStatus }>();
+
+        if (existingEndpointError || !existingEndpoint || !canReuseExistingEndpoint(existingEndpoint.status)) {
+          await cleanupDraftAgent(supabase, agentId, creatorProfile.id);
+          redirectWithError(locale, "workflow-endpoint-failed");
+        }
+
+        endpointId = existingEndpoint.id;
+      } else if (endpointError || !endpoint) {
+        await cleanupDraftAgent(supabase, agentId, creatorProfile.id);
+        redirectWithError(locale, "workflow-endpoint-failed");
+      } else {
+        endpointId = endpoint.id;
+      }
+    }
+
+    const workflowDefinition = parseWorkflowStepsText(readText(formData, "workflow_steps"), endpointId);
+
+    if (!workflowDefinition) {
+      await supabase
+        .from("agents")
+        .delete()
+        .eq("id", agentId)
+        .eq("creator_id", creatorProfile.id)
+        .eq("status", "draft");
+
+      redirectWithError(locale, "invalid-workflow");
+    }
+
+    const { error: workflowError } = await supabase.from("agent_version_workflows").insert({
+      agent_id: agentId,
+      agent_version_id: versionId,
+      creator_id: creatorProfile.id,
+      definition: workflowDefinition,
+      status: "submitted",
+    });
+
+    if (workflowError) {
+      await supabase
+        .from("agents")
+        .delete()
+        .eq("id", agentId)
+        .eq("creator_id", creatorProfile.id)
+        .eq("status", "draft");
+
+      redirectWithError(locale, "workflow-create-failed");
+    }
+  }
+
+  if (runtimeType === "creator_endpoint") {
+    const { data: endpoint, error: endpointError } = await supabase
+      .from("creator_api_endpoints")
+      .insert({
+        creator_id: creatorProfile.id,
+        endpoint_url: creatorEndpointUrl,
+        name: creatorEndpointName,
+        status: "submitted",
+      })
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    let endpointId = endpoint?.id ?? null;
+
+    if (endpointError?.code === "23505") {
+      const { data: existingEndpoint, error: existingEndpointError } = await supabase
+        .from("creator_api_endpoints")
+        .select("id,status")
+        .eq("creator_id", creatorProfile.id)
+        .eq("endpoint_url", creatorEndpointUrl)
+        .maybeSingle<{ id: string; status: CreatorEndpointStatus }>();
+
+      if (existingEndpointError || !existingEndpoint || !canReuseExistingEndpoint(existingEndpoint.status)) {
+        await cleanupDraftAgent(supabase, agentId, creatorProfile.id);
+        redirectWithError(locale, "creator-endpoint-failed");
+      }
+
+      endpointId = existingEndpoint.id;
+    } else if (endpointError || !endpointId) {
+      await cleanupDraftAgent(supabase, agentId, creatorProfile.id);
+      redirectWithError(locale, "creator-endpoint-failed");
+    }
+
+    const { error: endpointConfigError } = await supabase.from("agent_version_creator_endpoints").insert({
+      agent_id: agentId,
+      agent_version_id: versionId,
+      creator_id: creatorProfile.id,
+      endpoint_id: endpointId,
+      request_schema: {},
+      status: "submitted",
+    });
+
+    if (endpointConfigError) {
+      await supabase
+        .from("agents")
+        .delete()
+        .eq("id", agentId)
+        .eq("creator_id", creatorProfile.id)
+        .eq("status", "draft");
+
+      redirectWithError(locale, "creator-endpoint-config-failed");
+    }
+  }
+
   const { error: submitError } = await supabase
     .from("agents")
     .update({ active_version_id: versionId, status: "submitted" })
@@ -301,7 +488,9 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
 
   revalidatePath(localizedPath("/creator", locale));
   revalidatePath(localizedPath("/creator/dashboard", locale));
-  redirect(`${localizedPath("/creator/dashboard", locale)}?submitted=${encodeURIComponent(slug)}`);
+  revalidatePath("/code");
+  revalidatePath("/code/agents");
+  redirect(`/code/agents?submitted=${encodeURIComponent(slug)}`);
 }
 
 export async function resubmitAgentChangesAction(locale: Locale, formData: FormData) {
@@ -364,22 +553,19 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
   const workspaceMode = readText(formData, "workspace_mode") || "instant";
   const setupType = readText(formData, "setup_type") || "none";
   const executionMode = readText(formData, "execution_mode") || "guided_workspace";
-  const runtimeType = readText(formData, "runtime_type") || "llm_prompt";
+  const submittedRuntimeType = readText(formData, "runtime_type") || "llm_prompt";
 
   if (
     !isWorkspaceMode(workspaceMode) ||
     !isSetupRequirementType(setupType) ||
     !isExecutionMode(executionMode) ||
-    !isAgentRuntimeType(runtimeType) ||
-    executionMode !== "llm_prompt" ||
-    runtimeType !== "llm_prompt"
+    !isAgentRuntimeType(submittedRuntimeType)
   ) {
     redirectWithEditError(locale, agentId, "invalid-contract");
   }
 
   const setupRequirements = buildSetupRequirements(setupType, readText(formData, "setup_items"));
   const outputPromise = buildOutputPromise(readText(formData, "output_promise_summary"), readText(formData, "output_promise_examples"));
-  const dataPolicy = buildDataPolicy(workspaceMode, executionMode);
 
   const creatorProfile = await getCreatorProfileForUser();
 
@@ -417,6 +603,39 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     redirectWithEditError(locale, agentId, "version-update-failed");
   }
 
+  const { data: currentVersion, error: currentVersionError } = await supabase
+    .from("agent_versions")
+    .select("data_policy,execution_mode,runtime_type")
+    .eq("id", agent.active_version_id)
+    .eq("agent_id", agent.id)
+    .maybeSingle<{ data_policy: unknown; execution_mode: string | null; runtime_type: string | null }>();
+
+  if (currentVersionError || !currentVersion) {
+    redirectWithEditError(locale, agentId, "version-update-failed");
+  }
+
+  const runtimeType =
+    currentVersion.runtime_type && isAgentRuntimeType(currentVersion.runtime_type)
+      ? currentVersion.runtime_type
+      : currentVersion.execution_mode === "llm_prompt"
+        ? "llm_prompt"
+        : "static_guided";
+  const persistedExecutionMode =
+    currentVersion.execution_mode && isExecutionMode(currentVersion.execution_mode)
+      ? currentVersion.execution_mode
+      : runtimeType === "static_guided"
+        ? "guided_workspace"
+        : "llm_prompt";
+
+  if (submittedRuntimeType !== runtimeType || executionMode !== persistedExecutionMode) {
+    redirectWithEditError(locale, agentId, "invalid-contract");
+  }
+
+  const dataPolicy =
+    runtimeType === "llm_prompt"
+      ? buildDataPolicy(workspaceMode, persistedExecutionMode)
+      : currentVersion.data_policy ?? buildDataPolicy(workspaceMode, persistedExecutionMode);
+
   const resubmitPayload = {
     p_agent_id: agent.id,
     p_category_id: values.category_id,
@@ -434,7 +653,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     p_workspace_mode: workspaceMode,
     p_setup_requirements: setupRequirements,
     p_output_promise: outputPromise,
-    p_execution_mode: executionMode,
+    p_execution_mode: persistedExecutionMode,
     p_runtime_type: runtimeType,
     p_data_policy: dataPolicy,
   };
@@ -474,5 +693,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
   revalidatePath(localizedPath("/creator/dashboard", locale));
   revalidatePath("/admin");
   revalidatePath("/en/admin");
-  redirect(`${localizedPath("/creator/dashboard", locale)}?submitted=${encodeURIComponent(values.name)}`);
+  revalidatePath("/code");
+  revalidatePath("/code/agents");
+  redirect(`/code/agents?submitted=${encodeURIComponent(values.name)}`);
 }

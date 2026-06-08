@@ -1,67 +1,45 @@
 'use client';
 
-import { useRef } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import AgentHubCodeNavbar from '@/components/AgentHubCodeNavbar';
-import Footer from '@/components/Footer';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bot,
+  Check,
+  ClipboardList,
+  Eye,
+  FileText,
+  Layers3,
+  Lock,
+  Send,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
+import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-contract';
 import { AGENT_TEMPLATES, templateToCreatorFormValues } from '@/lib/agent-templates';
 import { submitAgentForReviewAction } from '@/server/agents/actions';
-import { ArrowLeft, Check, Send } from 'lucide-react';
-import { CodeAlert } from './code-console-ui';
+import { CodeAlert, CodePanel } from './code-console-ui';
 
-const creatorExecutionModeOptions = EXECUTION_MODE_OPTIONS.filter((option) => option.value === 'llm_prompt');
+const steps = [
+  { id: 'template', label: 'Template', title: 'Choisir un template' },
+  { id: 'listing', label: 'Listing', title: 'Fiche publique' },
+  { id: 'contract', label: 'Contract', title: 'Agent Contract' },
+  { id: 'runtime', label: 'Runtime', title: 'Runtime' },
+  { id: 'preview', label: 'Preview', title: 'Preview & submit' },
+];
 
 const copy = {
   back: 'Retour au dashboard',
   eyebrow: 'NOUVEL AGENT',
   title: 'Créer un agent IA',
-  subtitle: 'Décrivez un agent professionnel, sa valeur, ses limites, son prix et l’expérience utilisateur après activation.',
-  template: 'Démarrer depuis un template',
-  templatePlaceholder: 'Choisir un template d’agent',
-  templateHint: 'Le template préremplit le formulaire. Vous pouvez tout modifier avant soumission.',
-  core: 'Informations principales',
-  delivery: 'Livraison et validation',
-  name: 'Nom',
-  category: 'Catégorie',
-  shortDescription: 'Description courte',
-  longDescription: 'Description détaillée',
-  targetUser: 'Utilisateur cible',
-  does: 'Ce que l’agent fait',
-  doesNotDo: 'Ce que l’agent ne fait pas',
-  requiredInputs: 'Inputs requis',
-  deliverables: 'Livrables',
-  sampleOutput: 'Exemple de sortie',
-  pricingType: 'Type de prix',
-  startingPrice: 'Prix fixe affiché',
-  pricingHint: 'Détails de prix et conditions',
-  priceHint:
-    'Prix fixe en euros, visible dans la marketplace pour ce mode d’accès. En sandbox, Stripe simule le paiement avant activation.',
-  pricingDetailsHint:
-    'Expliquez clairement ce qui est inclus dans ce prix fixe et les limites de l’accès.',
-  contract: 'Expérience après activation',
-  workspaceMode: 'Type d’expérience dans le workspace',
-  setupType: 'Ce que l’utilisateur devra faire après activation',
-  setupItems: 'Informations ou éléments nécessaires',
-  outputPromiseSummary: 'Promesse de résultat',
-  outputPromiseExamples: 'Exemples d’utilisation',
-  executionMode: 'Mode d’exécution prévu',
-  executionModeHint:
-    'Pour tester le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe.',
-  riskLevel: 'Niveau de risque',
-  executionMethod: 'Données nécessaires',
-  knownLimits: 'Limites connues',
-  lineHint: 'Une ligne par élément.',
-  submit: 'Soumettre pour validation',
-  task: 'À la tâche',
-  project: 'Au projet',
+  subtitle: 'Choisissez un template, adaptez la fiche, vérifiez le workspace, puis soumettez à validation.',
   noCategories: 'Aucune catégorie Supabase disponible. Ajoutez les catégories beta avant de soumettre un agent.',
   missingProfileTitle: 'Profil créateur requis',
   missingProfile:
     'Ce compte peut accéder à l’espace créateur, mais il ne peut soumettre des agents que s’il possède son propre profil créateur.',
   profileError: 'Impossible de vérifier votre profil créateur. Réessayez ou contactez l’équipe.',
-  safety: 'Les agents forbidden_beta sont refusés. Une validation manuelle admin reste obligatoire avant publication.',
+  safety: 'Validation admin obligatoire avant publication. En beta, seul le runtime Agent IA est créateur-visible.',
 };
 
 const errorMessages = {
@@ -77,6 +55,45 @@ const errorMessages = {
   'agent-insert-failed': 'La création de l’agent a échoué.',
   'version-insert-failed': 'La création de la version de validation a échoué.',
   'agent-submit-failed': 'La soumission de l’agent a échoué.',
+  'invalid-workflow': 'Le workflow beta est réservé à une phase interne.',
+  'invalid-workflow-endpoint': 'Le workflow beta est réservé à une phase interne.',
+  'workflow-endpoint-failed': 'Le workflow beta est réservé à une phase interne.',
+  'workflow-create-failed': 'Le workflow beta est réservé à une phase interne.',
+  'invalid-creator-endpoint': 'Le runtime endpoint creator est réservé à une beta interne.',
+  'creator-endpoint-failed': 'Le runtime endpoint creator est réservé à une beta interne.',
+  'creator-endpoint-config-failed': 'Le runtime endpoint creator est réservé à une beta interne.',
+};
+
+const emptyValues = {
+  agent_template: '',
+  workflow_endpoint_name: '',
+  workflow_endpoint_url: '',
+  workflow_steps: 'llm: Comprendre le besoin utilisateur\nllm: Produire une réponse structurée',
+  creator_endpoint_name: '',
+  creator_endpoint_url: '',
+  name: '',
+  category_id: '',
+  short_description: '',
+  target_user: '',
+  long_description: '',
+  does: '',
+  does_not_do: '',
+  required_inputs: '',
+  deliverables: '',
+  sample_output: '',
+  known_limits: '',
+  pricing_type: 'task',
+  starting_price_eur: '',
+  risk_level: 'low',
+  pricing_hint: '',
+  execution_method: 'Agent IA: OpenAI server-side, texte par défaut, document en beta contrôlée, aucun outil externe.',
+  workspace_mode: 'guided',
+  setup_type: 'context',
+  output_promise_summary: '',
+  output_promise_examples: '',
+  setup_items: '',
+  execution_mode: 'llm_prompt',
+  runtime_type: 'llm_prompt',
 };
 
 const inputClass =
@@ -92,92 +109,312 @@ function Field({ children, hint, label, wide = false }) {
   );
 }
 
+function lines(value) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function Stepper({ currentStep, setCurrentStep, templateSelected }) {
+  return (
+    <div className="grid gap-2 md:grid-cols-5">
+      {steps.map((step, index) => {
+        const active = index === currentStep;
+        const done = index < currentStep;
+        const locked = index > 0 && !templateSelected;
+
+        return (
+          <button
+            key={step.id}
+            type="button"
+            disabled={locked}
+            onClick={() => setCurrentStep(index)}
+            className={[
+              'rounded-2xl border px-3 py-3 text-left transition-colors',
+              active
+                ? 'border-[#8B5CF6] bg-[#F5F3FF] text-[#111827]'
+                : done
+                  ? 'border-[#C4B5FD] bg-white text-[#374151]'
+                  : locked
+                    ? 'border-[#E3E7F2] bg-[#F8FAFC] text-[#9CA3AF]'
+                    : 'border-[#E3E7F2] bg-white text-[#6B7280]',
+            ].join(' ')}
+          >
+            <span className="font-stat text-xs text-[#6B3FA0]">0{index + 1}</span>
+            <span className="mt-1 block text-sm font-semibold">{step.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PublicListingPreview({ values }) {
+  return (
+    <CodePanel className="h-full">
+      <p className="font-label mb-4 text-xs text-[#6B3FA0]">PREVIEW FICHE PUBLIQUE</p>
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#C4B5FD] text-white">
+        <Bot className="h-7 w-7" />
+      </div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h3 className="font-display text-2xl font-bold text-[#111827]">{values.name || 'Nom de l’agent'}</h3>
+        <span className="rounded-full border border-[#D8DDEE] bg-[#F8FAFC] px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
+          {values.risk_level}
+        </span>
+      </div>
+      <p className="text-sm leading-6 text-[#4B5563]">{values.short_description || 'Description courte visible dans la marketplace.'}</p>
+      <div className="mt-5 grid gap-3 text-sm text-[#4B5563]">
+        <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+          <p className="font-label mb-1 text-[10px] text-[#6B3FA0]">Utilisateur cible</p>
+          <p>{values.target_user || 'Audience cible'}</p>
+        </div>
+        <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+          <p className="font-label mb-1 text-[10px] text-[#6B3FA0]">Prix</p>
+          <p>{values.starting_price_eur ? `${values.starting_price_eur} €` : 'Prix fixe'} · {values.pricing_type}</p>
+        </div>
+      </div>
+    </CodePanel>
+  );
+}
+
+function WorkspacePreview({ values }) {
+  const actions = lines(values.output_promise_examples).slice(0, 4);
+  const fallbackActions = ['Décrire mon besoin', 'Lancer l’agent', 'Relire le résultat'];
+  const setupItems = lines(values.setup_items).slice(0, 5);
+
+  return (
+    <CodePanel className="h-full">
+      <p className="font-label mb-4 text-xs text-[#6B3FA0]">PREVIEW WORKSPACE</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+          <Sparkles className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-display text-xl font-bold text-[#111827]">Démarrer avec cet agent</h3>
+          <p className="mt-1 text-sm text-[#4B5563]">{values.output_promise_summary || 'Promesse visible après activation.'}</p>
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {(actions.length > 0 ? actions : fallbackActions).map((action, index) => (
+          <div key={action} className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+            <span className="font-stat text-xs text-[#6B3FA0]">0{index + 1}</span>
+            <p className="mt-1 text-sm font-semibold text-[#111827]">{action}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 rounded-xl border border-[#E3E7F2] bg-white p-3">
+        <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Inputs à préparer</p>
+        <ul className="space-y-1 text-sm text-[#4B5563]">
+          {(setupItems.length > 0 ? setupItems : ['Contexte utilisateur']).map((item) => (
+            <li key={item} className="flex gap-2">
+              <Check className="mt-0.5 h-4 w-4 text-[#10B981]" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </CodePanel>
+  );
+}
+
+function RuntimeCard({ disabled, icon: Icon, onClick, selected = false, title, text, tone = 'active' }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled || !onClick}
+      onClick={onClick}
+      className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+        disabled
+          ? 'border-[#E3E7F2] bg-[#F8FAFC] opacity-75'
+          : selected
+            ? 'border-[#8B5CF6] bg-[#F5F3FF] shadow-[0_10px_26px_rgba(109,64,160,0.10)]'
+            : 'border-[#E3E7F2] bg-white hover:border-[#8B5CF6] hover:bg-[#FCFAFF]'
+      }`}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#6B3FA0]">
+          <Icon className="h-5 w-5" />
+        </span>
+        <span className="rounded-full border border-[#D8DDEE] bg-white px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
+          {disabled ? 'Interne' : tone}
+        </span>
+      </div>
+      <h3 className="font-display text-lg font-bold text-[#111827]">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-[#4B5563]">{text}</p>
+    </button>
+  );
+}
+
 export default function CodeNewAgentContent({
+  canUseCreatorEndpoint = false,
+  canUseWorkflowAutomation = false,
   categories = [],
   creatorProfileMissing,
   error,
-  profile,
   profileError,
 }) {
   const action = submitAgentForReviewAction.bind(null, 'fr');
-  const formRef = useRef(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [values, setValues] = useState(emptyValues);
+  const selectedTemplate = useMemo(() => AGENT_TEMPLATES.find((item) => item.key === values.agent_template) ?? null, [values.agent_template]);
   const errorMessage = error && errorMessages[error] ? errorMessages[error] : null;
   const canSubmit = categories.length > 0 && !creatorProfileMissing && !profileError;
 
-  function handleTemplateChange(event) {
-    const template = AGENT_TEMPLATES.find((item) => item.key === event.target.value);
-    const values = templateToCreatorFormValues(template, categories);
-    const form = formRef.current;
+  function updateField(name, value) {
+    setValues((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
 
-    if (!values || !form) {
+  function applyTemplate(templateKey) {
+    const template = AGENT_TEMPLATES.find((item) => item.key === templateKey);
+    const templateValues = templateToCreatorFormValues(template, categories);
+
+    if (!templateValues) {
+      updateField('agent_template', '');
       return;
     }
 
-    Object.entries(values).forEach(([name, value]) => {
-      const field = form.elements.namedItem(name);
-
-      if (field && 'value' in field) {
-        field.value = value;
-      }
+    setValues({
+      ...emptyValues,
+      ...templateValues,
+      agent_template: templateKey,
+      execution_mode: 'llm_prompt',
+      runtime_type: 'llm_prompt',
     });
   }
 
-  return (
-    <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
-      <AgentHubCodeNavbar profile={profile} />
-      <main className="container max-w-5xl py-8">
-        <Link href="/code/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#6B3FA0] hover:text-[#111827]">
-          <ArrowLeft className="h-4 w-4" />
-          {copy.back}
-        </Link>
+  function selectRuntime(runtimeType) {
+    setValues((current) => ({
+      ...current,
+      runtime_type: runtimeType,
+      execution_mode: 'llm_prompt',
+      execution_method:
+        runtimeType === 'workflow_automation'
+          ? 'Workflow automation beta: étapes LLM internes, webhook creator approuvé si configuré.'
+          : runtimeType === 'creator_endpoint'
+            ? 'Creator endpoint beta: appel serveur signé vers endpoint creator approuvé.'
+            : current.data_policy?.requires_files
+              ? 'Agent IA document: PDF/DOCX prive en beta controlee, extraction serveur, aucun outil externe.'
+              : 'Agent IA: OpenAI server-side, texte par défaut, document en beta contrôlée, aucun outil externe.',
+    }));
+  }
 
-        <section className="mb-8 overflow-hidden rounded-3xl border border-[#E3E7F2] bg-white p-6 shadow-sm md:p-8">
-          <div className="grid gap-5 md:grid-cols-[1fr_280px] md:items-end">
-            <div>
-              <p className="font-label mb-2 text-xs text-[#6B3FA0]">{copy.eyebrow}</p>
-              <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">{copy.title}</h1>
-              <p className="mt-3 max-w-2xl text-[#4B5563]">{copy.subtitle}</p>
-            </div>
-            <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4 text-sm text-[#4B5563]">
-              <div className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
-                <span>{copy.safety}</span>
-              </div>
+  function textInput(name, props = {}) {
+    return {
+      name,
+      value: values[name] ?? '',
+      onChange: (event) => updateField(name, event.target.value),
+      ...props,
+    };
+  }
+
+  return (
+    <main className="px-4 py-8 lg:px-8">
+      <Link href="/code" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#6B3FA0] hover:text-[#111827]">
+        <ArrowLeft className="h-4 w-4" />
+        {copy.back}
+      </Link>
+
+      <section className="mb-8 overflow-hidden rounded-3xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_62%,#F3E8FF_100%)] p-6 shadow-[0_18px_50px_rgba(109,64,160,0.08)] md:p-8">
+        <div className="grid gap-5 md:grid-cols-[1fr_300px] md:items-end">
+          <div>
+            <p className="font-label mb-2 text-xs text-[#6B3FA0]">{copy.eyebrow}</p>
+            <h1 className="font-display text-4xl font-bold text-[#111827] md:text-5xl">{copy.title}</h1>
+            <p className="mt-3 max-w-2xl text-[#4B5563]">{copy.subtitle}</p>
+          </div>
+          <div className="rounded-2xl border border-[#DDD6FE] bg-white/80 p-4 text-sm text-[#4B5563] shadow-sm">
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+              <span>{copy.safety}</span>
             </div>
           </div>
-        </section>
-
-        <div className="space-y-4">
-          {creatorProfileMissing && <CodeAlert title={copy.missingProfileTitle}>{copy.missingProfile}</CodeAlert>}
-          {profileError && <CodeAlert tone="error">{copy.profileError}</CodeAlert>}
-          {categories.length === 0 && <CodeAlert tone="error">{copy.noCategories}</CodeAlert>}
-          {errorMessage && <CodeAlert tone="error">{errorMessage}</CodeAlert>}
         </div>
+      </section>
 
-        {!creatorProfileMissing && (
-          <form ref={formRef} action={action} className="mt-8 space-y-6">
-            <input type="hidden" name="runtime_type" value="llm_prompt" />
-            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
-              <Field label={copy.template} hint={copy.templateHint}>
-                <select name="agent_template" className={inputClass} defaultValue="" onChange={handleTemplateChange}>
-                  <option value="">{copy.templatePlaceholder}</option>
-                  {AGENT_TEMPLATES.map((template) => (
-                    <option key={template.key} value={template.key}>
-                      {template.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </section>
+      <div className="mb-6 space-y-4">
+        {creatorProfileMissing && <CodeAlert title={copy.missingProfileTitle}>{copy.missingProfile}</CodeAlert>}
+        {profileError && <CodeAlert tone="error">{copy.profileError}</CodeAlert>}
+        {categories.length === 0 && <CodeAlert tone="error">{copy.noCategories}</CodeAlert>}
+        {errorMessage && <CodeAlert tone="error">{errorMessage}</CodeAlert>}
+      </div>
 
-            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{copy.core}</h2>
+      {!creatorProfileMissing && (
+        <form action={action} className="space-y-6">
+          <input type="hidden" name="agent_template" value={values.agent_template} />
+          <input type="hidden" name="execution_mode" value="llm_prompt" />
+          <input type="hidden" name="runtime_type" value={values.runtime_type} />
+
+          <Stepper currentStep={currentStep} setCurrentStep={setCurrentStep} templateSelected={Boolean(selectedTemplate)} />
+
+          <section className={currentStep === 0 ? 'grid gap-5 lg:grid-cols-[1fr_360px]' : 'hidden'}>
+            <CodePanel>
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#EDE9FE] text-[#6B3FA0] shadow-[0_10px_24px_rgba(109,64,160,0.12)]">
+                <Layers3 className="h-5 w-5" />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-[#111827]">Choisir un point de départ</h2>
+              <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                Les templates beta donnent une fiche réaliste, modifiable avant soumission.
+              </p>
+              <div className="mt-6 grid gap-3">
+                {AGENT_TEMPLATES.map((template) => (
+                  <button
+                    key={template.key}
+                    type="button"
+                    onClick={() => applyTemplate(template.key)}
+                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                      values.agent_template === template.key
+                        ? 'border-[#8B5CF6] bg-[#F3E8FF] shadow-[0_10px_26px_rgba(109,64,160,0.10)]'
+                        : 'border-[#E3E7F2] bg-white hover:border-[#8B5CF6] hover:bg-[#FCFAFF]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#111827]">{template.label}</h3>
+                        <p className="mt-1 text-sm leading-6 text-[#4B5563]">{template.short_description}</p>
+                      </div>
+                      <span className="rounded-full border border-[#D8DDEE] bg-white px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
+                        {template.category}
+                      </span>
+                      {template.data_policy?.requires_files && (
+                        <span className="rounded-full border border-[#DDD6FE] bg-[#FAF5FF] px-2.5 py-1 text-[10px] font-label text-[#6B3FA0]">
+                          Document beta
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CodePanel>
+            <CodePanel>
+              <p className="font-label mb-3 text-xs text-[#6B3FA0]">TEMPLATE SÉLECTIONNÉ</p>
+              <h3 className="font-display text-xl font-bold text-[#111827]">{selectedTemplate?.label || 'Aucun template'}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#4B5563]">
+                {selectedTemplate?.detailed_description || 'Choisissez un template pour préremplir le wizard.'}
+              </p>
+              <Button
+                type="button"
+                disabled={!selectedTemplate}
+                onClick={() => setCurrentStep(1)}
+                className="mt-6 h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44] disabled:opacity-50"
+              >
+                Continuer
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CodePanel>
+          </section>
+
+          <section className={currentStep === 1 ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
+            <CodePanel>
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Fiche publique</h2>
               <div className="grid gap-5 md:grid-cols-2">
-                <Field label={copy.name}>
-                  <input name="name" required placeholder="LegalDraft Pro" className={inputClass} />
+                <Field label="Nom">
+                  <input {...textInput('name', { placeholder: 'LinkedIn Content Studio' })} className={inputClass} />
                 </Field>
-                <Field label={copy.category}>
-                  <select name="category_id" required className={inputClass} defaultValue="">
+                <Field label="Catégorie">
+                  <select {...textInput('category_id')} className={inputClass}>
                     <option value="" disabled />
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
@@ -186,79 +423,94 @@ export default function CodeNewAgentContent({
                     ))}
                   </select>
                 </Field>
-                <Field label={copy.shortDescription}>
-                  <input name="short_description" required className={inputClass} />
+                <Field label="Description courte" wide>
+                  <input {...textInput('short_description')} className={inputClass} />
                 </Field>
-                <Field label={copy.targetUser}>
-                  <input name="target_user" required className={inputClass} />
+                <Field label="Utilisateur cible">
+                  <input {...textInput('target_user')} className={inputClass} />
                 </Field>
-                <Field label={copy.longDescription} wide>
-                  <textarea name="long_description" required rows={5} className={inputClass} />
+                <Field label="Prix fixe affiché">
+                  <input {...textInput('starting_price_eur', { type: 'number', min: '1', step: '0.01', inputMode: 'decimal' })} className={inputClass} />
                 </Field>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{copy.delivery}</h2>
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field label={copy.does} hint={copy.lineHint}>
-                  <textarea name="does" required rows={5} className={inputClass} />
-                </Field>
-                <Field label={copy.doesNotDo} hint={copy.lineHint}>
-                  <textarea name="does_not_do" required rows={5} className={inputClass} />
-                </Field>
-                <Field label={copy.requiredInputs} hint={copy.lineHint}>
-                  <textarea name="required_inputs" required rows={4} className={inputClass} />
-                </Field>
-                <Field label={copy.deliverables} hint={copy.lineHint}>
-                  <textarea name="deliverables" required rows={4} className={inputClass} />
-                </Field>
-                <Field label={copy.sampleOutput}>
-                  <textarea name="sample_output" required rows={4} className={inputClass} />
-                </Field>
-                <Field label={copy.knownLimits} hint={copy.lineHint}>
-                  <textarea name="known_limits" required rows={4} className={inputClass} />
-                </Field>
-                <Field label={copy.pricingType}>
-                  <select name="pricing_type" required className={inputClass} defaultValue="task">
-                    <option value="task">{copy.task}</option>
-                    <option value="project">{copy.project}</option>
+                <Field label="Type de prix">
+                  <select {...textInput('pricing_type')} className={inputClass}>
+                    <option value="task">À la tâche</option>
+                    <option value="project">Au projet</option>
                   </select>
                 </Field>
-                <Field label={copy.startingPrice} hint={copy.priceHint}>
-                  <input
-                    name="starting_price_eur"
-                    required
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="99"
-                    className={inputClass}
-                  />
+                <Field label="Description détaillée" wide>
+                  <textarea {...textInput('long_description', { rows: 6 })} className={inputClass} />
                 </Field>
-                <Field label={copy.riskLevel}>
-                  <select name="risk_level" required className={inputClass} defaultValue="low">
+                <Field label="Détails de prix" wide>
+                  <input {...textInput('pricing_hint')} className={inputClass} />
+                </Field>
+              </div>
+            </CodePanel>
+            <PublicListingPreview values={values} />
+          </section>
+
+          <section className={currentStep === 2 ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
+            <CodePanel>
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Agent Contract</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Ce que l’agent fait" hint="Une ligne par élément.">
+                  <textarea {...textInput('does', { rows: 5 })} className={inputClass} />
+                </Field>
+                <Field label="Ce que l’agent ne fait pas" hint="Une ligne par élément.">
+                  <textarea {...textInput('does_not_do', { rows: 5 })} className={inputClass} />
+                </Field>
+                <Field label="Inputs requis" hint="Une ligne par élément.">
+                  <textarea {...textInput('required_inputs', { rows: 4 })} className={inputClass} />
+                </Field>
+                <Field label="Livrables" hint="Une ligne par élément.">
+                  <textarea {...textInput('deliverables', { rows: 4 })} className={inputClass} />
+                </Field>
+                <Field label="Exemple de sortie">
+                  <textarea {...textInput('sample_output', { rows: 4 })} className={inputClass} />
+                </Field>
+                <Field label="Limites connues" hint="Une ligne par élément.">
+                  <textarea {...textInput('known_limits', { rows: 4 })} className={inputClass} />
+                </Field>
+                <Field label="Niveau de risque">
+                  <select {...textInput('risk_level')} className={inputClass}>
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
                     <option value="forbidden_beta">forbidden_beta</option>
                   </select>
                 </Field>
-                <Field label={copy.pricingHint} hint={copy.pricingDetailsHint}>
-                  <input name="pricing_hint" required placeholder="Ex: includes one deliverable and one revision" className={inputClass} />
-                </Field>
-                <Field label={copy.executionMethod}>
-                  <input name="execution_method" required placeholder="Exemple : contexte utilisateur, texte, URLs publiques" className={inputClass} />
+                <Field label="Données nécessaires">
+                  <input {...textInput('execution_method')} className={inputClass} />
                 </Field>
               </div>
-            </section>
+            </CodePanel>
+            <CodePanel>
+              <p className="font-label mb-3 text-xs text-[#6B3FA0]">CONTRÔLE QUALITÉ</p>
+              {['Promesse compréhensible', 'Inputs actionnables', 'Livrables précis', 'Limites visibles'].map((item) => (
+                <div key={item} className="mb-3 flex items-center gap-2 rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 text-sm text-[#4B5563]">
+                  <Check className="h-4 w-4 text-[#10B981]" />
+                  {item}
+                </div>
+              ))}
+            </CodePanel>
+          </section>
 
-            <section className="rounded-2xl border border-[#E3E7F2] bg-white p-6 shadow-sm">
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">{copy.contract}</h2>
+          <section className={currentStep === 3 ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
+            <CodePanel>
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Runtime et workspace</h2>
               <div className="grid gap-5 md:grid-cols-2">
-                <Field label={copy.workspaceMode}>
-                  <select name="workspace_mode" required className={inputClass} defaultValue="instant">
+                <Field label="Runtime créateur-visible">
+                  <div className="rounded-xl border border-[#8B5CF6] bg-[#F5F3FF] px-3 py-2.5 text-sm font-semibold text-[#111827]">
+                    Agent IA
+                  </div>
+                </Field>
+                <Field label="Mode d’exécution">
+                  <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#4B5563]">
+                    Agent IA (OpenAI server-side)
+                  </div>
+                </Field>
+                <Field label="Type d’expérience dans le workspace">
+                  <select {...textInput('workspace_mode')} className={inputClass}>
                     {WORKSPACE_MODE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -266,8 +518,8 @@ export default function CodeNewAgentContent({
                     ))}
                   </select>
                 </Field>
-                <Field label={copy.setupType}>
-                  <select name="setup_type" required className={inputClass} defaultValue="none">
+                <Field label="Ce que l’utilisateur devra faire après activation">
+                  <select {...textInput('setup_type')} className={inputClass}>
                     {SETUP_REQUIREMENT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -275,45 +527,147 @@ export default function CodeNewAgentContent({
                     ))}
                   </select>
                 </Field>
-                <Field label={copy.outputPromiseSummary} wide>
-                  <input
-                    name="output_promise_summary"
-                    placeholder="Ce que l’utilisateur peut obtenir en ouvrant le workspace"
-                    className={inputClass}
-                  />
+                <Field label="Promesse de résultat" wide>
+                  <input {...textInput('output_promise_summary')} className={inputClass} />
                 </Field>
-                <Field label={copy.outputPromiseExamples} hint={copy.lineHint}>
-                  <textarea name="output_promise_examples" rows={4} className={inputClass} />
+                <Field label="Exemples d’utilisation" hint="Une ligne par exemple.">
+                  <textarea {...textInput('output_promise_examples', { rows: 4 })} className={inputClass} />
                 </Field>
-                <Field label={copy.setupItems} hint={copy.lineHint}>
-                  <textarea name="setup_items" rows={4} className={inputClass} />
-                </Field>
-                <Field label={copy.executionMode} hint={copy.executionModeHint}>
-                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
-                    {creatorExecutionModeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                <Field label="Informations ou éléments nécessaires" hint="Une ligne par élément.">
+                  <textarea {...textInput('setup_items', { rows: 4 })} className={inputClass} />
                 </Field>
               </div>
-            </section>
-
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={!canSubmit}
-                className="h-12 border-0 bg-[#111827] px-6 text-white shadow-sm hover:bg-[#2B1A44] disabled:opacity-50"
-              >
-                <Send className="mr-2 h-4 w-4" />
-                {copy.submit}
-              </Button>
+            </CodePanel>
+            <div className="space-y-4">
+              <RuntimeCard
+                icon={Bot}
+                onClick={() => selectRuntime('llm_prompt')}
+                selected={values.runtime_type === 'llm_prompt'}
+                title="Agent IA"
+                tone="Actif"
+                text="Texte par défaut, server-side, avec mode document disponible en beta contrôlée."
+              />
+              <RuntimeCard disabled icon={FileText} title="Entrée document" text="Capacité de l’Agent IA pour PDF/DOCX privés. Pas une famille marketplace séparée." />
+              <RuntimeCard
+                disabled={!canUseWorkflowAutomation}
+                icon={ClipboardList}
+                onClick={() => selectRuntime('workflow_automation')}
+                selected={values.runtime_type === 'workflow_automation'}
+                title="Workflow Automation"
+                tone={canUseWorkflowAutomation ? 'Beta privée' : 'Interne'}
+                text="Étapes LLM internes, avec webhook creator approuvé si nécessaire. Pas de node editor, pas de n8n."
+              />
+              <RuntimeCard
+                disabled={!canUseCreatorEndpoint}
+                icon={Lock}
+                onClick={() => selectRuntime('creator_endpoint')}
+                selected={values.runtime_type === 'creator_endpoint'}
+                title="Creator Endpoint"
+                tone={canUseCreatorEndpoint ? 'Beta privée' : 'Interne'}
+                text="Proxy serveur signé vers endpoint creator approuvé. Jamais appelé depuis le client."
+              />
             </div>
-          </form>
-        )}
-      </main>
-      <Footer variant="code" />
-    </div>
+          </section>
+
+          <section className={currentStep === 3 && values.runtime_type === 'workflow_automation' ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
+            <CodePanel>
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Workflow beta</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Étapes workflow" wide hint="2 à 5 lignes. Format: llm: action ou webhook: action.">
+                  <textarea {...textInput('workflow_steps', { rows: 6 })} className={inputClass} />
+                </Field>
+                <Field label="Nom endpoint webhook" hint="Optionnel si aucune étape webhook.">
+                  <input {...textInput('workflow_endpoint_name')} className={inputClass} />
+                </Field>
+                <Field label="URL endpoint webhook" hint="HTTPS public uniquement. Pas de localhost/IP privée.">
+                  <input {...textInput('workflow_endpoint_url', { placeholder: 'https://example.com/agenthub/webhook' })} className={inputClass} />
+                </Field>
+              </div>
+            </CodePanel>
+            <CodePanel>
+              <p className="font-label mb-3 text-xs text-[#6B3FA0]">GARDE-FOUS</p>
+              {['Workflow linéaire uniquement', '2 à 5 étapes maximum', 'Webhook signé HMAC', 'Validation admin obligatoire'].map((item) => (
+                <div key={item} className="mb-3 flex items-center gap-2 rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 text-sm text-[#4B5563]">
+                  <Check className="h-4 w-4 text-[#10B981]" />
+                  {item}
+                </div>
+              ))}
+            </CodePanel>
+          </section>
+
+          <section className={currentStep === 3 && values.runtime_type === 'creator_endpoint' ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
+            <CodePanel>
+              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Creator endpoint beta</h2>
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Nom endpoint">
+                  <input {...textInput('creator_endpoint_name')} className={inputClass} />
+                </Field>
+                <Field label="URL endpoint" hint="HTTPS public uniquement. Réponse JSON attendue: { output_text: string }.">
+                  <input {...textInput('creator_endpoint_url', { placeholder: 'https://example.com/agenthub/endpoint' })} className={inputClass} />
+                </Field>
+              </div>
+            </CodePanel>
+            <CodePanel>
+              <p className="font-label mb-3 text-xs text-[#6B3FA0]">GARDE-FOUS</p>
+              {['Proxy serveur AgentHub', 'Signature HMAC', 'Timeout court', 'Endpoint approuvé par admin'].map((item) => (
+                <div key={item} className="mb-3 flex items-center gap-2 rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 text-sm text-[#4B5563]">
+                  <Check className="h-4 w-4 text-[#10B981]" />
+                  {item}
+                </div>
+              ))}
+            </CodePanel>
+          </section>
+
+          <section className={currentStep === 4 ? 'grid gap-6 lg:grid-cols-2' : 'hidden'}>
+            <PublicListingPreview values={values} />
+            <WorkspacePreview values={values} />
+            <CodePanel className="lg:col-span-2">
+              <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+                <div>
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+                    <Eye className="h-5 w-5" />
+                  </div>
+                  <h2 className="font-display text-2xl font-bold text-[#111827]">Prêt pour validation admin</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                    La soumission utilise la validation serveur existante. Aucun agent n’apparaît en marketplace avant approbation.
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={!canSubmit || currentStep !== steps.length - 1}
+                  className="h-12 border-0 bg-[#111827] px-6 text-white shadow-sm hover:bg-[#2B1A44] disabled:opacity-50"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Soumettre pour validation
+                </Button>
+              </div>
+            </CodePanel>
+          </section>
+
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={currentStep === 0}
+              onClick={() => setCurrentStep((step) => Math.max(0, step - 1))}
+              className="h-11 border-[#D8DDEE] bg-white px-5 text-[#111827] hover:border-[#8B5CF6] hover:bg-[#F1F3F8] disabled:opacity-50"
+            >
+              Retour
+            </Button>
+            {currentStep < steps.length - 1 && (
+              <Button
+                type="button"
+                disabled={currentStep === 0 && !selectedTemplate}
+                onClick={() => setCurrentStep((step) => Math.min(steps.length - 1, step + 1))}
+                className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44] disabled:opacity-50"
+              >
+                Continuer
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </form>
+      )}
+    </main>
   );
 }

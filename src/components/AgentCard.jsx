@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Star, ShieldCheck, TrendingUp } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Star } from 'lucide-react';
 import AgentAvatar from '@/components/AgentAvatar';
 import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { euroLabelToCredits, formatCredits } from '@/lib/format-credits';
@@ -24,50 +24,56 @@ export default function AgentCard({ agent, variant = 'dark' }) {
   const muted = isLight ? 'text-[#8A7CA0]' : 'text-[#A78BCF]';
   const chip = isLight ? 'bg-[#F4EFE0] text-[#5B4880]' : 'bg-[#1A152F] text-[#D6C5E8]';
   const divider = isLight ? 'border-[#E8DFCB]' : 'border-[#251A40]';
-  const avatarChip = isLight ? 'bg-[#F4EFE0] border-[#E8DFCB] text-[#5B4880]' : 'bg-[#1A152F] border-[#251A40] text-[#D6C5E8]';
   return (
     <Link href={`/agenthub/agents/${agent.slug}`} className="block group">
-      <div className={`card-hover ${card} rounded-2xl p-5 h-full flex flex-col`}>
-        <div className="flex items-start justify-between mb-4">
-          <AgentAvatar index={agent.gradient} size="lg" />
-          <div className="flex flex-col gap-1.5 items-end">
+      <div className={`card-hover ${card} flex h-full flex-col rounded-2xl p-5`}>
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <AgentAvatar index={agent.gradient} size="md" />
+          <div className="flex flex-wrap justify-end gap-1.5">
             {agent.certified && (
-              <span className={`flex items-center gap-1 text-[10px] font-label px-2 py-1 rounded-full border ${isLight ? 'bg-[#ECFDF5] border-[#10B981]/40' : 'bg-[#1A152F] border-[#10B981]/30'} text-[#10B981]`}><ShieldCheck className="w-3 h-3"/>{t('g.certified')}</span>
-            )}
-            {agent.trending && (
-              <span className={`flex items-center gap-1 text-[10px] font-label px-2 py-1 rounded-full border ${isLight ? 'bg-[#FFFBEB] border-[#F59E0B]/40' : 'bg-[#1A152F] border-[#F59E0B]/30'} text-[#F59E0B]`}><TrendingUp className="w-3 h-3"/>{t('g.trending')}</span>
+              <span className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${isLight ? 'border-[#10B981]/30 bg-[#ECFDF5] text-[#047857]' : 'border-[#10B981]/25 bg-[#10281F] text-[#6EE7B7]'}`}>
+                <ShieldCheck className="h-3 w-3" />
+                {t('g.certified')}
+              </span>
             )}
           </div>
         </div>
-        <h3 className={`font-display font-bold text-lg mb-1 ${title}`}>{agent.name}</h3>
-        <p className={`text-sm mb-3 line-clamp-1 ${pitch}`}>{agent.pitch}</p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full ${chip}`}>{agent.category}</span>
+        <h3 className={`font-display mb-2 text-xl font-bold ${title}`}>{agent.name}</h3>
+        <p className={`mb-4 line-clamp-2 text-sm leading-6 ${pitch}`}>{agent.pitch}</p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span className={`inline-block self-start rounded-full px-2.5 py-1 text-[10px] font-semibold ${chip}`}>{agent.category}</span>
           {workspaceLabel && (
-            <span className={`inline-block self-start text-[10px] font-label px-2 py-1 rounded-full ${chip}`}>{workspaceLabel}</span>
+            <span className={`inline-block self-start rounded-full px-2.5 py-1 text-[10px] font-semibold ${chip}`}>{workspaceLabel}</span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 mb-3">
-          <Star className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" />
-          <span className={`font-stat text-sm ${title}`}>{ratingLabel}</span>
-          <span className={`text-xs ${muted}`}>({agent.reviews} {t('g.reviews')})</span>
-        </div>
-        <div className={`mt-auto pt-3 border-t ${divider} flex items-center justify-between`}>
-          <div className="flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-stat border ${avatarChip}`}>{agent.creator.avatar}</div>
-            <span className={`text-xs ${muted}`}>{agent.creator.name}</span>
+
+        <div className={`mt-auto border-t pt-4 ${divider}`}>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className={`text-xs ${muted}`}>Créateur</p>
+              <p className={`mt-1 text-sm font-semibold ${title}`}>{agent.creator.name}</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Star className="h-4 w-4 fill-[#F59E0B] text-[#F59E0B]" />
+              <span className={`text-sm font-semibold ${title}`}>{ratingLabel}</span>
+              {agent.reviews > 0 && <span className={`text-xs ${muted}`}>({agent.reviews})</span>}
+            </div>
           </div>
-          <div className="text-right">
+
+          <div className="flex items-center justify-between gap-3">
             {hasPrice ? (
-              <>
-                <span className={`font-stat text-base ${title}`}>{creditLabel}</span>
-                <span className={`block text-xs ${muted}`}>{priceModeLabel}</span>
-              </>
+              <div>
+                <span className={`font-stat block text-base ${title}`}>{creditLabel}</span>
+                <span className={`text-xs ${muted}`}>{priceModeLabel}</span>
+              </div>
             ) : (
-              <span className={`block max-w-28 text-xs font-label leading-tight ${muted}`}>
+              <span className={`block max-w-32 text-xs font-semibold leading-tight ${muted}`}>
                 {t('g.pricepending')}
               </span>
             )}
+            <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${isLight ? 'border-[#E8DFCB] text-[#5B4880] group-hover:border-[#6B3FA0] group-hover:text-[#1A152F]' : 'border-[#251A40] text-[#A78BCF] group-hover:border-[#8B5CF6] group-hover:text-white'}`}>
+              <ArrowRight className="h-4 w-4" />
+            </span>
           </div>
         </div>
       </div>

@@ -5,6 +5,8 @@ import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import WorkspaceRunActions from '@/components/workspace/WorkspaceRunActions';
 import DocumentWorkspaceActions from '@/components/workspace/DocumentWorkspaceActions';
+import WorkflowWorkspaceActions from '@/components/workspace/WorkflowWorkspaceActions';
+import CreatorEndpointWorkspaceActions from '@/components/workspace/CreatorEndpointWorkspaceActions';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
 import { serverEnv } from '@/lib/env.server';
@@ -12,6 +14,8 @@ import { getWorkspaceActionLabels } from '@/lib/workspace-actions';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { getUserAgentRuns } from '@/server/llm/runs';
 import { isDocumentRuntimeRunEnabled } from '@/server/documents/runtime';
+import { isCreatorEndpointRuntimeRunEnabled } from '@/server/endpoints/runtime';
+import { isWorkflowRuntimeRunEnabled } from '@/server/workflows/runtime';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
@@ -186,21 +190,42 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     workspaceMode: contract.workspaceMode,
   });
   const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
+  const documentInputMode =
+    contract.runtimeType === 'document_file' ||
+    (contract.runtimeType === 'llm_prompt' && (contract.dataPolicy.requires_files || contract.workspaceMode === 'document_required'));
   const documentRuntimeRunEnabled =
-    contract.runtimeType === 'document_file' ? await isDocumentRuntimeRunEnabled() : false;
+    documentInputMode ? await isDocumentRuntimeRunEnabled() : false;
+  const workflowRuntimeRunEnabled =
+    contract.runtimeType === 'workflow_automation' ? await isWorkflowRuntimeRunEnabled() : false;
+  const creatorEndpointRuntimeRunEnabled =
+    contract.runtimeType === 'creator_endpoint' ? await isCreatorEndpointRuntimeRunEnabled() : false;
   const llmRunnerEnabled =
     serverEnv.llmRunsEnabled &&
     Boolean(serverEnv.openaiApiKey) &&
     contract.runtimeType === 'llm_prompt' &&
     contract.executionMode === 'llm_prompt' &&
-    !contract.dataPolicy.requires_files &&
+    !documentInputMode &&
     contract.dataPolicy.external_tools.length === 0 &&
     rental.agent?.status === 'approved';
   const documentRunnerEnabled =
     serverEnv.documentRunsEnabled &&
     Boolean(serverEnv.openaiApiKey) &&
     documentRuntimeRunEnabled &&
-    contract.runtimeType === 'document_file' &&
+    documentInputMode &&
+    (contract.runtimeType === 'document_file' || contract.runtimeType === 'llm_prompt') &&
+    rental.agent?.status === 'approved';
+  const workflowRunnerEnabled =
+    serverEnv.workflowRunsEnabled &&
+    workflowRuntimeRunEnabled &&
+    contract.runtimeType === 'workflow_automation' &&
+    contract.executionMode === 'llm_prompt' &&
+    rental.agent?.status === 'approved';
+  const creatorEndpointRunnerEnabled =
+    serverEnv.creatorEndpointRunsEnabled &&
+    Boolean(serverEnv.creatorEndpointSigningSecret) &&
+    creatorEndpointRuntimeRunEnabled &&
+    contract.runtimeType === 'creator_endpoint' &&
+    contract.executionMode === 'llm_prompt' &&
     rental.agent?.status === 'approved';
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
   const stopAction = stopAgentAccessAction.bind(null, 'en');
@@ -266,7 +291,23 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </aside>
 
           <section className="space-y-6">
-            {contract.runtimeType === 'document_file' ? (
+            {contract.runtimeType === 'creator_endpoint' ? (
+              <CreatorEndpointWorkspaceActions
+                enabled={creatorEndpointRunnerEnabled}
+                initialRuns={agentRuns}
+                locale="en"
+                maxInputChars={serverEnv.llmRunMaxInputChars}
+                rentalId={rental.id}
+              />
+            ) : contract.runtimeType === 'workflow_automation' ? (
+              <WorkflowWorkspaceActions
+                enabled={workflowRunnerEnabled}
+                initialRuns={agentRuns}
+                locale="en"
+                maxInputChars={serverEnv.llmRunMaxInputChars}
+                rentalId={rental.id}
+              />
+            ) : documentInputMode ? (
               <DocumentWorkspaceActions
                 actions={actions}
                 enabled={documentRunnerEnabled}

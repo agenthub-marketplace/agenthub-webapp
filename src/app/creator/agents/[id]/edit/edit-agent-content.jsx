@@ -106,7 +106,7 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
         {agent && (
           <form action={resubmitAgentChangesAction.bind(null, 'fr')} className="space-y-6">
             <input type="hidden" name="agent_id" value={agent.id} />
-            <input type="hidden" name="runtime_type" value="llm_prompt" />
+            <input type="hidden" name="runtime_type" value={agent.version?.runtimeType ?? 'llm_prompt'} />
             {adminNotes && (
               <section className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-5 text-sm text-[#92400E]">
                 <p className="font-label mb-2 text-xs text-[#92400E]">Retour admin</p>
@@ -209,9 +209,9 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                 </Field>
                 <Field
                   label="Mode d’exécution prévu"
-                  hint="Pour activer le runner LLM dans le workspace, choisissez “LLM Runner texte (OpenAI)”. L’agent doit rester sans fichier requis ni outil externe."
+                  hint="Pour activer l’Agent IA dans le workspace, choisissez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée, pas un runtime marketplace séparé."
                 >
-                  <select name="execution_mode" required className={inputClass} defaultValue="llm_prompt">
+                  <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'llm_prompt'}>
                     {creatorExecutionModeOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}

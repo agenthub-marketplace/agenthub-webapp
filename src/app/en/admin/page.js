@@ -1,24 +1,7 @@
-import { requireAdminAccess } from '@/lib/auth/session';
-import { getAdminAgentManagementList, getAdminReviewQueue } from '@/server/admin/review-queue';
-import AdminContent from '../../admin/admin-content';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminPage({ searchParams }) {
-  const profile = await requireAdminAccess('en', '/en/admin');
-  const reviewQueue = await getAdminReviewQueue();
-  const agentManagement = await getAdminAgentManagementList();
-  const params = searchParams ? await searchParams : {};
-
-  return (
-    <AdminContent
-      error={typeof params?.error === 'string' ? params.error : null}
-      agentManagement={agentManagement}
-      locale="en"
-      moderated={typeof params?.moderated === 'string' ? params.moderated : null}
-      profile={profile}
-      reviewed={typeof params?.reviewed === 'string' ? params.reviewed : null}
-      reviewQueue={reviewQueue}
-    />
-  );
+export default async function AdminPage() {
+  redirect('/code/admin/review');
 }

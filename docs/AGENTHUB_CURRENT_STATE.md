@@ -1,6 +1,6 @@
 # AgentHub current state
 
-Last updated: 2026-05-28
+Last updated: 2026-06-02
 
 ## Summary
 
@@ -39,6 +39,9 @@ creator creates an agent from template
 - Verified reviews exist.
 - LLM Runner v0 exists internally.
 - `agent_runs` exists for stored run history.
+- Agent IA document input has a beta foundation: private Storage bucket, PDF/DOCX server extraction, `agent_run_files`, document run endpoint, and workspace panel. `document_file` remains a compatibility/feature-flag value, not a separate marketplace family.
+- `workflow_automation` has a beta foundation: creator allowlist, reviewed webhook endpoints, workflow definitions, durable workflow queue, step trace, and Supabase Edge worker.
+- `creator_endpoint` has a beta foundation: creator allowlist, reviewed API endpoints, version-bound endpoint config, server-side signed proxy, `agent_endpoint_runs`, and workspace panel.
 - Workspace is now the core product experience.
 
 ## LLM Runner v0 scope
@@ -48,9 +51,10 @@ LLM Runner v0 is an internal text-only runner, not the full execution gateway.
 Included:
 
 - OpenAI called server-side only.
-- Text input only.
+- Text input by default.
+- Controlled document input beta for PDF/DOCX when the Agent Contract requires a document.
 - No streaming.
-- No upload.
+- No public upload.
 - No external tools.
 - No n8n.
 - No creator code execution.
@@ -61,11 +65,10 @@ Included:
 
 Still later:
 
-- Full execution gateway.
+- Full execution gateway beyond the controlled runtime betas.
 - n8n or external automation.
-- Creator endpoints.
 - Autonomous agents.
-- File upload.
+- Public creator-visible document/file upload.
 - Tool calling.
 - Advanced cost analytics.
 

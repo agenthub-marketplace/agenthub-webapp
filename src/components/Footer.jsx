@@ -1,63 +1,59 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Mail } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Mail } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
-export default function Footer({ variant = 'agenthub' }) {
+export default function Footer({ variant = 'agenthub', compact = false }) {
   const { t } = useT();
   const isCode = variant === 'code';
-  const cols = [
-    {
-      title: t('ft.product'),
-      links: [
+  const primaryLinks = isCode
+    ? [
+        { label: 'Dashboard créateur', href: '/code/dashboard' },
+        { label: 'Mes agents', href: '/code/agents' },
+        { label: 'Créer un agent', href: '/code/agents/new' },
+        { label: 'Documentation', href: '/code/docs' },
+      ]
+    : [
         { label: t('nav.discoveragents'), href: '/agenthub/search' },
-        { label: t('nav.leaderboard'), href: '/leaderboard' },
         { label: t('nav.workspace'), href: '/agenthub/workspace' },
-        { label: t('nav.creatormode'), href: '/code' },
-      ],
-    },
-    {
-      title: t('ft.resources'),
-      links: [
-        { label: t('ft.help'), href: '#' },
-        { label: t('ft.docs'), href: isCode ? '/code/docs' : '#' },
-        { label: t('ft.blog'), href: '#' },
-        { label: t('ft.apidocs'), href: isCode ? '/code/docs' : '#' },
-      ],
-    },
-    {
-      title: t('ft.company'),
-      links: [
-        { label: t('ft.about'), href: '#' },
-        { label: t('ft.careers'), href: '#' },
-        { label: t('ft.press'), href: '#' },
-        { label: t('ft.contact'), href: '#' },
-      ],
-    },
-  ];
+        { label: t('nav.leaderboard'), href: '/leaderboard' },
+        { label: 'Profil', href: '/profile' },
+        { label: 'Paramètres', href: '/settings' },
+      ];
+  const cta = isCode
+    ? {
+        href: '/code/agents/new',
+        label: 'Publier un agent',
+        text: 'Prépare une fiche, son contrat d’usage et son runtime avant validation.',
+      }
+    : {
+        href: '/agenthub/search',
+        label: 'Explorer les agents',
+        text: 'Trouve un agent par besoin, active-le, puis retrouve-le dans ton espace.',
+      };
   const socials = [
-    { label: 'LinkedIn', href: 'https://www.linkedin.com/company/agenthub', mark: 'in' },
-    { label: 'Mail', href: 'mailto:contact@agenthub.ai', icon: Mail },
+    { label: 'LinkedIn', href: 'https://www.linkedin.com/company/agenthub', icon: ArrowUpRight },
+    { label: 'Contact', href: 'mailto:contact@agenthub.ai', icon: Mail },
   ];
 
   return (
-    <footer className="border-t border-[#251A40] mt-24 bg-[#0A0816] ">
-      <div className="container py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/95 flex items-center justify-center">
+    <footer className={`${compact ? 'mt-14' : 'mt-24'} border-t border-[#251A40] bg-[#070511]`}>
+      <div className={`container px-4 ${compact ? 'py-8' : 'py-12'}`}>
+        <div className={`${compact ? 'flex flex-col gap-6 border-b border-[#251A40] pb-6 lg:flex-row lg:items-center lg:justify-between' : 'grid gap-8 border-b border-[#251A40] pb-10 lg:grid-cols-[1.15fr_1fr_0.85fr] lg:items-start'}`}>
+          <div>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white/95">
                 <Image src="/logo.png" alt="AgentHub" width={36} height={36} className="object-contain p-1" />
               </div>
-              <span className="font-display text-xl font-bold">AgentHub</span>
+              <span className="font-display text-2xl font-bold text-[#F5F1FA]">{isCode ? 'AgentHub Code' : 'AgentHub'}</span>
             </div>
-            <p className="text-sm text-[#A78BCF] leading-relaxed">
+            {!compact && <p className="max-w-sm text-sm leading-6 text-[#A78BCF]">
               {isCode
-                ? "La marketplace d'agents IA, créée par des développeurs pour des développeurs."
+                ? "L’espace créateur pour préparer, publier et suivre des agents prêts à être utilisés sur AgentHub."
                 : t('ft.tagline')}
-            </p>
-            <div className="mt-5 flex items-center gap-2">
+            </p>}
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               {socials.map((social) => (
                 <Link
                   key={social.label}
@@ -65,32 +61,50 @@ export default function Footer({ variant = 'agenthub' }) {
                   target={social.href.startsWith('http') ? '_blank' : undefined}
                   rel={social.href.startsWith('http') ? 'noreferrer' : undefined}
                   aria-label={social.label}
-                  className="footer-social-link flex h-9 w-9 items-center justify-center rounded-xl border border-[#251A40] bg-[#110D24] text-[#A78BCF] transition-colors hover:border-[#8B5CF6] hover:text-[#F5F1FA]"
+                  className="footer-social-link inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#251A40] bg-[#110D24] px-3 text-xs font-semibold text-[#A78BCF] transition-colors hover:border-[#8B5CF6] hover:text-[#F5F1FA]"
                 >
-                  {social.icon ? <social.icon className="h-4 w-4" /> : <span className="font-display text-sm font-bold">{social.mark}</span>}
+                  <social.icon className="h-3.5 w-3.5" />
+                  {social.label}
                 </Link>
               ))}
             </div>
           </div>
-          {cols.map(col => (
-            <div key={col.title}>
-              <h4 className="font-label text-xs text-[#F5F1FA] mb-4">{col.title}</h4>
-              <ul className="space-y-2">
-                {col.links.map(l => (
-                  <li key={l.label}><Link href={l.href} className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">{l.label}</Link></li>
-                ))}
-              </ul>
-            </div>
-          ))}
+
+          <nav aria-label="Navigation secondaire">
+            <h4 className="font-label mb-4 text-xs text-[#F5F1FA]">Accès utiles</h4>
+            <ul className={`${compact ? 'flex flex-wrap gap-x-5 gap-y-2' : 'grid gap-2 sm:grid-cols-2'}`}>
+              {primaryLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-[#A78BCF] transition-colors hover:text-[#F5F1FA]"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {!compact && <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-5">
+            <p className="font-label text-xs text-[#A78BCF]">{isCode ? 'Créer' : 'Commencer'}</p>
+            <p className="mt-3 text-sm leading-6 text-[#D6C5E8]">{cta.text}</p>
+            <Link
+              href={cta.href}
+              className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#110D24] transition-colors hover:bg-[#F2E9D8]"
+            >
+              {cta.label}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>}
         </div>
 
-        <div className="border-t border-[#251A40] pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex flex-col items-start justify-between gap-3 pt-6 md:flex-row md:items-center">
           <p className="text-xs text-[#A78BCF]">{t('ft.rights')}</p>
-          <div className="flex items-center gap-6">
-            <Link href="#" className="text-xs text-[#A78BCF] hover:text-[#F5F1FA]">{t('ft.privacy')}</Link>
-            <Link href="#" className="text-xs text-[#A78BCF] hover:text-[#F5F1FA]">{t('ft.terms')}</Link>
-            <Link href="#" className="text-xs text-[#A78BCF] hover:text-[#F5F1FA]">{t('ft.cookies')}</Link>
-          </div>
+          <a href="mailto:contact@agenthub.ai" className="text-xs font-medium text-[#A78BCF] transition-colors hover:text-[#F5F1FA]">
+            contact@agenthub.ai
+          </a>
         </div>
       </div>
     </footer>

@@ -7,7 +7,9 @@ AgentHub now separates two concepts:
 - `runtime_type`: product-level routing for AgentHub Code runtime families.
 - `execution_mode`: compatibility/internal execution detail used by the existing workspace runner.
 
-`runtime_type` is the main field for deciding which runtime family an agent belongs to. `execution_mode` stays in place so the current LLM Runner v0 does not break.
+Product-facing agents should stay grouped around clear families. For the marketplace, `llm_prompt` and document input are both part of one family: **Agent IA**.
+
+`runtime_type` remains the internal routing field. `execution_mode` stays in place so the current LLM Runner v0 does not break. `document_file` is retained as a compatibility/feature-flag value for the document input capability, not as a separate marketplace family.
 
 ## Active Runtime
 
@@ -15,13 +17,14 @@ AgentHub now separates two concepts:
 
 Status: active for closed beta.
 
-This is the only creator-visible and executable runtime for now.
+This is the creator-visible Agent IA runtime for now.
 
 Current guardrails:
 
 - text input only;
+- document input may be enabled as a controlled capability when the agent contract requires a document;
 - OpenAI call happens server-side;
-- no upload;
+- no public upload;
 - no external tools;
 - no creator code;
 - no creator endpoint call;
@@ -42,11 +45,11 @@ This represents legacy/static guided workspace agents. They can be reviewed if e
 
 The following runtime families are prepared in schema and settings, but disabled. They must not be creator-visible or executable until a dedicated implementation phase.
 
-### `document_file`
+### Document input capability (`document_file` compatibility)
 
 Status: beta foundation, disabled by default.
 
-This runtime is for PDF/DOCX document agents. It is not creator-visible by default and must only be enabled for controlled internal smoke tests after local migration/RLS verification.
+Document input belongs to the Agent IA product family. The `document_file` value remains in schema/settings as a compatibility and feature-flag layer for controlled internal smoke tests after local migration/RLS verification.
 
 Beta limits:
 
@@ -91,53 +94,82 @@ Not implemented now:
 - multi-file upload;
 - direct-to-storage large file upload;
 - background extraction jobs;
-- creator-visible document agents;
+- separate creator-visible document runtime;
 - external document tools.
 
 ### `workflow_automation`
 
-Future internal workflow automation runtime.
+Status: beta foundation, disabled by default.
 
-Expected future model:
+This runtime is for short, reviewed workflow chains. It is more powerful than `llm_prompt`, so it stays behind three gates: creator allowlist, runtime setting, and environment flag.
 
-- `agent_workflow_runs` table;
-- states: `queued`, `running`, `succeeded`, `failed`;
-- internal allowlisted actions first;
-- strict timeout and retry limits;
-- kill switch admin-side;
-- audit logs for each action.
+Beta model:
+
+- creator must be allowlisted in `creator_runtime_access`;
+- workflow definition is stored in `agent_version_workflows`;
+- execution is queued in `agent_workflow_runs`;
+- step trace is stored in `agent_workflow_steps`;
+- worker runs in Supabase Edge Function `agent-workflow-worker`;
+- states: `queued`, `running`, `succeeded`, `failed`, `cancelled`;
+- steps are linear only;
+- supported step types: `llm_step`, `webhook_step`;
+- webhook endpoints must be reviewed in `creator_webhook_endpoints`;
+- webhook calls are signed by AgentHub with HMAC headers.
+
+Beta limits:
+
+- 2 to 5 steps;
+- max 2 webhook steps;
+- no branching, loops, fan-out, or retries beyond manual relaunch;
+- no n8n;
+- no arbitrary creator code;
+- no browser-side webhook call;
+- no secrets in client payloads;
+- short timeout per webhook step.
 
 Not implemented now:
 
-- n8n;
-- external workflows;
-- external actions;
-- long-running job queue;
-- autonomous workflow execution.
+- full execution gateway;
+- unreviewed external tools;
+- long-running job orchestration;
+- background retry queues;
+- creator endpoint runtime.
 
 ### `creator_endpoint`
 
-Future creator API endpoint runtime.
+Status: beta foundation, disabled by default.
 
-Expected future model:
+This runtime lets AgentHub call one reviewed creator-owned HTTPS endpoint through a server-side proxy. It is not creator-visible by default and is only for controlled internal beta agents.
 
-- `creator_endpoints` table;
-- creator endpoint URLs validated and reviewed;
-- secrets stored server-side only;
-- AgentHub server proxy required;
-- HMAC signing;
-- timeout limits;
-- retry limits;
-- response size limits;
-- admin kill switch;
-- never called directly from the browser.
+Beta model:
+
+- creator must be allowlisted in `creator_runtime_access`;
+- creator endpoint URLs are stored in `creator_api_endpoints`;
+- one endpoint config is linked to an agent version through `agent_version_creator_endpoints`;
+- runs are traced in `agent_endpoint_runs` and linked to `agent_runs`;
+- calls happen from `POST /api/agent-runs/endpoint`;
+- payload is signed with HMAC headers;
+- endpoint must return JSON with `output_text`.
+
+Beta limits:
+
+- text input only;
+- one endpoint per agent version;
+- HTTPS only;
+- no localhost/private IP endpoints;
+- no direct browser calls;
+- no files;
+- no streaming;
+- timeout capped at 15s;
+- response capped at 12k characters;
+- no payment or secret data in endpoint payload.
 
 Not implemented now:
 
-- creator endpoint calls;
 - creator-provided secrets;
-- endpoint proxying;
-- endpoint retry queue.
+- retry queue;
+- public creator UI exposure;
+- autonomous external action framework.
 
 ## Runtime Settings
 
@@ -150,10 +182,10 @@ Runtime availability is controlled by `agent_runtime_settings`:
 Closed beta settings:
 
 - `static_guided`: enabled, not creator-visible, not run-enabled.
-- `llm_prompt`: enabled, creator-visible, run-enabled.
-- `document_file`: disabled.
-- `workflow_automation`: disabled.
-- `creator_endpoint`: disabled.
+- `llm_prompt`: enabled, creator-visible, run-enabled as Agent IA.
+- `document_file`: disabled, used only as the document input capability gate.
+- `workflow_automation`: disabled unless explicitly enabled for beta.
+- `creator_endpoint`: disabled unless explicitly enabled for beta.
 
 Normal users and creators should not read this table directly. Server code may read it through admin/server paths or the service role where appropriate.
 
@@ -169,7 +201,7 @@ Admin approval must fail closed:
 
 ## Runner Rules
 
-LLM Runner v0 executes only when:
+Text Agent IA runs execute only when:
 
 - `runtime_type = 'llm_prompt'`;
 - `execution_mode = 'llm_prompt'`;
@@ -181,4 +213,6 @@ LLM Runner v0 executes only when:
 - no file is required;
 - no external tool is declared.
 
-All other runtime types must refuse cleanly.
+Document Agent IA runs execute only when the agent is `llm_prompt` with document-required contract data, or a legacy/internal `document_file` agent, and the document input capability is enabled.
+
+All unrelated runtime types must refuse cleanly.

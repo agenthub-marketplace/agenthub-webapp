@@ -1,8 +1,10 @@
-# Document/File Runtime Beta
+# Agent IA Document Input Beta
 
 ## Summary
 
-`document_file` is a controlled beta runtime for single-document PDF/DOCX analysis. It is not a full execution gateway.
+Document input is a controlled beta capability for Agent IA. It supports single-document PDF/DOCX analysis through private server-side extraction. It is not a separate marketplace family and not a full execution gateway.
+
+`document_file` remains as an internal compatibility/feature-flag value in `runtime_type` and `agent_runtime_settings`.
 
 Included:
 
@@ -11,7 +13,7 @@ Included:
 - private Supabase Storage;
 - one file per run;
 - server-side extraction only;
-- LLM result stored in `agent_runs`;
+- Agent IA result stored in `agent_runs`;
 - file metadata stored in `agent_run_files`.
 
 Excluded:
@@ -73,21 +75,21 @@ Document upload and document runs require:
 
 - authenticated user;
 - active access owned by the user;
-- `runtime_type = 'document_file'`;
+- either `runtime_type = 'document_file'` for legacy/internal compatibility, or `runtime_type = 'llm_prompt'` with an Agent Contract that requires a document;
 - `execution_mode = 'llm_prompt'`;
-- runtime setting `enabled = true`;
-- runtime setting `run_enabled = true`;
+- document capability setting `agent_runtime_settings.document_file.enabled = true`;
+- document capability setting `agent_runtime_settings.document_file.run_enabled = true`;
 - approved agent;
 - no external tools.
 
-`document_file` remains disabled by default in `agent_runtime_settings`.
+The document capability remains disabled by default in `agent_runtime_settings`.
 
 ## Smoke Test
 
 1. Apply migrations locally with `npx supabase db reset`.
 2. Enable `DOCUMENT_RUNS_ENABLED=true` locally.
-3. Enable `document_file` runtime locally in `agent_runtime_settings`.
-4. Create an internal test agent version with `runtime_type = 'document_file'` and `execution_mode = 'llm_prompt'`.
+3. Enable the `document_file` capability locally in `agent_runtime_settings`.
+4. Create an internal test Agent IA version with `runtime_type = 'llm_prompt'`, `execution_mode = 'llm_prompt'`, and a document-required contract.
 5. Rent the agent with a test user.
 6. Upload a small DOCX.
 7. Run a document action.

@@ -136,7 +136,7 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
             id: review.id,
             title: titleForDecision(review.decision, review.notes),
             body: `${agentName} - ${cleanAdminNotes(review.notes) || "Le statut admin a été mis à jour."}`,
-            href: "/creator/dashboard",
+            href: "/code/agents",
             tone: toneForDecision(review.decision),
             createdAt: review.created_at,
           });
@@ -157,7 +157,7 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
                   : agent.status === "rejected"
                     ? `${agent.name} a été refusé par l'équipe admin.`
                     : `${agent.name} est en revue ou nécessite des modifications.`,
-              href: "/creator/dashboard",
+              href: "/code/agents",
               tone: toneForDecision(agent.status),
               createdAt: agent.updated_at,
             });

@@ -200,8 +200,11 @@ export async function loadDocumentRuntimeContext(input: {
     setupRequirements: version.setup_requirements,
     workspaceMode: version.workspace_mode,
   });
+  const acceptsDocumentInput =
+    contract.runtimeType === "document_file" ||
+    (contract.runtimeType === "llm_prompt" && (contract.dataPolicy.requires_files || contract.workspaceMode === "document_required"));
 
-  if (contract.runtimeType !== "document_file") {
+  if (!acceptsDocumentInput) {
     return { context: null, error: fail(403, "agent-not-document-enabled") };
   }
 
@@ -212,7 +215,7 @@ export async function loadDocumentRuntimeContext(input: {
   const { data: runtimeSetting, error: runtimeSettingError } = await input.supabase
     .from("agent_runtime_settings")
     .select("enabled,run_enabled")
-    .eq("runtime_type", contract.runtimeType)
+    .eq("runtime_type", "document_file")
     .maybeSingle<RuntimeSettingRow>();
 
   if (runtimeSettingError || !runtimeSetting?.enabled || !runtimeSetting.run_enabled) {

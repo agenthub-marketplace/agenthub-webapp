@@ -1,14 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { ArrowRight, ChevronDown, Filter, Search, X } from 'lucide-react';
+import AgentCard from '@/components/AgentCard';
 import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
-import AgentCard from '@/components/AgentCard';
-import { Search, X, Filter, ChevronDown, Star } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { formatCredits } from '@/lib/format-credits';
 import { translate, useT } from '@/lib/i18n';
 
@@ -24,12 +24,14 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
   const [selectedCats, setSelectedCats] = useState([]);
   const [agentTypes, setAgentTypes] = useState([]);
   const [maxPrice, setMaxPrice] = useState([200]);
-  const [modes, setModes] = useState([]);
-  const [level, setLevel] = useState('any');
-  const [minStars, setMinStars] = useState(0);
   const [certifiedOnly, setCertifiedOnly] = useState(false);
   const [sort, setSort] = useState('popularity');
   const [showFilters, setShowFilters] = useState(false);
+
+  const agentTypeOptions = [
+    { id: 'dialogue', label: 'Conversation' },
+    { id: 'automation', label: 'Automatisation' },
+  ];
 
   const filtered = useMemo(() => {
     let result = [...initialAgents];
@@ -57,18 +59,6 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
     result = result.filter((agent) => agent.fromPrice === null || agent.fromPrice <= maxPrice[0]);
 
-    if (modes.length) {
-      result = result.filter((agent) => modes.includes(agent.priceMode));
-    }
-
-    if (level !== 'any') {
-      result = result.filter((agent) => agent.level === level);
-    }
-
-    if (minStars > 0) {
-      result = result.filter((agent) => agent.rating >= minStars);
-    }
-
     if (certifiedOnly) {
       result = result.filter((agent) => agent.certified);
     }
@@ -79,19 +69,8 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
     else if (sort === 'rentals') result.sort((a, b) => b.rentals - a.rentals);
 
     return result;
-  }, [initialAgents, query, selectedCats, agentTypes, maxPrice, modes, level, minStars, certifiedOnly, sort]);
+  }, [initialAgents, query, selectedCats, agentTypes, maxPrice, certifiedOnly, sort]);
 
-  const agentTypeOptions = [
-    { id: 'dialogue', label: 'Agent de Dialogue' },
-    { id: 'automation', label: "Agent d'automatisation" },
-  ];
-
-  const accessModeOptions = [
-    { id: 'task', label: 'Agent à la location' },
-    { id: 'project', label: "Agent à l'achat" },
-  ];
-
-  const getAccessModeLabel = (mode) => accessModeOptions.find((option) => option.id === mode)?.label ?? mode;
   const getAgentTypeLabel = (type) => agentTypeOptions.find((option) => option.id === type)?.label ?? type;
 
   const activeChips = [
@@ -100,34 +79,46 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
       label: initialCategories.find((category) => category.id === id)?.name,
       remove: () => setSelectedCats(selectedCats.filter((selected) => selected !== id)),
     })),
-    ...(agentTypes.length ? agentTypes.map((type) => ({ id: `type-${type}`, label: getAgentTypeLabel(type), remove: () => setAgentTypes(agentTypes.filter((selected) => selected !== type)) })) : []),
+    ...agentTypes.map((type) => ({
+      id: `type-${type}`,
+      label: getAgentTypeLabel(type),
+      remove: () => setAgentTypes(agentTypes.filter((selected) => selected !== type)),
+    })),
     ...(maxPrice[0] < 200 ? [{ id: 'price', label: `${copy('srch.maxprice')} ${formatCredits(maxPrice[0])}`, remove: () => setMaxPrice([200]) }] : []),
-    ...(modes.length ? modes.map((mode) => ({ id: `m-${mode}`, label: getAccessModeLabel(mode), remove: () => setModes(modes.filter((selected) => selected !== mode)) })) : []),
-    ...(level !== 'any' ? [{ id: 'lvl', label: `${copy('srch.level')}: ${copy(`g.${level}`)}`, remove: () => setLevel('any') }] : []),
-    ...(minStars > 0 ? [{ id: 'st', label: `${minStars}+ ★`, remove: () => setMinStars(0) }] : []),
     ...(certifiedOnly ? [{ id: 'cert', label: copy('srch.certifiedonly'), remove: () => setCertifiedOnly(false) }] : []),
-  ];
+  ].filter((chip) => chip.label);
 
   const resetAll = () => {
     setSelectedCats([]);
     setAgentTypes([]);
     setMaxPrice([200]);
-    setModes([]);
-    setLevel('any');
-    setMinStars(0);
     setCertifiedOnly(false);
   };
+
+  const clearSearch = () => {
+    setQuery('');
+    resetAll();
+  };
+
+  const hasSearch = query.trim().length > 0;
+  const resultLabel = filtered.length === 0
+    ? hasSearch
+      ? `Aucun résultat pour « ${query.trim()} »`
+      : 'Aucun résultat'
+    : `${filtered.length} ${filtered.length > 1 ? 'agents trouvés' : 'agent trouvé'}`;
+  const suggestionQueries = ['documents', 'email', 'business', 'automatisation'];
 
   return (
     <div className="min-h-screen">
       <AgentHubNavbar />
-      <div className="container py-8">
+      <div className="container px-4 py-8">
         <div className="relative mb-6">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9B72CF]" />
+          <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9B72CF]" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full h-14 pl-14 pr-4 bg-[#0F0A1E] border border-[#2F184B] rounded-2xl text-[#F4EFFA] focus:border-[#532B88] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 transition-all"
+            placeholder="Rechercher un agent, un besoin, une tâche..."
+            className="h-14 w-full rounded-2xl border border-[#2F184B] bg-[#0F0A1E] pl-14 pr-4 text-[#F4EFFA] transition-all placeholder:text-[#9B72CF]/70 focus:border-[#532B88] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
           />
         </div>
 
@@ -140,124 +131,166 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
         )}
 
         {activeChips.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4 items-center">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             {activeChips.map((chip) => (
-              <button key={chip.id} onClick={chip.remove} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1A1130] border border-[#532B88]/50 text-xs text-[#F4EFFA] hover:border-[#7C3AED] transition-colors">
-                {chip.label} <X className="w-3 h-3" />
+              <button
+                key={chip.id}
+                onClick={chip.remove}
+                className="flex items-center gap-1.5 rounded-full border border-[#532B88]/50 bg-[#1A1130] px-3 py-1.5 text-xs text-[#F4EFFA] transition-colors hover:border-[#7C3AED]"
+              >
+                {chip.label}
+                <X className="h-3 w-3" />
               </button>
             ))}
-            <button onClick={resetAll} className="text-xs text-[#9B72CF] hover:text-[#F4EFFA] underline">{copy('srch.reset')}</button>
+            <button onClick={resetAll} className="text-xs text-[#9B72CF] underline hover:text-[#F4EFFA]">
+              {copy('srch.reset')}
+            </button>
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-[#9B72CF]"><span className="font-stat text-[#F4EFFA]">{filtered.length}</span> {copy('srch.found')}</p>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-[#C8B1E4]">{resultLabel}</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowFilters(!showFilters)} className="lg:hidden flex items-center gap-2 px-3 py-2 bg-[#0F0A1E] border border-[#2F184B] rounded-lg text-sm text-[#C8B1E4]"><Filter className="w-4 h-4" />{copy('srch.filters')}</button>
+            <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 rounded-lg border border-[#2F184B] bg-[#0F0A1E] px-3 py-2 text-sm text-[#C8B1E4] lg:hidden">
+              <Filter className="h-4 w-4" />
+              {copy('srch.filters')}
+            </button>
             <div className="relative">
-              <select value={sort} onChange={(event) => setSort(event.target.value)} className="appearance-none bg-[#0F0A1E] border border-[#2F184B] rounded-lg px-4 py-2 pr-9 text-sm text-[#F4EFFA] focus:border-[#532B88] focus:outline-none cursor-pointer">
+              <select value={sort} onChange={(event) => setSort(event.target.value)} className="cursor-pointer appearance-none rounded-lg border border-[#2F184B] bg-[#0F0A1E] px-4 py-2 pr-9 text-sm text-[#F4EFFA] focus:border-[#532B88] focus:outline-none">
                 <option value="popularity">{copy('srch.sort.pop')}</option>
                 <option value="rating">{copy('srch.sort.rating')}</option>
                 <option value="priceAsc">{copy('srch.sort.priceasc')}</option>
                 <option value="priceDesc">{copy('srch.sort.pricedesc')}</option>
                 <option value="rentals">{copy('srch.sort.renewal')}</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B72CF] pointer-events-none" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9B72CF]" />
             </div>
           </div>
         </div>
 
         <div className="flex gap-6">
-          <aside className={`${showFilters ? 'fixed inset-0 z-50 bg-[#080612] p-6 overflow-y-auto lg:static lg:p-0 lg:bg-transparent' : 'hidden'} lg:block w-full lg:w-72 shrink-0`}>
-            <div className="lg:sticky lg:top-20 bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5 space-y-6">
-              <div className="flex items-center justify-between lg:hidden">
-                <h3 className="font-display font-bold">{copy('srch.filters')}</h3>
-                <button onClick={() => setShowFilters(false)}><X className="w-5 h-5 text-[#9B72CF]" /></button>
-              </div>
-
-              <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.category')}</h4>
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-2">
-                  {initialCategories.map((category) => (
-                    <label key={category.id} className="flex items-center gap-2 cursor-pointer group">
-                      <Checkbox checked={selectedCats.includes(category.id)} onCheckedChange={(checked) => setSelectedCats(checked ? [...selectedCats, category.id] : selectedCats.filter((id) => id !== category.id))} className="border-[#2F184B] data-[state=checked]:bg-[#532B88] data-[state=checked]:border-[#532B88]" />
-                      <span className="text-sm text-[#C8B1E4] group-hover:text-[#F4EFFA] transition-colors">{category.name}</span>
-                    </label>
-                  ))}
+          <aside className={`${showFilters ? 'fixed inset-0 z-50 overflow-y-auto bg-[#080612] p-6 lg:static lg:bg-transparent lg:p-0' : 'hidden'} w-full shrink-0 lg:block lg:w-72`}>
+            <div className="space-y-6 rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5 lg:sticky lg:top-20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-[#F5F1FA]">Affiner</h3>
+                  <p className="mt-1 text-xs text-[#9B72CF]">Seulement les critères utiles.</p>
                 </div>
+                <button onClick={() => setShowFilters(false)} className="lg:hidden">
+                  <X className="h-5 w-5 text-[#9B72CF]" />
+                </button>
               </div>
 
+              {initialCategories.length > 0 && (
+                <div>
+                  <h4 className="font-label mb-3 text-xs text-[#F4EFFA]">{copy('srch.category')}</h4>
+                  <div className="max-h-56 space-y-2 overflow-y-auto pr-2">
+                    {initialCategories.map((category) => (
+                      <label key={category.id} className="group flex cursor-pointer items-center gap-2">
+                        <Checkbox checked={selectedCats.includes(category.id)} onCheckedChange={(checked) => setSelectedCats(checked ? [...selectedCats, category.id] : selectedCats.filter((id) => id !== category.id))} className="border-[#2F184B] data-[state=checked]:border-[#532B88] data-[state=checked]:bg-[#532B88]" />
+                        <span className="text-sm text-[#C8B1E4] transition-colors group-hover:text-[#F4EFFA]">{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">Type d’agent</h4>
+                <h4 className="font-label mb-3 text-xs text-[#F4EFFA]">Type d’agent</h4>
                 {agentTypeOptions.map((type) => (
-                  <label key={type.id} className="flex items-center gap-2 cursor-pointer mb-2">
-                    <Checkbox checked={agentTypes.includes(type.id)} onCheckedChange={(checked) => setAgentTypes(checked ? [...agentTypes, type.id] : agentTypes.filter((selected) => selected !== type.id))} className="border-[#2F184B] data-[state=checked]:bg-[#532B88] data-[state=checked]:border-[#532B88]" />
+                  <label key={type.id} className="mb-2 flex cursor-pointer items-center gap-2">
+                    <Checkbox checked={agentTypes.includes(type.id)} onCheckedChange={(checked) => setAgentTypes(checked ? [...agentTypes, type.id] : agentTypes.filter((selected) => selected !== type.id))} className="border-[#2F184B] data-[state=checked]:border-[#532B88] data-[state=checked]:bg-[#532B88]" />
                     <span className="text-sm text-[#C8B1E4]">{type.label}</span>
                   </label>
                 ))}
               </div>
 
               <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.maxprice')} <span className="font-stat text-[#9B72CF] normal-case ml-2">{formatCredits(maxPrice[0])}</span></h4>
+                <h4 className="font-label mb-3 flex items-center justify-between gap-3 text-xs text-[#F4EFFA]">
+                  <span>{copy('srch.maxprice')}</span>
+                  <span className="font-stat text-[#9B72CF] normal-case">{formatCredits(maxPrice[0])}</span>
+                </h4>
                 <Slider value={maxPrice} onValueChange={setMaxPrice} min={0} max={200} step={1} />
               </div>
 
               <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">Mode d’accès</h4>
-                {accessModeOptions.map((mode) => (
-                  <label key={mode.id} className="flex items-center gap-2 cursor-pointer mb-2">
-                    <Checkbox checked={modes.includes(mode.id)} onCheckedChange={(checked) => setModes(checked ? [...modes, mode.id] : modes.filter((selected) => selected !== mode.id))} className="border-[#2F184B] data-[state=checked]:bg-[#532B88] data-[state=checked]:border-[#532B88]" />
-                    <span className="text-sm text-[#C8B1E4]">{mode.label}</span>
-                  </label>
-                ))}
+                <label className="flex cursor-pointer items-center gap-2">
+                  <Checkbox checked={certifiedOnly} onCheckedChange={(checked) => setCertifiedOnly(Boolean(checked))} className="border-[#2F184B] data-[state=checked]:border-[#532B88] data-[state=checked]:bg-[#532B88]" />
+                  <span className="text-sm text-[#C8B1E4]">{copy('srch.certifiedonly')}</span>
+                </label>
               </div>
 
-              <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.level')}</h4>
-                {[{ v: 'any', l: copy('srch.any') }, { v: 'beginner', l: copy('g.beginner') }, { v: 'intermediate', l: copy('g.intermediate') }, { v: 'advanced', l: copy('g.advanced') }].map((option) => (
-                  <label key={option.v} className="flex items-center gap-2 cursor-pointer mb-2">
-                    <input type="radio" checked={level === option.v} onChange={() => setLevel(option.v)} className="accent-[#532B88]" />
-                    <span className="text-sm text-[#C8B1E4]">{option.l}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div>
-                <h4 className="font-label text-xs text-[#F4EFFA] mb-3">{copy('srch.minrating')}</h4>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} onClick={() => setMinStars(star === minStars ? 0 : star)}>
-                      <Star className={`w-5 h-5 transition-colors ${star <= minStars ? 'fill-[#F59E0B] text-[#F59E0B]' : 'text-[#2F184B]'}`} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-[#C8B1E4]">{copy('srch.certifiedonly')}</span>
-                <Switch checked={certifiedOnly} onCheckedChange={setCertifiedOnly} className="data-[state=checked]:bg-[#532B88]" />
-              </div>
+              {activeChips.length > 0 && (
+                <button onClick={resetAll} className="text-xs font-semibold text-[#C8B1E4] underline-offset-4 hover:text-white hover:underline">
+                  Réinitialiser les filtres
+                </button>
+              )}
             </div>
           </aside>
 
-          <main className="flex-1 min-w-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <main className="min-w-0 flex-1">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((agent) => <AgentCard key={agent.id} agent={agent} />)}
             </div>
             {!loadError && filtered.length === 0 && (
-              <div className="text-center py-20 text-[#9B72CF]">
-                {initialAgents.length === 0
-                  ? effectiveLang === 'en'
-                    ? 'No approved agents are live yet.'
-                    : 'Aucun agent approuvé n’est encore en ligne.'
-                  : copy('srch.empty')}
-                {initialAgents.length > 0 && <button onClick={resetAll} className="text-[#F4EFFA] underline ml-1">{copy('srch.reset')}</button>}
+              <div className="rounded-3xl border border-[#251A40] bg-[#0F0A1E] px-6 py-12 text-center">
+                <h2 className="font-display text-2xl font-bold text-[#F5F1FA]">
+                  {initialAgents.length === 0
+                    ? effectiveLang === 'en'
+                      ? 'No approved agents are live yet.'
+                      : 'Aucun agent en ligne pour le moment.'
+                    : 'Aucun agent trouvé'}
+                </h2>
+                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#A78BCF]">
+                  {initialAgents.length === 0
+                    ? 'Les agents approuvés apparaîtront ici dès leur mise en ligne.'
+                    : hasSearch
+                      ? 'Essaie un terme plus large ou retire les filtres actifs pour revenir aux agents disponibles.'
+                      : 'Aucun agent ne correspond aux filtres sélectionnés.'}
+                </p>
+
+                {initialAgents.length > 0 && (
+                  <>
+                    <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-[#110D24] transition-colors hover:bg-[#F2E9D8]"
+                      >
+                        Réinitialiser la recherche
+                      </button>
+                      <Link
+                        href="/agenthub/search"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#2F184B] px-5 text-sm font-semibold text-[#D6C5E8] transition-colors hover:bg-[#15112A] hover:text-white"
+                      >
+                        Voir tous les agents
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+
+                    <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
+                      {suggestionQueries.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => {
+                            resetAll();
+                            setQuery(suggestion);
+                          }}
+                          className="rounded-full border border-[#2F184B] px-3 py-1.5 text-xs font-semibold text-[#A78BCF] transition-colors hover:border-[#8B5CF6] hover:text-white"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </main>
         </div>
       </div>
-      <Footer />
+      <Footer compact />
     </div>
   );
 }
