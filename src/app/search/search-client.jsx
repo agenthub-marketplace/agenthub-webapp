@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { formatCredits } from '@/lib/format-credits';
 import { translate, useT } from '@/lib/i18n';
 
-export default function SearchClient({ initialAgents = [], initialCategories = [], loadError = null, locale = null }) {
+export default function SearchClient({ initialAgents = [], initialCategories = [], loadError = null, locale = null, profile = null }) {
   const { t, lang } = useT();
   const searchParams = useSearchParams();
   const effectiveLang = locale || lang;
@@ -110,7 +110,7 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
   return (
     <div className="min-h-screen">
-      <AgentHubNavbar />
+      <AgentHubNavbar profile={profile} />
       <div className="container px-4 py-8">
         <div className="relative mb-6">
           <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9B72CF]" />

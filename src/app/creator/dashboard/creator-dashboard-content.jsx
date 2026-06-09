@@ -23,8 +23,9 @@ const copy = {
     loadError: 'Impossible de charger vos agents pour le moment.',
     rentalsTitle: 'Accès à mes agents',
     rentalsEmptyTitle: 'Aucun accès actif',
-    rentalsEmptyText: 'Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents approuvés.',
+    rentalsEmptyText: 'Les accès utilisateurs sont masqués côté créateur pendant cette beta.',
     rentalsLoadError: 'Impossible de charger les accès à vos agents.',
+    analyticsLimited: 'Les usages et accès des utilisateurs sont masqués côté créateur pendant la beta pour éviter toute exposition cross-user.',
     submitted: 'Agent soumis pour validation. Il apparaît maintenant dans votre espace créateur.',
     adminFeedbackTitle: 'Retour admin',
     adminFeedbackEmpty: 'Aucun commentaire ajouté.',
@@ -72,8 +73,9 @@ const copy = {
     loadError: 'Could not load your agents right now.',
     rentalsTitle: 'Access to my agents',
     rentalsEmptyTitle: 'No active access yet',
-    rentalsEmptyText: 'Accesses will appear here as soon as a user activates one of your approved agents.',
+    rentalsEmptyText: 'User accesses are hidden from creator dashboards during this beta.',
     rentalsLoadError: 'Could not load access analytics for your agents.',
+    analyticsLimited: 'User usage and access analytics are hidden from creators during beta to avoid cross-user exposure.',
     submitted: 'Agent submitted for review. It now appears in your creator workspace.',
     adminFeedbackTitle: 'Admin feedback',
     adminFeedbackEmpty: 'No comment added.',
@@ -181,6 +183,7 @@ export default function CreatorDashboardContent({
   const router = useRouter();
   const agents = creatorAgentsResult?.agents ?? [];
   const rentals = creatorRentalsResult?.rentals ?? [];
+  const usageAnalyticsLimited = Boolean(creatorAgentsResult?.usageAnalyticsLimited || creatorRentalsResult?.analyticsLimited);
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const newAgentPath = locale === 'en' ? '/en/creator/agents/new' : '/code/agents/new';
   const editAgentPath = (agentId) => `/code/agents/${agentId}/edit`;
@@ -270,6 +273,15 @@ export default function CreatorDashboardContent({
           </Panel>
         )}
 
+        {usageAnalyticsLimited && (
+          <Panel className="mb-6 border-[#D8DDEE] bg-[#F8FAFC]">
+            <div className="flex items-center gap-2 text-sm text-[#4B5563]">
+              <Users className="h-4 w-4" />
+              {t.analyticsLimited}
+            </div>
+          </Panel>
+        )}
+
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {stats.map((stat) => (
             <Panel key={stat.label}>
@@ -290,9 +302,9 @@ export default function CreatorDashboardContent({
                   <h2 className="font-display text-xl font-bold text-[#111827]">{t.rentalsTitle}</h2>
                   <p className="mt-1 text-xs text-[#6B7280]">
                     {locale === 'en'
-                      ? 'Beta accesses are activated automatically. Stripe is not connected yet.'
-                      : 'Les accès beta sont activés automatiquement. Stripe n’est pas encore connecté.'}
-                  </p>
+                      ? 'Creator-visible access analytics stay hidden during beta. Stripe is not connected yet.'
+                      : 'Les analytics d’accès restent masqués côté créateur pendant la beta. Stripe n’est pas encore connecté.'}
+                </p>
                 </div>
                 <div className="text-right">
                   <span className="block font-stat text-sm text-[#6B3FA0]">{activeAccessRentals.length}</span>

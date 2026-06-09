@@ -168,6 +168,7 @@ export default function CodeAgentDetailContent({ agentResult }) {
 
   const adminNotes = cleanAdminNotes(agent.latestAdminReview?.notes);
   const editable = canEditAgent(agent);
+  const usageAnalyticsLimited = Boolean(agent.analyticsLimited);
 
   return (
     <main className="px-4 py-8 lg:px-8">
@@ -208,6 +209,14 @@ export default function CodeAgentDetailContent({ agentResult }) {
         <DetailMetric label="Runs récents" value={agent.recentRuns.length} />
         <DetailMetric label="Avis" value={formatRating(agent.rating, agent.reviews)} />
       </div>
+
+      {usageAnalyticsLimited && (
+        <div className="mb-8">
+          <CodeAlert title="Analytics masqués">
+            Les accès et runs des utilisateurs ne sont pas exposés aux créateurs dans cette beta.
+          </CodeAlert>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
@@ -283,7 +292,9 @@ export default function CodeAgentDetailContent({ agentResult }) {
               <h2 className="font-display text-lg font-bold text-[#111827]">Runs récents</h2>
             </div>
             {agent.recentRuns.length === 0 ? (
-              <p className="text-sm text-[#6B7280]">Aucune exécution enregistrée pour le moment.</p>
+              <p className="text-sm text-[#6B7280]">
+                {usageAnalyticsLimited ? "Les runs utilisateur sont masqués pendant la beta." : "Aucune exécution enregistrée pour le moment."}
+              </p>
             ) : (
               <div className="space-y-3">
                 {agent.recentRuns.map((run) => (
@@ -307,6 +318,9 @@ export default function CodeAgentDetailContent({ agentResult }) {
               <Users className="h-5 w-5 text-[#6B3FA0]" />
               <h2 className="font-display text-lg font-bold text-[#111827]">Accès clients</h2>
             </div>
+            {usageAnalyticsLimited && (
+              <p className="mb-4 text-sm text-[#6B7280]">Les accès utilisateur restent masqués côté créateur pendant la beta.</p>
+            )}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
                 <p className="text-[#6B7280]">Arrêtés</p>

@@ -55,6 +55,7 @@ export default function CodeDashboardContent({
   const agents = creatorAgentsResult?.agents ?? [];
   const recentRuns = creatorAgentsResult?.recentRuns ?? [];
   const rentals = creatorRentalsResult?.rentals ?? [];
+  const usageAnalyticsLimited = Boolean(creatorAgentsResult?.usageAnalyticsLimited || creatorRentalsResult?.analyticsLimited);
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const publishedAgents = agents.filter((agent) => agent.status === 'approved');
   const inReviewAgents = agents.filter((agent) => agent.status === 'in_review');
@@ -129,6 +130,11 @@ export default function CodeDashboardContent({
           {creatorRentalsResult?.error && (
             <CodeAlert tone="error">Impossible de charger les accès à vos agents.</CodeAlert>
           )}
+          {usageAnalyticsLimited && (
+            <CodeAlert title="Analytics limités">
+              Les usages et accès des utilisateurs sont masqués côté créateur pendant la beta pour éviter toute exposition cross-user.
+            </CodeAlert>
+          )}
         </div>
 
         <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
@@ -136,7 +142,13 @@ export default function CodeDashboardContent({
           <MetricCard icon={Clock3} tone="violet" label="En validation" value={inReviewAgents.length + submittedAgents.length} detail={`${submittedAgents.length} en attente`} />
           <MetricCard icon={ShieldAlert} tone="amber" label="À corriger" value={changesRequested.length} detail="action créateur requise" />
           <MetricCard icon={FileText} tone="blue" label="Brouillons" value={draftAgents.length} detail="à compléter" />
-          <MetricCard icon={Activity} tone="slate" label="Activations" value={rentals.length} detail="accès utilisateurs" />
+          <MetricCard
+            icon={Activity}
+            tone="slate"
+            label="Activations"
+            value={rentals.length}
+            detail={usageAnalyticsLimited ? "masquées en beta" : "accès utilisateurs"}
+          />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -145,14 +157,20 @@ export default function CodeDashboardContent({
               <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
                 <div>
                   <h2 className="font-display text-xl font-bold text-[#111827]">Utilisations récentes</h2>
-                  <p className="mt-1 text-xs text-[#6B7280]">Suivi technique limité, sans contenus privés des utilisateurs.</p>
+                  <p className="mt-1 text-xs text-[#6B7280]">
+                    {usageAnalyticsLimited
+                      ? "Les runs utilisateur restent masqués côté créateur pendant la beta."
+                      : "Suivi technique limité, sans contenus privés des utilisateurs."}
+                  </p>
                 </div>
                 <Activity className="h-5 w-5 text-[#6B3FA0]" />
               </div>
 
               {recentRuns.length === 0 ? (
                 <div className="p-5 text-sm leading-6 text-[#6B7280]">
-                  Aucune utilisation visible pour ce compte. Les créateurs ne voient pas les contenus privés des utilisateurs.
+                  {usageAnalyticsLimited
+                    ? "Les créateurs ne voient pas les runs des utilisateurs dans cette beta."
+                    : "Aucune utilisation visible pour ce compte. Les créateurs ne voient pas les contenus privés des utilisateurs."}
                 </div>
               ) : (
                 <div className="divide-y divide-[#E3E7F2]">
@@ -179,7 +197,11 @@ export default function CodeDashboardContent({
               <div className="flex items-center justify-between border-b border-[#E3E7F2] p-5">
                 <div>
                   <h2 className="font-display text-xl font-bold text-[#111827]">Accès utilisateurs</h2>
-                  <p className="mt-1 text-xs text-[#6B7280]">Activations et accès ouverts sur vos agents publiés.</p>
+                  <p className="mt-1 text-xs text-[#6B7280]">
+                    {usageAnalyticsLimited
+                      ? "Les accès utilisateurs ne sont pas exposés côté créateur dans cette beta."
+                      : "Activations et accès ouverts sur vos agents publiés."}
+                  </p>
                 </div>
                 <Activity className="h-5 w-5 text-[#6B3FA0]" />
               </div>
@@ -189,7 +211,11 @@ export default function CodeDashboardContent({
                   <EmptyCodeState
                     icon={Users}
                     title="Aucune activité client"
-                    text="Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents publiés."
+                    text={
+                      usageAnalyticsLimited
+                        ? "Les accès utilisateurs sont masqués côté créateur pendant la beta."
+                        : "Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents publiés."
+                    }
                   />
                 </div>
               ) : (

@@ -2,7 +2,6 @@ import "server-only";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { AgentStatus, PricingType } from "@/types/agent";
 
 export type AgentCategoryOption = {
@@ -85,6 +84,7 @@ export type CreatorAgentAccessStats = {
 };
 
 export type CreatorAgentDetailItem = CreatorAgentListItem & {
+  analyticsLimited: boolean;
   description: string;
   accessStats: CreatorAgentAccessStats;
   recentRuns: CreatorAgentRunSummary[];
@@ -152,27 +152,14 @@ type AdminReviewFeedbackRow = {
   created_at: string;
 };
 
-type AgentRunSummaryRow = {
-  id: string;
-  agent_id: string;
-  action_label: string;
-  status: "running" | "succeeded" | "failed";
-  error_code: string | null;
-  created_at: string;
-  completed_at: string | null;
-};
-
-type RentalAccessStatusRow = {
-  status: string;
-};
-
-const ACTIVE_ACCESS_STATUSES = ["active", "accepted", "in_progress", "delivered"];
+const CREATOR_ANALYTICS_LIMITED = true;
 
 export type CreatorAgentsResult = {
   agents: CreatorAgentListItem[];
   recentRuns: CreatorAgentRunSummary[];
   creatorProfileMissing: boolean;
   error: string | null;
+  usageAnalyticsLimited: boolean;
 };
 
 export type CreatorProfileLookup = {
@@ -187,45 +174,6 @@ function readCategoryName(category: CreatorAgentRow["agent_categories"]) {
   }
 
   return category?.name ?? null;
-}
-
-async function loadCreatorAgentRunSummaries(
-  agentIds: string[],
-  agentNameById: Map<string, string>,
-  limit = 6,
-): Promise<CreatorAgentRunSummary[]> {
-  if (agentIds.length === 0) {
-    return [];
-  }
-
-  const serviceClient = createSupabaseServiceClient();
-
-  if (!serviceClient) {
-    return [];
-  }
-
-  const { data, error } = await serviceClient
-    .from("agent_runs")
-    .select("id,agent_id,action_label,status,error_code,created_at,completed_at")
-    .in("agent_id", agentIds)
-    .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<AgentRunSummaryRow[]>();
-
-  if (error) {
-    return [];
-  }
-
-  return (data ?? []).map((run) => ({
-    id: run.id,
-    agentId: run.agent_id,
-    agentName: agentNameById.get(run.agent_id) ?? "AgentHub agent",
-    actionLabel: run.action_label,
-    status: run.status,
-    errorCode: run.error_code,
-    createdAt: run.created_at,
-    completedAt: run.completed_at,
-  }));
 }
 
 export async function getAgentCategoryOptions(): Promise<AgentCategoryOption[]> {
@@ -347,6 +295,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       recentRuns: [],
       creatorProfileMissing: false,
       error: "missing-config",
+      usageAnalyticsLimited: CREATOR_ANALYTICS_LIMITED,
     };
   }
 
@@ -358,6 +307,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       recentRuns: [],
       creatorProfileMissing: false,
       error: creatorProfileLookup.error,
+      usageAnalyticsLimited: CREATOR_ANALYTICS_LIMITED,
     };
   }
 
@@ -367,6 +317,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       recentRuns: [],
       creatorProfileMissing: true,
       error: null,
+      usageAnalyticsLimited: CREATOR_ANALYTICS_LIMITED,
     };
   }
 
@@ -386,17 +337,17 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       recentRuns: [],
       creatorProfileMissing: false,
       error: "agents-error",
+      usageAnalyticsLimited: CREATOR_ANALYTICS_LIMITED,
     };
   }
 
   const agentRows = data ?? [];
   const agentIds = agentRows.map((agent) => agent.id);
   const versionIds = agentRows.map((agent) => agent.active_version_id).filter((id): id is string => Boolean(id));
-  const agentNameById = new Map(agentRows.map((agent) => [agent.id, agent.name]));
   const latestReviewsByAgent = new Map<string, CreatorAgentListItem["latestAdminReview"]>();
   const versionsById = new Map<string, AgentVersionListRow>();
   const reviewStatsByAgent = new Map<string, { rating: number; reviews: number }>();
-  let recentRuns: CreatorAgentRunSummary[] = [];
+  const recentRuns: CreatorAgentRunSummary[] = [];
 
   if (agentIds.length > 0) {
     const { data: reviews } = await supabase
@@ -431,7 +382,6 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
       });
     }
 
-    recentRuns = await loadCreatorAgentRunSummaries(agentIds, agentNameById, 6);
   }
 
   if (versionIds.length > 0) {
@@ -490,6 +440,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
     recentRuns,
     creatorProfileMissing: false,
     error: null,
+    usageAnalyticsLimited: CREATOR_ANALYTICS_LIMITED,
   };
 }
 
@@ -638,7 +589,7 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
   let latestAdminReview: CreatorAgentDetailItem["latestAdminReview"] = null;
   let rating = 0;
   let reviews = 0;
-  let recentRuns: CreatorAgentRunSummary[] = [];
+  const recentRuns: CreatorAgentRunSummary[] = [];
   const accessStats: CreatorAgentAccessStats = {
     total: 0,
     active: 0,
@@ -647,7 +598,7 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
     cancelled: 0,
   };
 
-  const [reviewResponse, latestReviewResponse, recentRunSummaries, rentalsResponse] = await Promise.all([
+  const [reviewResponse, latestReviewResponse] = await Promise.all([
     supabase.from("agent_reviews").select("rating").eq("agent_id", agent.id).returns<Pick<AgentReviewRatingRow, "rating">[]>(),
     supabase
       .from("admin_reviews")
@@ -656,8 +607,6 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<Omit<AdminReviewFeedbackRow, "agent_id">>(),
-    loadCreatorAgentRunSummaries([agent.id], new Map([[agent.id, agent.name]]), 8),
-    supabase.from("rental_requests").select("status").eq("agent_id", agent.id).returns<RentalAccessStatusRow[]>(),
   ]);
 
   const reviewRows = reviewResponse.data ?? [];
@@ -676,23 +625,6 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
         latestReviewResponse.data.decision === "in_review" &&
         Boolean(latestReviewResponse.data.notes?.trim()),
     };
-  }
-
-  recentRuns = recentRunSummaries;
-
-  if (!rentalsResponse.error) {
-    for (const rental of rentalsResponse.data ?? []) {
-      accessStats.total += 1;
-      if (ACTIVE_ACCESS_STATUSES.includes(rental.status)) {
-        accessStats.active += 1;
-      } else if (rental.status === "stopped") {
-        accessStats.stopped += 1;
-      } else if (rental.status === "expired") {
-        accessStats.expired += 1;
-      } else if (rental.status === "cancelled") {
-        accessStats.cancelled += 1;
-      }
-    }
   }
 
   if (agent.active_version_id) {
@@ -725,6 +657,7 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
   return {
     agent: {
       id: agent.id,
+      analyticsLimited: CREATOR_ANALYTICS_LIMITED,
       slug: agent.slug ?? "",
       name: agent.name,
       summary: agent.summary,
