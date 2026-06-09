@@ -58,7 +58,7 @@ export default async function CheckoutCancelPage({ searchParams }) {
             <Link href={agentPath}>
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">Retour à l’agent</Button>
             </Link>
-            <Link href="/dashboard">
+            <Link href="/agenthub/dashboard">
               <Button variant="outline" className="border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
                 Voir mes commandes
               </Button>

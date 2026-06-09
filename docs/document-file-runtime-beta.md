@@ -1,8 +1,8 @@
-# Agent IA Document Input Beta
+# Agent Document Input Beta
 
 ## Summary
 
-Document input is a controlled beta capability for Agent IA. It supports single-document PDF/DOCX analysis through private server-side extraction. It is not a separate marketplace family and not a full execution gateway.
+Document input is a controlled beta capability for document-aware AgentHub publications. It supports single-document PDF/DOCX analysis through private server-side extraction. It is useful, but it is not by itself the beta standard for an advanced agent; workflow and API agents carry that role.
 
 `document_file` remains as an internal compatibility/feature-flag value in `runtime_type` and `agent_runtime_settings`.
 
@@ -13,7 +13,7 @@ Included:
 - private Supabase Storage;
 - one file per run;
 - server-side extraction only;
-- Agent IA result stored in `agent_runs`;
+- generated result stored in `agent_runs`;
 - file metadata stored in `agent_run_files`.
 
 Excluded:
@@ -89,7 +89,7 @@ The document capability remains disabled by default in `agent_runtime_settings`.
 1. Apply migrations locally with `npx supabase db reset`.
 2. Enable `DOCUMENT_RUNS_ENABLED=true` locally.
 3. Enable the `document_file` capability locally in `agent_runtime_settings`.
-4. Create an internal test Agent IA version with `runtime_type = 'llm_prompt'`, `execution_mode = 'llm_prompt'`, and a document-required contract.
+4. Create an internal document-aware test version with `runtime_type = 'llm_prompt'`, `execution_mode = 'llm_prompt'`, and a document-required contract.
 5. Rent the agent with a test user.
 6. Upload a small DOCX.
 7. Run a document action.

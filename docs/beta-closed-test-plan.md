@@ -43,7 +43,7 @@ Day 1 validation:
 - Creator submission from templates works.
 - Admin review and approval works.
 - User rental/access works.
-- Workspace LLM Runner v0 works on Meeting Notes Checklist with a realistic raw-notes input.
+- Workspace Assistant IA guidé works on Meeting Notes Checklist with a realistic raw-notes input.
 - The generated output was acceptable for closed beta: decisions, action items, owners, open questions, and follow-up items were extracted.
 
 Each test agent should have:
@@ -79,7 +79,7 @@ Each test agent should have:
 3. Start a new agent from one of the five templates.
 4. Confirm fields are prefilled.
 5. Edit price, output promise, capabilities, limitations.
-6. Confirm execution mode is `Agent IA (OpenAI server-side)`.
+6. Confirm execution mode is `Assistant texte`.
 7. Submit for review.
 8. If admin requests changes, edit and resubmit.
 9. Confirm creator does not see private user run inputs, notes, Stripe details, or user-only workspace history.
@@ -101,7 +101,7 @@ Each test agent should have:
 8. Suspend and restore an approved agent.
 9. Confirm suspended agents are hidden from marketplace and not purchasable.
 
-## LLM Runner test flow
+## Assistant IA guidé test flow
 
 1. Use an approved agent with `execution_mode = llm_prompt`.
 2. Rent the agent.

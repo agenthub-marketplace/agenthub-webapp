@@ -45,7 +45,7 @@ const copy = {
     outputPromiseExamples: 'Exemples d’utilisation',
     executionMode: 'Mode d’exécution prévu',
     executionModeHint:
-      'Pour tester l’Agent IA dans le workspace, choisissez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée, pas un runtime marketplace séparé.',
+      'Pour tester l’assistant guidé dans le workspace, choisissez “Assistant texte”. Les documents restent une capacité contrôlée, pas le standard agent avancé beta.',
     riskLevel: 'Niveau de risque',
     executionMethod: 'Données nécessaires',
     knownLimits: 'Limites connues',
@@ -109,7 +109,7 @@ const copy = {
     outputPromiseExamples: 'Usage examples',
     executionMode: 'Planned execution mode',
     executionModeHint:
-      'To test the workspace AI Agent, choose “Agent IA (OpenAI server-side)”. Documents are a controlled capability, not a separate marketplace runtime.',
+      'To test the guided assistant in the workspace, choose “Text assistant”. Documents are a controlled capability, not the advanced agent beta standard.',
     riskLevel: 'Risk level',
     executionMethod: 'Required data',
     knownLimits: 'Known limits',

@@ -7,38 +7,38 @@ import { Button } from '@/components/ui/button';
 
 const copy = {
   fr: {
-    disabled: 'Le runtime endpoint creator est désactivé pour le moment.',
-    emptyHistory: 'Aucun appel endpoint enregistré pour le moment.',
-    error: 'Impossible d’appeler cet endpoint pour le moment.',
-    history: 'Historique endpoint',
+    disabled: 'L’agent API est désactivé pour le moment.',
+    emptyHistory: 'Aucun appel API enregistré pour le moment.',
+    error: 'Impossible d’envoyer cette demande à l’agent API pour le moment.',
+    history: 'Historique agent API',
     inputLabel: 'Votre demande',
     inputPlaceholder: 'Décrivez le résultat attendu et les contraintes importantes...',
-    launch: 'Appeler l’endpoint',
-    loading: 'Endpoint en cours...',
-    running: 'Un appel endpoint est déjà en cours...',
+    launch: 'Envoyer à l’agent',
+    loading: 'Agent API en cours...',
+    running: 'Un appel agent API est déjà en cours...',
     remaining: 'caractères restants',
-    result: 'Résultat endpoint',
-    selectAction: 'Ajoutez votre demande, puis AgentHub appelle l’endpoint approuvé côté serveur.',
+    result: 'Résultat agent API',
+    selectAction: 'Ajoutez votre demande, puis AgentHub appelle l’API approuvée côté serveur.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
-    title: 'Endpoint creator',
+    title: 'Agent API',
   },
   en: {
-    disabled: 'Creator endpoint runtime is disabled right now.',
-    emptyHistory: 'No endpoint call history yet.',
-    error: 'Unable to call this endpoint right now.',
-    history: 'Endpoint history',
+    disabled: 'The API agent is disabled right now.',
+    emptyHistory: 'No API agent history yet.',
+    error: 'Unable to send this request to the API agent right now.',
+    history: 'API agent history',
     inputLabel: 'Your request',
     inputPlaceholder: 'Describe the expected outcome and important constraints...',
-    launch: 'Call endpoint',
-    loading: 'Endpoint running...',
-    running: 'An endpoint call is already running...',
+    launch: 'Send to agent',
+    loading: 'API agent running...',
+    running: 'An API agent call is already running...',
     remaining: 'characters remaining',
-    result: 'Endpoint result',
-    selectAction: 'Add your request, then AgentHub calls the approved endpoint server-side.',
+    result: 'API agent result',
+    selectAction: 'Add your request, then AgentHub calls the approved API server-side.',
     showLess: 'Collapse',
     showMore: 'View full result',
-    title: 'Creator endpoint',
+    title: 'API agent',
   },
 };
 
@@ -154,7 +154,7 @@ export default function CreatorEndpointWorkspaceActions({
           <PlugZap className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-label mb-2 text-xs text-[#9B72CF]">CREATOR ENDPOINT BETA</p>
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">AGENT API BETA</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
           <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
         </div>

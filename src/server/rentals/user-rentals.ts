@@ -320,6 +320,69 @@ function dedupeOpenAccessRentals(rentals: UserRental[]) {
   return deduped;
 }
 
+function mapUserRental(rental: UserRentalRow): UserRental {
+  const agent = readSingle(rental.agents);
+  const version = readSingle(agent?.agent_versions ?? null);
+  const template = getAgentTemplateByLabel(agent?.name ?? "");
+  const contract = normalizeAgentContract({
+    workspaceMode: version?.workspace_mode,
+    setupRequirements: version?.setup_requirements,
+    outputPromise: version?.output_promise,
+    executionMode: version?.execution_mode,
+    runtimeType: version?.runtime_type,
+    dataPolicy: version?.data_policy,
+  });
+  const mappedAgent = agent
+    ? {
+        name: agent.name,
+        slug: agent.slug,
+        summary: agent.summary,
+        description: agent.description,
+        status: agent.status,
+        pricingType: agent.pricing_type,
+        priceCents: agent.starting_price_cents,
+        currency: agent.currency,
+        capabilities: version?.capabilities ?? [],
+        requiredInputsList: version?.required_inputs ?? [],
+        deliverables: version?.deliverables ?? [],
+        limitations: version?.limitations ?? [],
+        workspaceActions: template?.workspace_actions ?? [],
+        workspaceActionsEn: template?.workspace_actions_en ?? [],
+        dataHandlingNotes: version?.data_handling_notes ?? null,
+        contract,
+      }
+    : null;
+  const result = readSingle(rental.rental_results);
+  const review = readSingle(rental.agent_reviews);
+
+  return {
+    id: rental.id,
+    status: rental.status,
+    pricingType: rental.pricing_type,
+    priceCents: rental.quoted_price_cents,
+    currency: rental.currency,
+    requestBrief: rental.request_brief,
+    requiredInputs: rental.required_inputs,
+    createdAt: rental.created_at,
+    agent: mappedAgent,
+    accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && mappedAgent?.status === "approved",
+    result: result
+      ? {
+          summary: result.summary,
+          deliveredAt: result.delivered_at,
+        }
+      : null,
+    review: review
+      ? {
+          id: review.id,
+          rating: review.rating,
+          title: review.title,
+          body: review.body,
+        }
+      : null,
+  };
+}
+
 export async function getUserAgentOrderState(userId: string, agentId: string) {
   const supabase = await createSupabaseServerClient();
 
@@ -333,6 +396,7 @@ export async function getUserAgentOrderState(userId: string, agentId: string) {
     .eq("user_id", userId)
     .eq("agent_id", agentId)
     .order("created_at", { ascending: false })
+    .limit(10)
     .returns<AccessStateRentalRow[]>();
 
   if (rentalError) {
@@ -486,72 +550,7 @@ export async function getUserRentals(userId: string) {
     return { rentals: [], error: "rentals-load-failed" };
   }
 
-  const rentals = (data ?? []).map((rental) => {
-      const agent = readSingle(rental.agents);
-      const version = readSingle(agent?.agent_versions ?? null);
-      const template = getAgentTemplateByLabel(agent?.name ?? "");
-      const contract = normalizeAgentContract({
-        workspaceMode: version?.workspace_mode,
-        setupRequirements: version?.setup_requirements,
-        outputPromise: version?.output_promise,
-        executionMode: version?.execution_mode,
-        runtimeType: version?.runtime_type,
-        dataPolicy: version?.data_policy,
-      });
-      const mappedAgent = agent
-        ? {
-            name: agent.name,
-            slug: agent.slug,
-            summary: agent.summary,
-            description: agent.description,
-            status: agent.status,
-            pricingType: agent.pricing_type,
-            priceCents: agent.starting_price_cents,
-            currency: agent.currency,
-            capabilities: version?.capabilities ?? [],
-            requiredInputsList: version?.required_inputs ?? [],
-            deliverables: version?.deliverables ?? [],
-            limitations: version?.limitations ?? [],
-            workspaceActions: template?.workspace_actions ?? [],
-            workspaceActionsEn: template?.workspace_actions_en ?? [],
-            dataHandlingNotes: version?.data_handling_notes ?? null,
-            contract,
-          }
-        : null;
-
-      return {
-        id: rental.id,
-        status: rental.status,
-        pricingType: rental.pricing_type,
-        priceCents: rental.quoted_price_cents,
-        currency: rental.currency,
-        requestBrief: rental.request_brief,
-        requiredInputs: rental.required_inputs,
-        createdAt: rental.created_at,
-        agent: mappedAgent,
-        accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && mappedAgent?.status === "approved",
-        result: (() => {
-        const result = readSingle(rental.rental_results);
-        return result
-          ? {
-              summary: result.summary,
-              deliveredAt: result.delivered_at,
-            }
-          : null;
-        })(),
-        review: (() => {
-        const review = readSingle(rental.agent_reviews);
-        return review
-          ? {
-              id: review.id,
-              rating: review.rating,
-              title: review.title,
-              body: review.body,
-            }
-          : null;
-        })(),
-      };
-    });
+  const rentals = (data ?? []).map(mapUserRental);
 
   return {
     rentals: dedupeOpenAccessRentals(rentals),
@@ -625,10 +624,41 @@ export async function getUserPaymentOrders(userId: string) {
 }
 
 export async function getUserRentalById(userId: string, rentalId: string) {
-  const result = await getUserRentals(userId);
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { rental: null, error: "missing-config" };
+  }
+
+  let { data, error } = await supabase
+    .from("rental_requests")
+    .select(USER_RENTAL_SELECT_WITH_CONTRACT)
+    .eq("user_id", userId)
+    .eq("id", rentalId)
+    .limit(1)
+    .returns<UserRentalRow[]>();
+
+  if (error && isMissingAgentContractSchemaError(error)) {
+    console.warn("Agent contract columns unavailable; retrying legacy user rental query", {
+      code: error.code,
+      message: error.message,
+    });
+
+    ({ data, error } = await supabase
+      .from("rental_requests")
+      .select(USER_RENTAL_SELECT_LEGACY)
+      .eq("user_id", userId)
+      .eq("id", rentalId)
+      .limit(1)
+      .returns<UserRentalRow[]>());
+  }
+
+  if (error) {
+    return { rental: null, error: "rentals-load-failed" };
+  }
 
   return {
-    rental: result.rentals.find((rental) => rental.id === rentalId) ?? null,
-    error: result.error,
+    rental: data?.[0] ? mapUserRental(data[0]) : null,
+    error: null,
   };
 }

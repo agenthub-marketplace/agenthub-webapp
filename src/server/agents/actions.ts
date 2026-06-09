@@ -49,11 +49,11 @@ function readText(formData: FormData, key: string) {
 }
 
 function redirectWithError(locale: Locale, error: string): never {
-  redirect(`${localizedPath("/code/agents/new", locale)}?error=${encodeURIComponent(error)}`);
+  redirect(`/code/agents/new?error=${encodeURIComponent(error)}`);
 }
 
 function redirectWithEditError(locale: Locale, agentId: string, error: string): never {
-  redirect(`${localizedPath(`/code/agents/${agentId}/edit`, locale)}?error=${encodeURIComponent(error)}`);
+  redirect(`/code/agents/${agentId}/edit?error=${encodeURIComponent(error)}`);
 }
 
 function slugify(value: string) {

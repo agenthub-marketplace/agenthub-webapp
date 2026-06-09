@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, PieChart, TrendingUp, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CodePanel, StatusBadge, formatDate, formatMoney, getRuntimeTypeLabel } from '../../_components/code-console-ui';
 
@@ -50,6 +50,89 @@ export function AdminQuickLink({ description, href, title }) {
         </div>
       </CodePanel>
     </Link>
+  );
+}
+
+function AdminRevenueBucketList({ buckets = [], currency, totalCents }) {
+  if (!buckets.length) {
+    return <p className="text-sm text-[#6B7280]">Aucune donnée revenue sur cette période.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {buckets.map((bucket) => {
+        const width = totalCents > 0 ? Math.max(8, Math.round((bucket.amountCents / totalCents) * 100)) : 0;
+
+        return (
+          <div key={bucket.key} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-[#111827]">{bucket.label}</span>
+              <span className="text-[#4B5563]">{formatMoney(bucket.amountCents, currency)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#EEF2FF]">
+              <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${width}%` }} />
+            </div>
+            <p className="text-xs text-[#6B7280]">{bucket.purchaseCount} achat{bucket.purchaseCount > 1 ? 's' : ''}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function AdminRevenueOverview({ result }) {
+  const analytics = result?.analytics;
+  const currency = analytics?.currency ?? 'eur';
+
+  if (result?.error) {
+    return <AdminError>Impossible de charger les revenus beta.</AdminError>;
+  }
+
+  return (
+    <section className="mb-6 overflow-hidden rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_70%,#F5F3FF_100%)] shadow-[0_16px_42px_rgba(109,64,160,0.08)]">
+      <div className="border-b border-[#DDD6FE] p-5">
+        <p className="font-label mb-2 text-xs text-[#6B3FA0]">REVENUS BETA</p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="font-display text-2xl font-bold text-[#111827]">GMV sandbox plateforme</h2>
+            <p className="mt-2 text-sm text-[#4B5563]">{analytics?.sandboxNotice ?? 'Montants sandbox, aucun payout réel en beta.'}</p>
+          </div>
+          <div className="flex gap-2 text-xs font-semibold">
+            <Link href="?revenuePeriod=30d" className={`rounded-full border px-3 py-1.5 ${analytics?.period === '30d' ? 'border-[#8B5CF6] bg-[#F5F3FF] text-[#5B21B6]' : 'border-[#D8DDEE] bg-white text-[#4B5563]'}`}>
+              30 jours
+            </Link>
+            <Link href="?revenuePeriod=all" className={`rounded-full border px-3 py-1.5 ${analytics?.period === 'all' ? 'border-[#8B5CF6] bg-[#F5F3FF] text-[#5B21B6]' : 'border-[#D8DDEE] bg-white text-[#4B5563]'}`}>
+              Tout
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-5 xl:grid-cols-[0.9fr_1fr_1fr]">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <AdminStatCard label="GMV activé" value={formatMoney(analytics?.activatedGmvCents ?? 0, currency)} tone="success" />
+          <AdminStatCard label="Paiements à surveiller" value={formatMoney(analytics?.attentionCents ?? 0, currency)} tone={(analytics?.attentionCents ?? 0) > 0 ? 'warning' : 'success'} />
+          <AdminStatCard label="Paiements pending" value={formatMoney(analytics?.pendingCents ?? 0, currency)} tone={(analytics?.pendingCents ?? 0) > 0 ? 'warning' : 'success'} />
+          <AdminStatCard label="Panier moyen" value={formatMoney(analytics?.averageOrderCents ?? 0, currency)} />
+        </div>
+
+        <CodePanel className="bg-white">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-lg font-bold text-[#111827]">Secteurs d’activité</h3>
+            <PieChart className="h-5 w-5 text-[#6B3FA0]" />
+          </div>
+          <AdminRevenueBucketList buckets={analytics?.sectors ?? []} currency={currency} totalCents={analytics?.activatedGmvCents ?? 0} />
+        </CodePanel>
+
+        <CodePanel className="bg-white">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-lg font-bold text-[#111827]">Top agents</h3>
+            <TrendingUp className="h-5 w-5 text-[#6B3FA0]" />
+          </div>
+          <AdminRevenueBucketList buckets={analytics?.topAgents ?? []} currency={currency} totalCents={analytics?.activatedGmvCents ?? 0} />
+        </CodePanel>
+      </div>
+    </section>
   );
 }
 

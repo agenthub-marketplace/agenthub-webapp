@@ -271,7 +271,7 @@ export async function POST(request: Request) {
     .from("agent_runs")
     .insert({
       action_key: "workflow_automation",
-      action_label: "Workflow automation",
+      action_label: "Agent workflow",
       agent_id: context.rental.agent_id,
       agent_version_id: context.rental.agent_version_id,
       input_chars: inputText.length,

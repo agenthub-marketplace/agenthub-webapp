@@ -393,7 +393,7 @@ Decision:
 - full execution gateway;
 - frontend redesign.
 
-## Workflow automation beta checks
+## Agent workflow beta checks
 
 Only use these checks after `workflow_automation` is intentionally enabled for a controlled beta creator.
 

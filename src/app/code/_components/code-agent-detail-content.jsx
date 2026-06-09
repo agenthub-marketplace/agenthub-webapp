@@ -21,35 +21,35 @@ import {
 
 const runtimeReadiness = {
   static_guided: {
-    title: 'Static guided',
+    title: 'Workspace guidé',
     state: 'Disponible legacy',
     tone: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
     ready: ['Workspace statique', 'Aucun appel runtime', 'Compatible agents historiques'],
     blocked: ['Pas de génération IA', 'Pas de document', 'Pas de workflow'],
   },
   llm_prompt: {
-    title: 'Agent IA',
+    title: 'Assistant IA guidé',
     state: 'Beta active',
     tone: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
-    ready: ['Runner texte server-side', 'Historique agent_runs', 'Accès actif requis'],
-    blocked: ['Document contrôlé par flag beta', 'Pas d’outil externe', 'Pas de code creator'],
+    ready: ['Assistant texte server-side', 'Historique agent_runs', 'Accès actif requis'],
+    blocked: ['Pas de workflow', 'Pas d’outil externe', 'Pas de code creator'],
   },
   document_file: {
-    title: 'Agent IA',
-    state: 'Mode document compat',
+    title: 'Agent document',
+    state: 'Beta contrôlée',
     tone: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
     ready: ['Bucket privé prévu', 'PDF/DOCX uniquement', 'Extraction serveur'],
     blocked: ['Capacité désactivée par défaut', 'Pas d’OCR', 'Pas de multi-fichier'],
   },
   workflow_automation: {
-    title: 'Workflow Automation',
-    state: 'Interne',
+    title: 'Agent workflow',
+    state: 'Beta allowlist',
     tone: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
     ready: ['Queue durable', 'Worker contrôlé', 'Allowlist creator'],
     blocked: ['Désactivé par défaut', 'Pas de n8n', 'Pas d’actions libres'],
   },
   creator_endpoint: {
-    title: 'Creator Endpoint',
+    title: 'Agent API',
     state: 'Foundation beta',
     tone: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
     ready: ['Proxy serveur', 'Signature HMAC', 'Endpoint approuvé'],
@@ -113,7 +113,7 @@ function RuntimeReadiness({ version }) {
           <p className="font-semibold text-[#111827]">{getRuntimeTypeLabel(runtimeType)}</p>
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
-          <p className="font-label mb-2 text-xs text-[#6B7280]">Execution mode</p>
+          <p className="font-label mb-2 text-xs text-[#6B7280]">Mode d’exécution</p>
           <p className="font-semibold text-[#111827]">{version?.executionMode || 'Non défini'}</p>
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">

@@ -9,7 +9,6 @@ import {
   Check,
   ClipboardList,
   Eye,
-  FileText,
   Layers3,
   Lock,
   Send,
@@ -25,21 +24,21 @@ const steps = [
   { id: 'template', label: 'Template', title: 'Choisir un template' },
   { id: 'listing', label: 'Listing', title: 'Fiche publique' },
   { id: 'contract', label: 'Contract', title: 'Agent Contract' },
-  { id: 'runtime', label: 'Runtime', title: 'Runtime' },
+  { id: 'runtime', label: 'Publication', title: 'Choisir le type de publication' },
   { id: 'preview', label: 'Preview', title: 'Preview & submit' },
 ];
 
 const copy = {
   back: 'Retour au dashboard',
   eyebrow: 'NOUVEL AGENT',
-  title: 'Créer un agent IA',
-  subtitle: 'Choisissez un template, adaptez la fiche, vérifiez le workspace, puis soumettez à validation.',
+  title: 'Créer une publication AgentHub',
+  subtitle: 'Choisissez un template, adaptez la fiche, choisissez le type de publication, puis soumettez à validation.',
   noCategories: 'Aucune catégorie Supabase disponible. Ajoutez les catégories beta avant de soumettre un agent.',
   missingProfileTitle: 'Profil créateur requis',
   missingProfile:
     'Ce compte peut accéder à l’espace créateur, mais il ne peut soumettre des agents que s’il possède son propre profil créateur.',
   profileError: 'Impossible de vérifier votre profil créateur. Réessayez ou contactez l’équipe.',
-  safety: 'Validation admin obligatoire avant publication. En beta, seul le runtime Agent IA est créateur-visible.',
+  safety: 'Validation admin obligatoire avant publication. En beta, les agents avancés sont réservés aux creators allowlistés.',
 };
 
 const errorMessages = {
@@ -59,9 +58,9 @@ const errorMessages = {
   'invalid-workflow-endpoint': 'Le workflow beta est réservé à une phase interne.',
   'workflow-endpoint-failed': 'Le workflow beta est réservé à une phase interne.',
   'workflow-create-failed': 'Le workflow beta est réservé à une phase interne.',
-  'invalid-creator-endpoint': 'Le runtime endpoint creator est réservé à une beta interne.',
-  'creator-endpoint-failed': 'Le runtime endpoint creator est réservé à une beta interne.',
-  'creator-endpoint-config-failed': 'Le runtime endpoint creator est réservé à une beta interne.',
+  'invalid-creator-endpoint': 'L’agent API est réservé à une beta interne.',
+  'creator-endpoint-failed': 'L’agent API est réservé à une beta interne.',
+  'creator-endpoint-config-failed': 'L’agent API est réservé à une beta interne.',
 };
 
 const emptyValues = {
@@ -86,7 +85,7 @@ const emptyValues = {
   starting_price_eur: '',
   risk_level: 'low',
   pricing_hint: '',
-  execution_method: 'Agent IA: OpenAI server-side, texte par défaut, document en beta contrôlée, aucun outil externe.',
+  execution_method: 'Assistant IA guidé: génération texte server-side, document léger en beta contrôlée, aucun outil externe.',
   workspace_mode: 'guided',
   setup_type: 'context',
   output_promise_summary: '',
@@ -180,7 +179,7 @@ function PublicListingPreview({ values }) {
 
 function WorkspacePreview({ values }) {
   const actions = lines(values.output_promise_examples).slice(0, 4);
-  const fallbackActions = ['Décrire mon besoin', 'Lancer l’agent', 'Relire le résultat'];
+  const fallbackActions = ['Décrire mon besoin', 'Générer la réponse', 'Relire le résultat'];
   const setupItems = lines(values.setup_items).slice(0, 5);
 
   return (
@@ -191,7 +190,7 @@ function WorkspacePreview({ values }) {
           <Sparkles className="h-5 w-5" />
         </span>
         <div>
-          <h3 className="font-display text-xl font-bold text-[#111827]">Démarrer avec cet agent</h3>
+          <h3 className="font-display text-xl font-bold text-[#111827]">Démarrer avec cette publication</h3>
           <p className="mt-1 text-sm text-[#4B5563]">{values.output_promise_summary || 'Promesse visible après activation.'}</p>
         </div>
       </div>
@@ -237,7 +236,7 @@ function RuntimeCard({ disabled, icon: Icon, onClick, selected = false, title, t
           <Icon className="h-5 w-5" />
         </span>
         <span className="rounded-full border border-[#D8DDEE] bg-white px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
-          {disabled ? 'Interne' : tone}
+          {disabled ? tone || 'Interne' : tone}
         </span>
       </div>
       <h3 className="font-display text-lg font-bold text-[#111827]">{title}</h3>
@@ -293,12 +292,12 @@ export default function CodeNewAgentContent({
       execution_mode: 'llm_prompt',
       execution_method:
         runtimeType === 'workflow_automation'
-          ? 'Workflow automation beta: étapes LLM internes, webhook creator approuvé si configuré.'
-          : runtimeType === 'creator_endpoint'
-            ? 'Creator endpoint beta: appel serveur signé vers endpoint creator approuvé.'
-            : current.data_policy?.requires_files
-              ? 'Agent IA document: PDF/DOCX prive en beta controlee, extraction serveur, aucun outil externe.'
-              : 'Agent IA: OpenAI server-side, texte par défaut, document en beta contrôlée, aucun outil externe.',
+          ? 'Agent workflow beta: 2 à 5 étapes validées, webhook approuvé si configuré.'
+            : runtimeType === 'creator_endpoint'
+              ? 'Agent API beta: appel serveur signé vers API creator approuvée.'
+              : current.data_policy?.requires_files
+              ? 'Assistant IA guidé avec document: PDF/DOCX privé en beta contrôlée, extraction serveur, aucun outil externe.'
+              : 'Assistant IA guidé: génération texte server-side, document léger en beta contrôlée, aucun outil externe.',
     }));
   }
 
@@ -497,16 +496,27 @@ export default function CodeNewAgentContent({
 
           <section className={currentStep === 3 ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
             <CodePanel>
-              <h2 className="font-display mb-5 text-2xl font-bold text-[#111827]">Runtime et workspace</h2>
+              <h2 className="font-display text-2xl font-bold text-[#111827]">Choisir le type de publication</h2>
+              <p className="mb-5 mt-2 text-sm leading-6 text-[#4B5563]">
+                Un assistant guidé génère une réponse avec le modèle AgentHub. Un agent avancé exécute un workflow validé ou appelle une API creator approuvée.
+              </p>
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label="Runtime créateur-visible">
                   <div className="rounded-xl border border-[#8B5CF6] bg-[#F5F3FF] px-3 py-2.5 text-sm font-semibold text-[#111827]">
-                    Agent IA
+                    {values.runtime_type === 'workflow_automation'
+                      ? 'Agent workflow'
+                      : values.runtime_type === 'creator_endpoint'
+                        ? 'Agent API'
+                        : 'Assistant IA guidé'}
                   </div>
                 </Field>
                 <Field label="Mode d’exécution">
                   <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#4B5563]">
-                    Agent IA (OpenAI server-side)
+                    {values.runtime_type === 'workflow_automation'
+                      ? 'Workflow validé + worker'
+                      : values.runtime_type === 'creator_endpoint'
+                        ? 'API creator signée côté serveur'
+                        : 'Assistant texte'}
                   </div>
                 </Field>
                 <Field label="Type d’expérience dans le workspace">
@@ -543,29 +553,42 @@ export default function CodeNewAgentContent({
                 icon={Bot}
                 onClick={() => selectRuntime('llm_prompt')}
                 selected={values.runtime_type === 'llm_prompt'}
-                title="Agent IA"
+                title="Assistant IA guidé"
                 tone="Actif"
-                text="Texte par défaut, server-side, avec mode document disponible en beta contrôlée."
+                text="Génération texte server-side avec actions workspace. Les capacités document restent intégrées ici en beta contrôlée, pas dans un runtime séparé."
               />
-              <RuntimeCard disabled icon={FileText} title="Entrée document" text="Capacité de l’Agent IA pour PDF/DOCX privés. Pas une famille marketplace séparée." />
               <RuntimeCard
                 disabled={!canUseWorkflowAutomation}
                 icon={ClipboardList}
-                onClick={() => selectRuntime('workflow_automation')}
+                onClick={canUseWorkflowAutomation ? () => selectRuntime('workflow_automation') : undefined}
                 selected={values.runtime_type === 'workflow_automation'}
-                title="Workflow Automation"
-                tone={canUseWorkflowAutomation ? 'Beta privée' : 'Interne'}
-                text="Étapes LLM internes, avec webhook creator approuvé si nécessaire. Pas de node editor, pas de n8n."
+                title="Agent workflow"
+                tone={canUseWorkflowAutomation ? 'Beta activée' : 'Accès admin requis'}
+                text={
+                  canUseWorkflowAutomation
+                    ? '2 à 5 étapes validées, LLM interne et webhook creator approuvé si nécessaire. Pas de node editor, pas de n8n.'
+                    : 'Demandez ou activez le droit workflow automation depuis Administration > Creators.'
+                }
               />
               <RuntimeCard
                 disabled={!canUseCreatorEndpoint}
-                icon={Lock}
-                onClick={() => selectRuntime('creator_endpoint')}
+                icon={Send}
+                onClick={canUseCreatorEndpoint ? () => selectRuntime('creator_endpoint') : undefined}
                 selected={values.runtime_type === 'creator_endpoint'}
-                title="Creator Endpoint"
-                tone={canUseCreatorEndpoint ? 'Beta privée' : 'Interne'}
-                text="Proxy serveur signé vers endpoint creator approuvé. Jamais appelé depuis le client."
+                title="Agent API"
+                tone={canUseCreatorEndpoint ? 'Beta activée' : 'Accès admin requis'}
+                text={
+                  canUseCreatorEndpoint
+                    ? 'AgentHub appelle un endpoint HTTPS creator via proxy serveur signé. Jamais appelé depuis le client.'
+                    : 'Demandez ou activez le droit creator endpoint depuis Administration > Creators.'
+                }
               />
+              {!canUseWorkflowAutomation && !canUseCreatorEndpoint && (
+                <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4 text-sm leading-6 text-[#4B5563]">
+                  Les agents avancés sont ouverts sur allowlist admin. Le runtime document n’est plus un type séparé pour les creators : il est regroupé avec l’assistant guidé.
+                </div>
+              )}
+              <RuntimeCard disabled icon={Lock} title="Agent code/package" tone="Plus tard" text="Exécution sandboxée future. Non créable en beta, aucun code creator n’est exécuté par AgentHub aujourd’hui." />
             </div>
           </section>
 

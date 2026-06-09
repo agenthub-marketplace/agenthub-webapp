@@ -206,7 +206,7 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
                 </Field>
                 <Field
                   label="Mode d’exécution prévu"
-                  hint="Pour la beta creator, gardez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée de l’Agent IA, pas un runtime marketplace séparé."
+                  hint="Pour la beta creator, gardez “Assistant texte”. Les documents restent une capacité contrôlée, pas le standard agent avancé beta."
                 >
                   <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'llm_prompt'}>
                     {creatorExecutionModeOptions.map((option) => (

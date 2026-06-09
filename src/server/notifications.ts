@@ -93,7 +93,7 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
         id: "admin-review-queue",
         title: "File de validation",
         body: `${count} agent${count === 1 ? "" : "s"} à vérifier dans le panneau admin.`,
-        href: "/admin",
+        href: "/code/admin/review",
         tone: "warning",
         createdAt: null,
       });

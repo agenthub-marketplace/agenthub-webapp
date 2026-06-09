@@ -40,10 +40,10 @@ const reviewErrors = {
   'workflow-approval-failed': 'Impossible d’approuver le workflow automation.',
   'workflow-endpoint-approval-failed': 'Impossible d’approuver l’endpoint webhook creator.',
   'workflow-endpoint-not-approved': 'Un endpoint webhook du workflow n’est pas encore approuvé.',
-  'creator-endpoint-invalid': 'La configuration endpoint creator est invalide.',
-  'creator-endpoint-approval-failed': 'Impossible d’approuver l’endpoint creator.',
+  'creator-endpoint-invalid': 'La configuration Agent API est invalide.',
+  'creator-endpoint-approval-failed': 'Impossible d’approuver l’API creator.',
   'creator-endpoint-config-approval-failed': 'Impossible d’approuver la configuration endpoint.',
-  'creator-endpoint-not-approved': 'L’endpoint creator doit être approuvé avant publication.',
+  'creator-endpoint-not-approved': 'L’API creator doit être approuvée avant publication.',
   'agent-update-failed': 'Impossible de mettre à jour le statut de l’agent.',
   'review-log-failed': 'Le statut a été changé, mais le journal de review n’a pas pu être créé.',
   'invalid-moderation': 'Action de modération invalide.',
@@ -283,7 +283,7 @@ function AdminPage({ agentManagement, error, locale = 'fr', moderated, profile, 
                   <div className="mb-4 rounded-lg border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-3 text-xs text-[#F6C177]">
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-label mb-1 text-[10px] text-[#F59E0B]">Workflow automation beta</p>
+                        <p className="font-label mb-1 text-[10px] text-[#F59E0B]">Agent workflow beta</p>
                         <p>Statut workflow : {activeSelection.workflow.status}</p>
                       </div>
                       <form action={approveWorkflowAutomationAssetsAction}>

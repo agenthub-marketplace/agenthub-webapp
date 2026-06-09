@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireAuth } from "@/lib/auth/session";
+import { getUserHomePath, requireAuth } from "@/lib/auth/session";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
@@ -25,7 +25,7 @@ function appendReviewQuery(path: string, params: Record<string, string>) {
 }
 
 function normalizeReviewReturnPath(locale: Locale, value: FormDataEntryValue | null, rentalId: string) {
-  const dashboardPath = localizedPath("/dashboard", locale);
+  const dashboardPath = getUserHomePath(locale);
 
   if (typeof value !== "string") {
     return dashboardPath;
@@ -33,6 +33,7 @@ function normalizeReviewReturnPath(locale: Locale, value: FormDataEntryValue | n
 
   const trimmed = value.trim();
   const workspacePath = rentalId ? localizedPath(`/workspace/${rentalId}`, locale) : "";
+  const agenthubWorkspacePath = locale === "fr" && rentalId ? `/agenthub/workspace/${rentalId}` : "";
 
   if (trimmed === dashboardPath || trimmed.startsWith(`${dashboardPath}?`)) {
     return trimmed;
@@ -42,12 +43,16 @@ function normalizeReviewReturnPath(locale: Locale, value: FormDataEntryValue | n
     return trimmed;
   }
 
+  if (agenthubWorkspacePath && (trimmed === agenthubWorkspacePath || trimmed.startsWith(`${agenthubWorkspacePath}?`))) {
+    return trimmed;
+  }
+
   return dashboardPath;
 }
 
 function redirectWithReviewError(locale: Locale, rentalId: string, error: string, returnTo?: string): never {
   redirect(
-    appendReviewQuery(returnTo || localizedPath("/dashboard", locale), {
+    appendReviewQuery(returnTo || getUserHomePath(locale), {
       reviewError: error,
       rental: rentalId,
     }),
@@ -55,7 +60,7 @@ function redirectWithReviewError(locale: Locale, rentalId: string, error: string
 }
 
 export async function submitRentalReviewAction(locale: Locale, formData: FormData) {
-  const profile = await requireAuth(locale, localizedPath("/dashboard", locale));
+  const profile = await requireAuth(locale, getUserHomePath(locale));
   const supabase = await createSupabaseServerClient();
   const rentalId = formData.get("rental_id");
   const returnPath = normalizeReviewReturnPath(locale, formData.get("return_to"), typeof rentalId === "string" ? rentalId : "");
@@ -138,7 +143,7 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     redirectWithReviewError(locale, rentalId, "review-create-failed", returnPath);
   }
 
-  revalidatePath(localizedPath("/dashboard", locale));
+  revalidatePath(getUserHomePath(locale));
   revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
   if (rentalAgentSlug) {
     revalidatePath(localizedPath(`/agents/${rentalAgentSlug}`, locale));

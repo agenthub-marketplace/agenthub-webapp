@@ -136,6 +136,7 @@ function DashboardPage({
   reviewSubmitted = null,
   reviewError = null,
   rentalCreated = false,
+  codeAccessRequired = false,
   locale,
 }) {
   const { t, lang } = useT();
@@ -275,6 +276,26 @@ function DashboardPage({
             {lang === 'en'
               ? 'Your access is active. Find it anytime from My agents.'
               : 'Votre accès est actif. Retrouvez-le à tout moment dans Mes agents.'}
+          </div>
+        )}
+
+        {codeAccessRequired && (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#8B5CF6]/35 bg-[#8B5CF6]/10 p-4 text-sm text-[#D6C5E8] sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-display font-semibold text-[#F5F1FA]">
+                {lang === 'en'
+                  ? 'AgentHub Code is reserved for creators and admins.'
+                  : 'AgentHub Code est réservé aux créateurs et admins.'}
+              </p>
+              <p className="mt-1 text-[#C8B1E4]">
+                {lang === 'en'
+                  ? 'Create a creator profile to build and submit agents.'
+                  : 'Créez un profil créateur pour construire et soumettre des agents.'}
+              </p>
+            </div>
+            <Link href="/onboarding/creator" className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#8B5CF6]/50 bg-[#F5F1FA] px-4 py-2 font-semibold text-[#2B1A44] transition-colors hover:bg-white">
+              {lang === 'en' ? 'Become a creator' : 'Devenir créateur'}
+            </Link>
           </div>
         )}
 

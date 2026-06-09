@@ -1,14 +1,33 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getUserHomePath } from "@/lib/auth/session";
 import { localizedPath, stripLocalePrefix, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function safeNextPath(value: string | null, locale: Locale) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return localizedPath("/dashboard", locale);
+    return getUserHomePath(locale);
   }
 
-  return localizedPath(stripLocalePrefix(value), locale);
+  const stripped = stripLocalePrefix(value);
+
+  if (stripped === "/code" || stripped.startsWith("/code/")) {
+    return stripped;
+  }
+
+  if (locale === "en" && stripped === "/agenthub/dashboard") {
+    return getUserHomePath(locale);
+  }
+
+  if (locale === "en" && stripped === "/agenthub/search") {
+    return localizedPath("/search", locale);
+  }
+
+  if (locale === "en" && (stripped === "/agenthub/workspace" || stripped.startsWith("/agenthub/workspace/"))) {
+    return localizedPath(stripped.replace("/agenthub", ""), locale);
+  }
+
+  return localizedPath(stripped, locale);
 }
 
 export async function handleAuthCallback(request: NextRequest, locale: Locale) {

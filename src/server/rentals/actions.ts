@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { requireAuth } from "@/lib/auth/session";
+import { getUserHomePath, requireAuth } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/env.server";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -248,7 +248,7 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirectWithAgentError(locale, slug, "rental-create-failed");
   }
 
-  revalidatePath(localizedPath("/dashboard", locale));
+  revalidatePath(getUserHomePath(locale));
   revalidatePath(localizedPath("/workspace", locale));
   redirect(`${localizedPath(`/workspace/${access.id}`, locale)}?access=created`);
 }
@@ -303,7 +303,7 @@ export async function stopAgentAccessAction(locale: Locale, formData: FormData) 
 
   const agent = Array.isArray(rental.agents) ? rental.agents[0] : rental.agents;
 
-  revalidatePath(localizedPath("/dashboard", locale));
+  revalidatePath(getUserHomePath(locale));
   revalidatePath(localizedPath("/workspace", locale));
   revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
 

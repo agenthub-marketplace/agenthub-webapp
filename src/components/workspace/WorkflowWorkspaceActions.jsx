@@ -24,7 +24,7 @@ const copy = {
     title: 'Lancer le workflow',
   },
   en: {
-    disabled: 'Workflow automation runtime is disabled right now.',
+    disabled: 'Agent workflow runtime is disabled right now.',
     emptyHistory: 'No workflow history yet.',
     error: 'Unable to run this workflow right now.',
     history: 'Workflow history',
@@ -114,7 +114,7 @@ export default function WorkflowWorkspaceActions({
           setRuns((current) =>
             [
               {
-                actionLabel: 'Workflow automation',
+                actionLabel: 'Agent workflow',
                 completedAt: data.workflowRun.completedAt,
                 createdAt: data.workflowRun.createdAt,
                 errorCode: null,
@@ -133,7 +133,7 @@ export default function WorkflowWorkspaceActions({
           setRuns((current) =>
             [
               {
-                actionLabel: 'Workflow automation',
+                actionLabel: 'Agent workflow',
                 completedAt: data.workflowRun.completedAt,
                 createdAt: data.workflowRun.createdAt,
                 errorCode: data.workflowRun.errorCode,

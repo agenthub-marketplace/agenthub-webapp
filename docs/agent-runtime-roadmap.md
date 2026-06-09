@@ -7,9 +7,19 @@ AgentHub now separates two concepts:
 - `runtime_type`: product-level routing for AgentHub Code runtime families.
 - `execution_mode`: compatibility/internal execution detail used by the existing workspace runner.
 
-Product-facing agents should stay grouped around clear families. For the marketplace, `llm_prompt` and document input are both part of one family: **Agent IA**.
+Product-facing publication types should be explicit. A simple `llm_prompt` run is now presented as **Assistant IA guidé**, not as a full advanced agent.
 
-`runtime_type` remains the internal routing field. `execution_mode` stays in place so the current LLM Runner v0 does not break. `document_file` is retained as a compatibility/feature-flag value for the document input capability, not as a separate marketplace family.
+The beta progression is:
+
+```text
+Assistant IA guidé
+-> Agent document
+-> Agent workflow
+-> Agent API
+-> later: sandboxed code/package agent
+```
+
+`runtime_type` remains the internal routing field. `execution_mode` stays in place so the current assistant runner does not break. `document_file` is retained as a compatibility/feature-flag value for the document input capability.
 
 ## Active Runtime
 
@@ -17,7 +27,7 @@ Product-facing agents should stay grouped around clear families. For the marketp
 
 Status: active for closed beta.
 
-This is the creator-visible Agent IA runtime for now.
+This is the default creator-visible Assistant IA guidé runtime for now.
 
 Current guardrails:
 
@@ -45,11 +55,11 @@ This represents legacy/static guided workspace agents. They can be reviewed if e
 
 The following runtime families are prepared in schema and settings, but disabled. They must not be creator-visible or executable until a dedicated implementation phase.
 
-### Document input capability (`document_file` compatibility)
+### Agent document (`document_file` compatibility)
 
 Status: beta foundation, disabled by default.
 
-Document input belongs to the Agent IA product family. The `document_file` value remains in schema/settings as a compatibility and feature-flag layer for controlled internal smoke tests after local migration/RLS verification.
+Document input is a useful intermediate capability, but it is not the minimum standard for a beta “agent avancé”. The `document_file` value remains in schema/settings as a compatibility and feature-flag layer for controlled internal smoke tests after local migration/RLS verification.
 
 Beta limits:
 
@@ -97,7 +107,7 @@ Not implemented now:
 - separate creator-visible document runtime;
 - external document tools.
 
-### `workflow_automation`
+### Agent workflow (`workflow_automation`)
 
 Status: beta foundation, disabled by default.
 
@@ -135,7 +145,7 @@ Not implemented now:
 - background retry queues;
 - creator endpoint runtime.
 
-### `creator_endpoint`
+### Agent API (`creator_endpoint`)
 
 Status: beta foundation, disabled by default.
 
@@ -182,7 +192,7 @@ Runtime availability is controlled by `agent_runtime_settings`:
 Closed beta settings:
 
 - `static_guided`: enabled, not creator-visible, not run-enabled.
-- `llm_prompt`: enabled, creator-visible, run-enabled as Agent IA.
+- `llm_prompt`: enabled, creator-visible, run-enabled as Assistant IA guidé.
 - `document_file`: disabled, used only as the document input capability gate.
 - `workflow_automation`: disabled unless explicitly enabled for beta.
 - `creator_endpoint`: disabled unless explicitly enabled for beta.
@@ -201,7 +211,7 @@ Admin approval must fail closed:
 
 ## Runner Rules
 
-Text Agent IA runs execute only when:
+Assistant IA guidé text runs execute only when:
 
 - `runtime_type = 'llm_prompt'`;
 - `execution_mode = 'llm_prompt'`;
@@ -213,6 +223,6 @@ Text Agent IA runs execute only when:
 - no file is required;
 - no external tool is declared.
 
-Document Agent IA runs execute only when the agent is `llm_prompt` with document-required contract data, or a legacy/internal `document_file` agent, and the document input capability is enabled.
+Agent document runs execute only when the publication is `llm_prompt` with document-required contract data, or a legacy/internal `document_file` publication, and the document input capability is enabled.
 
 All unrelated runtime types must refuse cleanly.

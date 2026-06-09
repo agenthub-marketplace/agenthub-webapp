@@ -209,7 +209,7 @@ function EditAgentPage({ agentResult, categories = [], error, profile }) {
                 </Field>
                 <Field
                   label="Mode d’exécution prévu"
-                  hint="Pour activer l’Agent IA dans le workspace, choisissez “Agent IA (OpenAI server-side)”. Les documents sont une capacité contrôlée, pas un runtime marketplace séparé."
+                  hint="Pour activer l’assistant guidé dans le workspace, choisissez “Assistant texte”. Les documents restent une capacité contrôlée, pas le standard agent avancé beta."
                 >
                   <select name="execution_mode" required className={inputClass} defaultValue={agent.version?.executionMode ?? 'llm_prompt'}>
                     {creatorExecutionModeOptions.map((option) => (

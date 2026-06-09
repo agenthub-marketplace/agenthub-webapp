@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { getRoleHomePath } from "@/lib/auth/session";
+import { getRoleHomePath, getUserHomePath } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env";
 import { localizedPath, stripLocalePrefix, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -69,7 +69,25 @@ function safeNextPath(value: string, locale: Locale) {
     return "";
   }
 
-  return localizedPath(stripLocalePrefix(value), locale);
+  const stripped = stripLocalePrefix(value);
+
+  if (stripped === "/code" || stripped.startsWith("/code/")) {
+    return stripped;
+  }
+
+  if (locale === "en" && stripped === "/agenthub/dashboard") {
+    return getUserHomePath(locale);
+  }
+
+  if (locale === "en" && stripped === "/agenthub/search") {
+    return localizedPath("/search", locale);
+  }
+
+  if (locale === "en" && (stripped === "/agenthub/workspace" || stripped.startsWith("/agenthub/workspace/"))) {
+    return localizedPath(stripped.replace("/agenthub", ""), locale);
+  }
+
+  return localizedPath(stripped, locale);
 }
 
 function getAppUrl() {
@@ -153,7 +171,7 @@ export async function signupAction(locale: Locale, formData: FormData) {
     authRedirect(locale, "signup", "error", "password-policy");
   }
 
-  const nextPath = localizedPath(role === "creator" ? "/creator" : "/dashboard", locale);
+  const nextPath = role === "creator" ? "/code" : getUserHomePath(locale);
   const callbackPath = localizedPath("/auth/callback", locale);
   const emailRedirectTo = `${getAppUrl()}${callbackPath}?next=${encodeURIComponent(nextPath)}`;
 
@@ -236,7 +254,7 @@ export async function resendConfirmationEmailAction(locale: Locale, formData: Fo
     authRedirect(locale, "login", "error", "invalid-credentials");
   }
 
-  const dashboardPath = localizedPath("/dashboard", locale);
+  const dashboardPath = getUserHomePath(locale);
   const callbackPath = localizedPath("/auth/callback", locale);
   const emailRedirectTo = `${getAppUrl()}${callbackPath}?next=${encodeURIComponent(dashboardPath)}`;
 

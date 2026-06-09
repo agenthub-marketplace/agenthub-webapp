@@ -4,7 +4,7 @@ Last updated: 2026-06-02
 
 ## Summary
 
-The original IT plan is now outdated. AgentHub is no longer a static marketplace mock or a simple direct-access beta. The product now has a real authenticated flow, Stripe sandbox checkout, direct workspace access, verified reviews, and an internal text-only LLM Runner v0.
+The original IT plan is now outdated. AgentHub is no longer a static marketplace mock or a simple direct-access beta. The product now has a real authenticated flow, Stripe sandbox checkout, direct workspace access, verified reviews, and an internal text-only Assistant IA guidé runner.
 
 The current beta target is:
 
@@ -37,16 +37,16 @@ creator creates an agent from template
 - `agent_version_id` is frozen at checkout/access creation time.
 - Direct access and `/workspace` exist.
 - Verified reviews exist.
-- LLM Runner v0 exists internally.
+- Assistant IA guidé runner exists internally.
 - `agent_runs` exists for stored run history.
-- Agent IA document input has a beta foundation: private Storage bucket, PDF/DOCX server extraction, `agent_run_files`, document run endpoint, and workspace panel. `document_file` remains a compatibility/feature-flag value, not a separate marketplace family.
+- Agent document input has a beta foundation: private Storage bucket, PDF/DOCX server extraction, `agent_run_files`, document run endpoint, and workspace panel. `document_file` remains a compatibility/feature-flag value.
 - `workflow_automation` has a beta foundation: creator allowlist, reviewed webhook endpoints, workflow definitions, durable workflow queue, step trace, and Supabase Edge worker.
 - `creator_endpoint` has a beta foundation: creator allowlist, reviewed API endpoints, version-bound endpoint config, server-side signed proxy, `agent_endpoint_runs`, and workspace panel.
 - Workspace is now the core product experience.
 
-## LLM Runner v0 scope
+## Assistant IA guidé runner scope
 
-LLM Runner v0 is an internal text-only runner, not the full execution gateway.
+The Assistant IA guidé runner is an internal text-only runner, not the full execution gateway and not the beta standard for advanced agents.
 
 Included:
 
@@ -95,7 +95,7 @@ Day 1 validation on 2026-05-28:
 - Creator template submission flow was validated with 5 agents.
 - Admin review and approval flow was validated.
 - User rent/access/workspace flow was validated.
-- LLM Runner v0 was validated with Meeting Notes Checklist on realistic meeting notes.
+- Assistant IA guidé was validated with Meeting Notes Checklist on realistic meeting notes.
 - The product remains a prompt-orchestrated text runner, not fine-tuned agents and not the full execution gateway.
 
 ## Later phases

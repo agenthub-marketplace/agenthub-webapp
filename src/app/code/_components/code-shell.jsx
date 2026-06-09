@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Bell,
   BookOpen,
   Bot,
   ChevronRight,
@@ -33,6 +34,10 @@ function getInitials(profile) {
 
 function getDisplayName(profile) {
   return profile?.displayName || profile?.email?.replace(/@.*$/, '') || 'AgentHub Code';
+}
+
+function getNotificationStorageKey(profile) {
+  return profile?.email ? `agenthub:read-notifications:${profile.email}` : null;
 }
 
 function getCodeNavItems(role) {
@@ -103,6 +108,19 @@ function isActive(pathname, item) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+function notificationMatchesItem(notification, item) {
+  if (!notification?.href || !item?.href) {
+    return false;
+  }
+
+  if (item.href === '/code') {
+    return notification.href === '/code' || notification.href === '/code/dashboard';
+  }
+
+  const prefix = item.activePrefix || item.href;
+  return notification.href === item.href || notification.href === prefix || notification.href.startsWith(`${prefix}/`);
+}
+
 const navSectionClasses = {
   primary: 'rounded-2xl bg-[#F8FAFC] p-2 ring-1 ring-[#E3E7F2] transition duration-200 hover:brightness-[0.97]',
   create: 'rounded-2xl bg-[#FAF5FF] p-2 ring-1 ring-[#DDD6FE] transition duration-200 hover:brightness-[0.97]',
@@ -110,7 +128,7 @@ const navSectionClasses = {
   admin: 'rounded-2xl bg-[#FFFBEB] p-2 ring-1 ring-[#FDE68A] transition duration-200 hover:brightness-[0.97]',
 };
 
-export function CodeSidebar({ mobile = false, onNavigate, profile }) {
+export function CodeSidebar({ mobile = false, onNavigate, profile, unreadNotifications = [] }) {
   const pathname = usePathname() || '';
   const navSections = getCodeNavSections(profile?.role);
 
@@ -139,6 +157,7 @@ export function CodeSidebar({ mobile = false, onNavigate, profile }) {
             {section.items.map((item) => {
               const active = isActive(pathname, item);
               const Icon = item.icon;
+              const notificationCount = unreadNotifications.filter((notification) => notificationMatchesItem(notification, item)).length;
 
               return (
                 <Link
@@ -156,7 +175,12 @@ export function CodeSidebar({ mobile = false, onNavigate, profile }) {
                 >
                   <Icon className={`h-4 w-4 ${active || item.featured ? 'text-[#6B3FA0]' : 'text-[#6B7280]'}`} />
                   <span>{item.label}</span>
-                  {active && <ChevronRight className="ml-auto h-4 w-4 text-[#6B3FA0]" />}
+                  {notificationCount > 0 && (
+                    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-[#7C3AED] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                  {active && notificationCount === 0 && <ChevronRight className="ml-auto h-4 w-4 text-[#6B3FA0]" />}
                 </Link>
               );
             })}
@@ -203,7 +227,22 @@ export function CodeSidebar({ mobile = false, onNavigate, profile }) {
   );
 }
 
-export function CodeTopbar({ onMenuClick, profile }) {
+export function CodeTopbar({
+  markNotificationsRead,
+  notifications = [],
+  notificationsOpen,
+  onMenuClick,
+  profile,
+  setNotificationsOpen,
+  unreadNotifications = [],
+}) {
+  const notificationCopy = {
+    title: 'Notifications',
+    empty: 'Aucune notification pour le moment.',
+    open: 'Ouvrir les notifications',
+    see: 'Voir',
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#DED6FF] bg-white/90 px-4 backdrop-blur lg:px-6">
       <div className="flex items-center gap-3">
@@ -221,6 +260,70 @@ export function CodeTopbar({ onMenuClick, profile }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              const nextOpen = !notificationsOpen;
+              setNotificationsOpen(nextOpen);
+              if (nextOpen) {
+                markNotificationsRead();
+              }
+            }}
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#D8DDEE] bg-white text-[#4B5563] transition-colors hover:border-[#8B5CF6] hover:bg-[#F5F3FF] hover:text-[#111827]"
+            aria-label={notificationCopy.open}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadNotifications.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                {unreadNotifications.length > 9 ? '9+' : unreadNotifications.length}
+              </span>
+            )}
+          </button>
+          {notificationsOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setNotificationsOpen(false)} aria-label="Fermer les notifications" />
+              <div className="absolute right-0 top-full z-50 mt-2 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#DED6FF] bg-white shadow-2xl">
+                <div className="border-b border-[#E3E7F2] p-4">
+                  <p className="font-display text-sm font-bold text-[#111827]">{notificationCopy.title}</p>
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-sm text-[#6B7280]">{notificationCopy.empty}</div>
+                ) : (
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {notifications.map((notification) => (
+                      <Link
+                        key={notification.id}
+                        href={notification.href}
+                        onClick={() => setNotificationsOpen(false)}
+                        className="block border-b border-[#EEF1F8] p-4 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
+                      >
+                        <div className="flex gap-3">
+                          <span
+                            className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                              notification.tone === 'success'
+                                ? 'bg-[#10B981]'
+                                : notification.tone === 'error'
+                                  ? 'bg-[#EF4444]'
+                                  : notification.tone === 'warning'
+                                    ? 'bg-[#F59E0B]'
+                                    : 'bg-[#8B5CF6]'
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-[#111827]">{notification.title}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#6B7280]">{notification.body}</p>
+                            <p className="mt-2 text-xs font-semibold text-[#6B3FA0]">{notificationCopy.see}</p>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         <Link href="/agenthub" className="hidden sm:block">
           <Button variant="outline" className="h-10 border-[#D8DDEE] bg-white text-[#111827] hover:border-[#8B5CF6] hover:bg-[#F1F3F8]">
             AgentHub
@@ -247,13 +350,97 @@ export function CodeTopbar({ onMenuClick, profile }) {
 
 export default function CodeShell({ children, profile }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [readNotificationIds, setReadNotificationIds] = useState([]);
+  const notificationStorageKey = getNotificationStorageKey(profile);
+  const unreadNotifications = useMemo(
+    () => notifications.filter((notification) => !readNotificationIds.includes(notification.id)),
+    [notifications, readNotificationIds],
+  );
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (!notificationStorageKey) {
+        setReadNotificationIds([]);
+        return;
+      }
+
+      try {
+        const raw = window.localStorage.getItem(notificationStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        setReadNotificationIds(Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []);
+      } catch {
+        setReadNotificationIds([]);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [notificationStorageKey]);
+
+  useEffect(() => {
+    if (!notificationStorageKey) {
+      return;
+    }
+
+    let active = true;
+
+    const loadNotifications = () => {
+      fetch('/api/notifications', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload) => {
+          if (active) {
+            setNotifications(Array.isArray(payload?.notifications) ? payload.notifications : []);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setNotifications([]);
+          }
+        });
+    };
+
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [notificationStorageKey]);
+
+  function markNotificationsRead() {
+    const nextIds = [...new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)])];
+    setReadNotificationIds(nextIds);
+
+    if (!notificationStorageKey) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds.slice(-80)));
+    } catch {
+      // Non-blocking: if localStorage is unavailable, the badge still clears
+    }
+  }
 
   return (
     <div className="code-theme min-h-screen bg-[#F7F8FC] text-[#111827]">
       <div className="flex min-h-screen">
-        <CodeSidebar profile={profile} />
+        <CodeSidebar profile={profile} unreadNotifications={unreadNotifications} />
         <div className="min-w-0 flex-1">
-          <CodeTopbar profile={profile} onMenuClick={() => setDrawerOpen(true)} />
+          <CodeTopbar
+            markNotificationsRead={markNotificationsRead}
+            notifications={notifications}
+            notificationsOpen={notificationsOpen}
+            profile={profile}
+            setNotificationsOpen={setNotificationsOpen}
+            unreadNotifications={unreadNotifications}
+            onMenuClick={() => setDrawerOpen(true)}
+          />
           {children}
         </div>
       </div>
@@ -275,7 +462,7 @@ export default function CodeShell({ children, profile }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <CodeSidebar mobile profile={profile} onNavigate={() => setDrawerOpen(false)} />
+            <CodeSidebar mobile profile={profile} unreadNotifications={unreadNotifications} onNavigate={() => setDrawerOpen(false)} />
           </div>
         </div>
       )}

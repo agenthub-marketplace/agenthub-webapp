@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 function RuntimeAccessForm({ access, creator, runtimeType }) {
   const enabled = Boolean(access?.enabled);
-  const label = runtimeType === 'workflow_automation' ? 'Workflow automation' : 'Creator endpoint';
+  const label = runtimeType === 'workflow_automation' ? 'Agent workflow' : 'Agent API';
 
   return (
     <form action={toggleCreatorRuntimeAccessAction} className="rounded-2xl border border-[#DDD6FE] bg-[#FAF7FF] p-3">

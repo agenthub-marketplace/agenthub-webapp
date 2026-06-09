@@ -48,15 +48,15 @@ export const SETUP_REQUIREMENT_OPTIONS: { value: SetupRequirementType; label: st
 
 export const EXECUTION_MODE_OPTIONS: { value: ExecutionMode; label: string }[] = [
   { value: "guided_workspace", label: "Workspace guidé statique (sans IA)" },
-  { value: "llm_prompt", label: "Agent IA (OpenAI server-side)" },
+  { value: "llm_prompt", label: "Assistant texte" },
 ];
 
 export const AGENT_RUNTIME_TYPE_LABELS: Record<AgentRuntimeType, string> = {
-  static_guided: "Static guided",
-  llm_prompt: "Agent IA",
-  document_file: "Agent IA (document)",
-  workflow_automation: "Workflow Automation",
-  creator_endpoint: "Creator Endpoint",
+  static_guided: "Workspace guidé",
+  llm_prompt: "Assistant IA guidé",
+  document_file: "Agent document",
+  workflow_automation: "Agent workflow",
+  creator_endpoint: "Agent API",
 };
 
 export const DEFAULT_AGENT_CONTRACT: AgentContract = {

@@ -4,8 +4,12 @@ import DashboardContent from '../../dashboard/dashboard-content';
 
 export default async function DashboardPage({ searchParams }) {
   const profile = await requireAuth('en', '/en/dashboard');
-  const { rentals, error } = await getUserRentals(profile.id);
-  const { payments, error: paymentsError } = await getUserPaymentOrders(profile.id);
+  const [rentalsResult, paymentsResult] = await Promise.all([
+    getUserRentals(profile.id),
+    getUserPaymentOrders(profile.id),
+  ]);
+  const { rentals, error } = rentalsResult;
+  const { payments, error: paymentsError } = paymentsResult;
   const params = searchParams ? await searchParams : {};
 
   return (

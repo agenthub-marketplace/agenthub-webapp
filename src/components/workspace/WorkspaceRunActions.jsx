@@ -7,38 +7,38 @@ import { Button } from '@/components/ui/button';
 
 const copy = {
   fr: {
-    actionSoon: 'Execution LLM bientot disponible pour cet agent.',
-    disabled: 'Ces actions restent des reperes statiques pour le moment.',
-    emptyHistory: 'Aucune execution enregistree pour le moment.',
-    error: 'Impossible de lancer cet agent pour le moment.',
-    history: 'Historique d’execution',
+    actionSoon: 'Génération IA bientôt disponible pour cet assistant.',
+    disabled: 'Ces actions restent des repères statiques pour le moment.',
+    emptyHistory: 'Aucune exécution enregistrée pour le moment.',
+    error: 'Impossible de générer cette réponse pour le moment.',
+    history: 'Historique d’exécution',
     inputLabel: 'Votre besoin',
-    inputPlaceholder: 'Decrivez ce que vous voulez obtenir avec cet agent...',
-    launch: 'Lancer l’agent',
-    loading: 'Generation en cours...',
-    remaining: 'caracteres restants',
-    result: 'Resultat genere',
-    selectAction: 'Choisissez une action, ajoutez votre contexte, puis lancez l’agent.',
+    inputPlaceholder: 'Décrivez ce que vous voulez obtenir avec cet assistant...',
+    launch: 'Générer la réponse',
+    loading: 'Génération en cours...',
+    remaining: 'caractères restants',
+    result: 'Résultat généré',
+    selectAction: 'Choisissez une action, ajoutez votre contexte, puis générez une réponse.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
-    title: 'Demarrer avec cet agent',
+    title: 'Démarrer avec cet assistant',
   },
   en: {
-    actionSoon: 'LLM execution will be available soon for this agent.',
+    actionSoon: 'AI generation will be available soon for this assistant.',
     disabled: 'These actions are static starting points for now.',
     emptyHistory: 'No execution history yet.',
-    error: 'Unable to run this agent right now.',
+    error: 'Unable to generate this response right now.',
     history: 'Execution history',
     inputLabel: 'Your need',
-    inputPlaceholder: 'Describe what you want to get from this agent...',
-    launch: 'Run agent',
+    inputPlaceholder: 'Describe what you want to get from this assistant...',
+    launch: 'Generate response',
     loading: 'Generating...',
     remaining: 'characters remaining',
     result: 'Generated result',
-    selectAction: 'Choose an action, add context, then run the agent.',
+    selectAction: 'Choose an action, add context, then generate a response.',
     showLess: 'Collapse',
     showMore: 'View full result',
-    title: 'Start with this agent',
+    title: 'Start with this assistant',
   },
 };
 
@@ -61,9 +61,9 @@ function statusLabel(status, locale) {
       succeeded: 'Done',
     },
     fr: {
-      failed: 'Echec',
+      failed: 'Échec',
       running: 'En cours',
-      succeeded: 'Termine',
+      succeeded: 'Terminé',
     },
   };
 
@@ -153,7 +153,7 @@ export default function WorkspaceRunActions({
           <Sparkles className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-label mb-2 text-xs text-[#9B72CF]">{enabled ? 'LLM RUNNER V0' : 'ACCES DIRECT'}</p>
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">{enabled ? 'ASSISTANT IA GUIDÉ' : 'ACCES DIRECT'}</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
           <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
         </div>

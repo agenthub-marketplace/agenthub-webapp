@@ -14,13 +14,13 @@ export type WorkspaceAction = {
 
 const FALLBACK_ACTIONS = {
   fr: {
-    instant: ["Voir les cas d'usage", "Copier un prompt de demarrage", "Comprendre les livrables"],
-    instant_workspace: ["Voir les cas d'usage", "Copier un prompt de demarrage", "Comprendre les livrables"],
-    guided: ["Definir mon objectif", "Preparer les informations utiles", "Generer ma checklist de demarrage"],
-    guided_workspace: ["Definir mon objectif", "Preparer les informations utiles", "Generer ma checklist de demarrage"],
-    document_required: ["Preparer mon document", "Verifier les informations necessaires", "Voir les limites de l'analyse"],
-    document_workspace: ["Preparer mon document", "Verifier les informations necessaires", "Voir les limites de l'analyse"],
-    report_workspace: ["Comprendre le rapport attendu", "Preparer le contexte", "Voir les sections du rapport"],
+    instant: ["Voir les cas d’usage", "Copier un prompt de démarrage", "Comprendre les livrables"],
+    instant_workspace: ["Voir les cas d’usage", "Copier un prompt de démarrage", "Comprendre les livrables"],
+    guided: ["Définir mon objectif", "Préparer les informations utiles", "Générer ma checklist de démarrage"],
+    guided_workspace: ["Définir mon objectif", "Préparer les informations utiles", "Générer ma checklist de démarrage"],
+    document_required: ["Préparer mon document", "Vérifier les informations nécessaires", "Voir les limites de l’analyse"],
+    document_workspace: ["Préparer mon document", "Vérifier les informations nécessaires", "Voir les limites de l’analyse"],
+    report_workspace: ["Comprendre le rapport attendu", "Préparer le contexte", "Voir les sections du rapport"],
   },
   en: {
     instant: ["View use cases", "Copy a starter prompt", "Understand deliverables"],

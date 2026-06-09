@@ -7,13 +7,17 @@ import { Button } from '@/components/ui/button';
 import {
   Activity,
   ArrowRight,
+  BarChart3,
   Box,
   CheckCircle2,
   Clock3,
+  CreditCard,
   FileText,
   Gauge,
+  PieChart,
   Plus,
   ShieldAlert,
+  TrendingUp,
   Users,
 } from 'lucide-react';
 import {
@@ -46,9 +50,155 @@ function MetricCard({ detail, icon: Icon, label, tone = 'default', value }) {
   );
 }
 
+function RevenuePeriodLink({ active, children, href }) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+        active
+          ? 'border-[#8B5CF6] bg-[#F5F3FF] text-[#5B21B6]'
+          : 'border-[#D8DDEE] bg-white text-[#4B5563] hover:border-[#8B5CF6] hover:text-[#5B21B6]'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function RevenueBucketList({ buckets, currency, emptyText, totalCents }) {
+  if (!buckets?.length) {
+    return <p className="text-sm text-[#6B7280]">{emptyText}</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {buckets.map((bucket) => {
+        const width = totalCents > 0 ? Math.max(8, Math.round((bucket.amountCents / totalCents) * 100)) : 0;
+
+        return (
+          <div key={bucket.key} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-[#111827]">{bucket.label}</span>
+              <span className="text-[#4B5563]">{formatMoney(bucket.amountCents, currency)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#EEF2FF]">
+              <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${width}%` }} />
+            </div>
+            <p className="text-xs text-[#6B7280]">{bucket.purchaseCount} achat{bucket.purchaseCount > 1 ? 's' : ''}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RevenueBetaSection({ result }) {
+  const analytics = result?.analytics;
+  const period = analytics?.period ?? '30d';
+  const currency = analytics?.currency ?? 'eur';
+  const hasRevenue = Boolean(analytics && (analytics.activatedGmvCents > 0 || analytics.pendingCents > 0 || analytics.attentionCents > 0));
+
+  return (
+    <section className="mb-8 overflow-hidden rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_60%,#F5F3FF_100%)] shadow-[0_16px_42px_rgba(109,64,160,0.08)]">
+      <div className="flex flex-col gap-4 border-b border-[#DDD6FE] p-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">REVENUS BETA</p>
+          <h2 className="font-display text-2xl font-bold text-[#111827]">GMV sandbox par agents et secteurs</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+            {analytics?.sandboxNotice ?? 'Montants sandbox, aucun payout réel en beta.'}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <RevenuePeriodLink active={period === '30d'} href="?revenuePeriod=30d">
+            30 jours
+          </RevenuePeriodLink>
+          <RevenuePeriodLink active={period === 'all'} href="?revenuePeriod=all">
+            Tout
+          </RevenuePeriodLink>
+        </div>
+      </div>
+
+      {result?.error ? (
+        <div className="p-5">
+          <CodeAlert tone="error">Impossible de charger les revenus beta pour le moment.</CodeAlert>
+        </div>
+      ) : (
+        <div className="space-y-5 p-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard icon={TrendingUp} tone="violet" label="GMV activé" value={formatMoney(analytics?.activatedGmvCents ?? 0, currency)} detail="paiements paid avec accès" />
+            <MetricCard icon={CreditCard} tone="amber" label="En attente" value={formatMoney(analytics?.pendingCents ?? 0, currency)} detail={`${analytics?.pendingCount ?? 0} paiement(s)`} />
+            <MetricCard icon={ShieldAlert} tone="blue" label="À surveiller" value={formatMoney(analytics?.attentionCents ?? 0, currency)} detail={`${(analytics?.paidBlockedCount ?? 0) + (analytics?.paidWithoutAccessCount ?? 0)} anomalie(s)`} />
+            <MetricCard icon={Users} tone="green" label="Achats" value={analytics?.purchaseCount ?? 0} detail={`${analytics?.activeAgentCount ?? 0} agent(s) acheté(s)`} />
+            <MetricCard icon={Gauge} tone="slate" label="Panier moyen" value={formatMoney(analytics?.averageOrderCents ?? 0, currency)} detail="sur accès activés" />
+          </div>
+
+          {!hasRevenue ? (
+            <EmptyCodeState
+              icon={CreditCard}
+              title="Aucun revenu sandbox"
+              text="Les montants apparaîtront ici dès qu’un utilisateur louera un de vos agents via Stripe sandbox."
+            />
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-[1fr_1fr_1.1fr]">
+              <CodePanel className="bg-white" tone="default">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-display text-lg font-bold text-[#111827]">Secteurs d’activité</h3>
+                  <PieChart className="h-5 w-5 text-[#6B3FA0]" />
+                </div>
+                <RevenueBucketList
+                  buckets={analytics?.sectors ?? []}
+                  currency={currency}
+                  emptyText="Aucun secteur avec achat activé."
+                  totalCents={analytics?.activatedGmvCents ?? 0}
+                />
+              </CodePanel>
+
+              <CodePanel className="bg-white" tone="default">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-display text-lg font-bold text-[#111827]">Types d’agents</h3>
+                  <BarChart3 className="h-5 w-5 text-[#6B3FA0]" />
+                </div>
+                <RevenueBucketList
+                  buckets={analytics?.runtimes ?? []}
+                  currency={currency}
+                  emptyText="Aucun runtime avec achat activé."
+                  totalCents={analytics?.activatedGmvCents ?? 0}
+                />
+              </CodePanel>
+
+              <CodePanel className="bg-white" tone="default">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-display text-lg font-bold text-[#111827]">Top agents</h3>
+                  <TrendingUp className="h-5 w-5 text-[#6B3FA0]" />
+                </div>
+                {analytics?.topAgents?.length ? (
+                  <div className="divide-y divide-[#E3E7F2]">
+                    {analytics.topAgents.map((agent) => (
+                      <div key={agent.key} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                        <div>
+                          <p className="font-medium text-[#111827]">{agent.label}</p>
+                          <p className="mt-1 text-xs text-[#6B7280]">{agent.purchaseCount} achat{agent.purchaseCount > 1 ? 's' : ''}</p>
+                        </div>
+                        <p className="font-display text-base font-bold text-[#111827]">{formatMoney(agent.amountCents, currency)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#6B7280]">Aucun agent avec achat activé.</p>
+                )}
+              </CodePanel>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function CodeDashboardContent({
   creatorAgentsResult,
   creatorRentalsResult,
+  revenueAnalyticsResult,
   submittedSlug,
 }) {
   const router = useRouter();
@@ -150,6 +300,8 @@ export default function CodeDashboardContent({
             detail={usageAnalyticsLimited ? "masquées en beta" : "accès utilisateurs"}
           />
         </div>
+
+        <RevenueBetaSection result={revenueAnalyticsResult} />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="space-y-6">

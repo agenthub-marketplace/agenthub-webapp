@@ -97,15 +97,15 @@ type AgentRow = {
     | {
         id: string;
         rating: number;
-        title: string | null;
-        body: string | null;
+        title?: string | null;
+        body?: string | null;
         created_at: string;
       }
     | {
         id: string;
         rating: number;
-        title: string | null;
-        body: string | null;
+        title?: string | null;
+        body?: string | null;
         created_at: string;
       }[]
     | null;
@@ -116,6 +116,12 @@ const MARKETPLACE_SELECT_WITH_CONTRACT =
 
 const MARKETPLACE_SELECT_LEGACY =
   "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)";
+
+const MARKETPLACE_LIST_SELECT_WITH_CONTRACT =
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy),agent_reviews(id,rating,created_at)";
+
+const MARKETPLACE_LIST_SELECT_LEGACY =
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,created_at)";
 
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -156,19 +162,34 @@ function isMissingContractColumnError(error: { code?: string; details?: string |
   );
 }
 
-async function fetchMarketplaceRows(selectClause: string) {
+async function fetchMarketplaceRows(
+  selectClause: string,
+  options: {
+    limit?: number;
+    slug?: string;
+  } = {},
+) {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
     return { data: null, error: { message: "missing-config" } };
   }
 
-  return supabase
+  let query = supabase
     .from("agents")
     .select(selectClause)
     .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .returns<AgentRow[]>();
+    .order("created_at", { ascending: false });
+
+  if (options.slug) {
+    query = query.eq("slug", options.slug);
+  }
+
+  if (options.limit) {
+    query = query.limit(options.limit);
+  }
+
+  return query.returns<AgentRow[]>();
 }
 
 function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
@@ -227,8 +248,8 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
       .map((review) => ({
         id: review.id,
         rating: review.rating,
-        title: review.title,
-        body: review.body,
+        title: review.title ?? null,
+        body: review.body ?? null,
         createdAt: review.created_at,
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -236,10 +257,10 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
 }
 
 export async function getMarketplaceAgents() {
-  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_SELECT_WITH_CONTRACT);
+  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_WITH_CONTRACT);
 
   if (error && isMissingContractColumnError(error)) {
-    const fallback = await fetchMarketplaceRows(MARKETPLACE_SELECT_LEGACY);
+    const fallback = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_LEGACY);
     data = fallback.data;
     error = fallback.error;
   }
@@ -269,10 +290,26 @@ export async function getMarketplaceAgents() {
 }
 
 export async function getMarketplaceAgentBySlug(slug: string) {
-  const { agents, error } = await getMarketplaceAgents();
+  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_SELECT_WITH_CONTRACT, {
+    limit: 1,
+    slug,
+  });
+
+  if (error && isMissingContractColumnError(error)) {
+    const fallback = await fetchMarketplaceRows(MARKETPLACE_SELECT_LEGACY, {
+      limit: 1,
+      slug,
+    });
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    return { agent: null, error: "marketplace-load-failed" };
+  }
 
   return {
-    agent: agents.find((agent) => agent.slug === slug) ?? null,
-    error,
+    agent: data?.[0] ? mapAgent(data[0], 0) : null,
+    error: null,
   };
 }

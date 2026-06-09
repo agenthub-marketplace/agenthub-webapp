@@ -62,7 +62,7 @@ export default async function CheckoutSuccessPage({ searchParams }) {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             {!activationBlocked && <CheckoutSuccessClient />}
-            <Link href="/dashboard">
+            <Link href="/agenthub/dashboard">
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">Voir mon dashboard</Button>
             </Link>
             <Link href="/workspace">

@@ -4,8 +4,12 @@ import DashboardContent from './dashboard-content';
 
 export default async function DashboardPage({ searchParams }) {
   const profile = await requireAuth('fr', '/agenthub/dashboard');
-  const { rentals, error } = await getUserRentals(profile.id);
-  const { payments, error: paymentsError } = await getUserPaymentOrders(profile.id);
+  const [rentalsResult, paymentsResult] = await Promise.all([
+    getUserRentals(profile.id),
+    getUserPaymentOrders(profile.id),
+  ]);
+  const { rentals, error } = rentalsResult;
+  const { payments, error: paymentsError } = paymentsResult;
   const params = searchParams ? await searchParams : {};
 
   return (
@@ -18,6 +22,7 @@ export default async function DashboardPage({ searchParams }) {
       reviewSubmitted={typeof params?.reviewSubmitted === 'string' ? params.reviewSubmitted : null}
       reviewError={typeof params?.reviewError === 'string' ? params.reviewError : null}
       rentalCreated={typeof params?.rental === 'string' ? params.rental === "created" : false}
+      codeAccessRequired={params?.codeAccess === "creator-required"}
       locale="fr"
     />
   );

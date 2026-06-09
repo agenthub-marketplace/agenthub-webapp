@@ -13,8 +13,8 @@ export const dynamic = 'force-dynamic';
 const reviewErrors = {
   'security-review-required': 'Une security review passée ou waived est requise pour ce runtime sensible.',
   'runtime-disabled': 'Ce runtime est désactivé.',
-  'workflow-not-approved': 'Les assets workflow doivent être approuvés avant publication.',
-  'creator-endpoint-not-approved': 'L’endpoint creator doit être approuvé avant publication.',
+  'workflow-not-approved': 'Les assets de l’agent workflow doivent être approuvés avant publication.',
+  'creator-endpoint-not-approved': 'L’API creator doit être approuvée avant publication.',
   'changes-notes-required': 'Ajoutez au moins 10 caractères pour demander des modifications.',
   'security-review-create-failed': 'Impossible de créer la security review.',
   'security-review-not-required': 'Ce runtime ne nécessite pas de security review par défaut.',
@@ -129,7 +129,7 @@ export default async function AdminReviewPage({ searchParams }) {
                     <p className="mt-1 text-sm font-semibold text-[#111827]">{optionLabel(SETUP_REQUIREMENT_OPTIONS, agent.contract.setupRequirements.type)}</p>
                   </div>
                   <div className="rounded-2xl border border-[#DDD6FE] bg-white p-3">
-                    <p className="font-label text-[10px] text-[#6B3FA0]">Execution</p>
+                    <p className="font-label text-[10px] text-[#6B3FA0]">Exécution</p>
                     <p className="mt-1 text-sm font-semibold text-[#111827]">{optionLabel(EXECUTION_MODE_OPTIONS, agent.contract.executionMode)}</p>
                   </div>
                 </div>
@@ -143,7 +143,7 @@ export default async function AdminReviewPage({ searchParams }) {
                   <div className="mt-5 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-4">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="font-label text-xs text-[#92400E]">Workflow automation beta</p>
+                        <p className="font-label text-xs text-[#92400E]">Agent workflow beta</p>
                         <p className="text-sm text-[#4B5563]">Statut workflow : {agent.workflow.status}</p>
                       </div>
                       <form action={approveWorkflowAutomationAssetsAction}>

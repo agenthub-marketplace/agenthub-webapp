@@ -1,17 +1,21 @@
 import { requireAdminAccess } from '@/lib/auth/session';
+import { getAdminRevenueAnalytics, normalizeRevenuePeriod } from '@/server/analytics/revenue';
 import { getAdminDashboardSnapshot } from '@/server/admin/code-admin';
 import { getAdminAgentManagementList, getAdminReviewQueue } from '@/server/admin/review-queue';
 import { CodePageHeader } from '../_components/code-console-ui';
-import { AdminQuickLink, AdminStatCard } from './_components/admin-shared';
+import { AdminQuickLink, AdminRevenueOverview, AdminStatCard } from './_components/admin-shared';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AgentHubCodeAdminPage() {
+export default async function AgentHubCodeAdminPage({ searchParams }) {
   await requireAdminAccess('fr', '/code/admin');
-  const [dashboard, reviewQueue, agentManagement] = await Promise.all([
+  const params = searchParams ? await searchParams : {};
+  const revenuePeriod = normalizeRevenuePeriod(typeof params?.revenuePeriod === 'string' ? params.revenuePeriod : null);
+  const [dashboard, reviewQueue, agentManagement, revenueResult] = await Promise.all([
     getAdminDashboardSnapshot(),
     getAdminReviewQueue(),
     getAdminAgentManagementList(),
+    getAdminRevenueAnalytics(revenuePeriod),
   ]);
 
   const creators = dashboard.creators.creators ?? [];
@@ -39,6 +43,8 @@ export default async function AgentHubCodeAdminPage() {
           <AdminStatCard key={check.key} label={check.label} value={check.value} tone={check.tone} />
         ))}
       </section>
+
+      <AdminRevenueOverview result={revenueResult} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <AdminQuickLink href="/code/admin/review" title="Validation agents" description="Examiner les soumissions, assets workflow/endpoint, retours admin et publication." />

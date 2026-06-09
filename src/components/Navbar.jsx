@@ -94,6 +94,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   const resolvedProfile = profile ?? fetchedProfile ?? null;
   const isSignedIn = Boolean(resolvedProfile);
   const isCodeExperience = experience === 'code';
+  const canAccessCode = resolvedProfile?.role === 'creator' || resolvedProfile?.role === 'admin';
   const initials = getInitials(resolvedProfile);
   const displayName = getDisplayName(resolvedProfile);
   const routePrefix = pathname === '/en' || pathname.startsWith('/en/') ? '/en' : '';
@@ -173,6 +174,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
       ];
   const switcherHref = isCodeExperience ? agentHubHomeHref : codeHomeHref;
   const switcherLabel = isCodeExperience ? 'AgentHub' : 'AgentHub Code';
+  const showCodeSwitcher = isCodeExperience || canAccessCode;
   const showUserCredits = false;
   const navChrome = isCodeExperience
     ? scrolled
@@ -195,7 +197,9 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   const drawerLinks = [
     { href: isCodeExperience ? codeHomeHref : agentHubHomeHref, label: t('nav.m.home'), icon: Home },
     ...links,
-    { href: switcherHref, label: switcherLabel, icon: isCodeExperience ? Bot : Code2 },
+    ...(showCodeSwitcher
+      ? [{ href: switcherHref, label: switcherLabel, icon: isCodeExperience ? Bot : Code2 }]
+      : []),
     ...(isSignedIn
       ? [
           { href: '/profile', label: t('nav.myprofile'), icon: User },
@@ -334,12 +338,14 @@ export default function Navbar({ experience = 'agenthub', profile }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href={switcherHref}
-              className={switcherClass}
-            >
-              {switcherLabel}
-            </Link>
+            {showCodeSwitcher && (
+              <Link
+                href={switcherHref}
+                className={switcherClass}
+              >
+                {switcherLabel}
+              </Link>
+            )}
             {showUserCredits && (
               <div className="hidden items-center gap-2 rounded-xl border border-[#2F184B] bg-[#110D24] px-3 py-2 text-sm font-medium text-[#F5F1FA] md:flex">
                 <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />

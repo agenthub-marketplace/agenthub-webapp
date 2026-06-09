@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { getCurrentProfile } from '@/lib/auth/session';
 import { euroLabelToCredits, formatCredits, formatCreditsFromCents } from '@/lib/format-credits';
+import { polishFrenchCopy, polishFrenchList } from '@/lib/french-copy';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
 import { createAgentAccessAction } from '@/server/rentals/actions';
 import { getUserAgentOrderState } from '@/server/rentals/user-rentals';
@@ -105,13 +106,16 @@ const orderMessages = {
 
 export default async function Page({ params, searchParams }) {
   const { slug } = await params;
-  const { agent, error } = await getMarketplaceAgentBySlug(slug);
+  const [agentResult, profile] = await Promise.all([
+    getMarketplaceAgentBySlug(slug),
+    getCurrentProfile(),
+  ]);
+  const { agent, error } = agentResult;
   const query = searchParams ? await searchParams : {};
   const rentalError = typeof query?.error === 'string' ? query.error : null;
   const orderMessage = typeof query?.order === 'string' ? orderMessages[query.order] : null;
   const paymentCancelled = query?.payment === 'cancelled';
   const reviewSubmitted = typeof query?.reviewSubmitted === 'string';
-  const profile = await getCurrentProfile();
 
   if (!agent) {
     return (
@@ -142,6 +146,14 @@ export default async function Page({ params, searchParams }) {
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
   const displayedPrice = hasPrice ? formatCredits(agent.fromPrice) : euroLabelToCredits(agent.priceLabel);
   const setupLabel = WORKSPACE_MODE_LABELS[agent.contract.workspaceMode] || 'Accès immédiat';
+  const description = polishFrenchCopy(agent.description);
+  const capabilities = polishFrenchList(agent.capabilities);
+  const limitations = polishFrenchList(agent.limitations);
+  const requiredInputs = polishFrenchList(agent.requiredInputs);
+  const deliverables = polishFrenchList(agent.deliverables);
+  const outputPromiseSummary = polishFrenchCopy(agent.contract.outputPromise.summary);
+  const outputPromiseExamples = polishFrenchList(agent.contract.outputPromise.examples);
+  const setupItems = polishFrenchList(agent.contract.setupRequirements.items);
   const { state: orderState } = profile ? await getUserAgentOrderState(profile.id, agent.id) : { state: null };
   const canStartOrder = hasPrice && (!orderState || orderState.kind === 'stopped_access');
 
@@ -197,28 +209,28 @@ export default async function Page({ params, searchParams }) {
 
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-6 mb-6">
               <p className="font-label text-xs text-[#9B72CF] mb-3">DESCRIPTION</p>
-              <p className="text-[#C8B1E4] leading-relaxed">{agent.description}</p>
+              <p className="text-[#C8B1E4] leading-relaxed">{description}</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-5 mb-6">
-              <ListSection title="Ce que l’agent fait" items={agent.capabilities} icon={Check} />
-              <ListSection title="Limites connues" items={agent.limitations} icon={AlertTriangle} tone="warning" />
+              <ListSection title="Ce que l’agent fait" items={capabilities} icon={Check} />
+              <ListSection title="Limites connues" items={limitations} icon={AlertTriangle} tone="warning" />
             </div>
 
             <div className="grid md:grid-cols-2 gap-5">
-              <ListSection title="Inputs nécessaires" items={agent.requiredInputs} icon={Check} />
-              <ListSection title="Livrables attendus" items={agent.deliverables} icon={Check} />
+              <ListSection title="Inputs nécessaires" items={requiredInputs} icon={Check} />
+              <ListSection title="Livrables attendus" items={deliverables} icon={Check} />
             </div>
 
             <div className="my-6 grid md:grid-cols-2 gap-5">
               <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
                 <h2 className="font-display font-bold text-lg mb-3">Ce que vous obtenez</h2>
                 <p className="text-sm leading-relaxed text-[#C8B1E4]">
-                  {agent.contract.outputPromise.summary || 'L’accès ouvre un workspace guidé pour utiliser cet agent avec les consignes fournies par le créateur.'}
+                  {outputPromiseSummary || 'L’accès ouvre un workspace guidé pour utiliser cet agent avec les consignes fournies par le créateur.'}
                 </p>
-                {agent.contract.outputPromise.examples.length > 0 && (
+                {outputPromiseExamples.length > 0 && (
                   <ul className="mt-4 space-y-2 text-sm text-[#C8B1E4]">
-                    {agent.contract.outputPromise.examples.map((example, index) => (
+                    {outputPromiseExamples.map((example, index) => (
                       <li key={`${example}-${index}`} className="flex gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
                         <span>{example}</span>
@@ -232,9 +244,9 @@ export default async function Page({ params, searchParams }) {
                 <p className="text-sm text-[#C8B1E4]">
                   {optionLabel(SETUP_REQUIREMENT_OPTIONS, agent.contract.setupRequirements.type)}
                 </p>
-                {agent.contract.setupRequirements.items.length > 0 && (
+                {setupItems.length > 0 && (
                   <ul className="mt-4 space-y-2 text-sm text-[#C8B1E4]">
-                    {agent.contract.setupRequirements.items.map((item, index) => (
+                    {setupItems.map((item, index) => (
                       <li key={`${item}-${index}`} className="flex gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
                         <span>{item}</span>

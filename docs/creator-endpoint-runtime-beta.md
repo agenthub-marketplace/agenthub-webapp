@@ -1,4 +1,4 @@
-# Creator Endpoint Runtime Beta
+# Agent API Runtime Beta
 
 `creator_endpoint` is the fourth AgentHub Code runtime family for controlled beta tests where AgentHub calls a creator-owned HTTPS API endpoint.
 
