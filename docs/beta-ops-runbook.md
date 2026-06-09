@@ -398,7 +398,8 @@ Decision:
 Only use these checks after `workflow_automation` is intentionally enabled for a controlled beta creator.
 
 - Confirm `WORKFLOW_RUNS_ENABLED=true` only in the target environment.
-- Confirm `WORKFLOW_WORKER_SECRET` and `WORKFLOW_WEBHOOK_SIGNING_SECRET` are server-only.
+- Confirm `WORKFLOW_WORKER_SECRET` is server-only.
+- Confirm `WORKFLOW_WEBHOOK_SIGNING_SECRET` is server-only only when testing `webhook:` steps.
 - Confirm `agent_runtime_settings.workflow_automation.enabled=true` and `run_enabled=true`.
 - Confirm the creator is present in `creator_runtime_access`.
 - Confirm every `webhook_step` uses an approved `creator_webhook_endpoints` row.

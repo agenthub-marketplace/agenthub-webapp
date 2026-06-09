@@ -37,6 +37,71 @@ Closed beta validates the flow and perceived value, not real revenue.
 4. Business SWOT Analyst
 5. Meeting Notes Checklist
 
+## Real beta agents to test
+
+These templates validate the next product step: an AgentHub agent is more than a single prompted response when it runs a reviewed workflow or calls an approved creator API.
+
+### Support Triage Agent
+
+- Runtime: `workflow_automation`.
+- Creator access required: workflow allowlist.
+- Input example:
+  - "Client says checkout succeeded but workspace access did not appear. Email: test@example.com. They tried twice today and are blocked before a demo."
+- Expected LLM decision:
+  - priority: high;
+  - category: bug or billing depending the provided context;
+  - next route: support investigation.
+- Expected output:
+  - short incident summary;
+  - priority and category;
+  - customer reply draft;
+  - internal follow-up checklist.
+- Success criteria:
+  - workflow steps are prefilled from template;
+  - admin sees an advanced beta agent with LLM decision steps;
+  - security review is required before publication;
+  - user can launch the workflow and see result/history.
+
+### Lead Qualification Agent
+
+- Runtime: `workflow_automation`.
+- Creator access required: workflow allowlist.
+- Input example:
+  - "Inbound lead: 45-person B2B SaaS, uses HubSpot, wants to automate onboarding emails, budget unknown, decision next month."
+- Expected LLM decision:
+  - qualified: yes/no/maybe;
+  - score: 0-100;
+  - next_action: request more info, book demo, nurture, or reject.
+- Expected output:
+  - lead score with explanation;
+  - qualification decision;
+  - next best action;
+  - follow-up message.
+- Success criteria:
+  - workflow is LLM-only and does not require a webhook;
+  - admin can approve assets/security;
+  - run stores final output in history.
+
+### CRM Enrichment API Agent
+
+- Runtime: `creator_endpoint`.
+- Creator access required: endpoint allowlist.
+- Input example:
+  - "Company: Acme SaaS. Domain: acme.example. Need CRM enrichment for segment, size estimate, and missing fields."
+- Expected LLM decision:
+  - decide whether the API call is relevant;
+  - normalize the request payload;
+  - reject or warn if the input is too incomplete.
+- Expected output:
+  - endpoint response summarized for the user;
+  - missing fields and verification points;
+  - no technical payload or secret exposed.
+- Success criteria:
+  - template pre-fills endpoint name but leaves URL empty;
+  - non-HTTPS/local URLs are refused;
+  - endpoint must be admin-approved;
+  - user run calls the endpoint server-side and stores result/history.
+
 Day 1 validation:
 
 - Existing catalog was archived by admin to restart from a clean beta baseline.

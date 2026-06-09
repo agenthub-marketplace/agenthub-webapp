@@ -264,6 +264,195 @@ export const AGENT_TEMPLATES = [
     workspace_actions_en: ['Extract decisions', 'List action items', 'Assign owners', 'Prepare follow-up'],
   },
   {
+    key: 'support-triage-agent',
+    label: 'Support Triage Agent',
+    category_slug: 'business-documents',
+    category: 'Support / Operations',
+    short_description: 'Classe une demande support, décide la priorité et génère une réponse de suivi.',
+    target_user: 'Équipes support, fondateurs et opérations qui veulent prioriser les tickets entrants.',
+    detailed_description:
+      'Agent workflow beta qui analyse une demande support, décide une priorité et une catégorie, puis produit une réponse client et une checklist interne. Le workflow est linéaire, sans webhook obligatoire en v0, et reste soumis à validation admin + security review.',
+    capabilities: [
+      'Analyser une demande support fournie par l’utilisateur',
+      'Décider une priorité faible, moyenne ou haute',
+      'Classer la demande en bug, billing, how-to ou feature',
+      'Générer une réponse client claire',
+      'Produire une checklist de suivi interne',
+    ],
+    limitations: [
+      'Ne se connecte pas au helpdesk',
+      'Ne crée pas de ticket automatiquement',
+      'Ne rembourse pas et ne modifie aucun compte client',
+      'N’appelle aucun webhook tant qu’un endpoint n’est pas configuré et approuvé',
+    ],
+    required_inputs: [
+      'Message utilisateur',
+      'Produit ou service concerné',
+      'Contexte client connu',
+      'Urgence ou impact si connu',
+    ],
+    setup_requirements: {
+      type: 'context',
+      items: ['Message support', 'produit concerné', 'contexte client', 'impact connu'],
+    },
+    deliverables: [
+      'Priorité décidée',
+      'Catégorie support',
+      'Réponse client proposée',
+      'Checklist de suivi interne',
+    ],
+    example_output:
+      'Décision: priorité haute, catégorie bug. Réponse client: nous avons identifié un blocage d’accès probable. Checklist: vérifier statut compte, logs auth, dernier paiement, puis escalader si reproduction confirmée.',
+    known_limits: [
+      'La priorité dépend du contexte fourni',
+      'La décision doit être validée par l’équipe support avant action réelle',
+      'Aucune action externe n’est déclenchée automatiquement en v0',
+    ],
+    pricing_type: 'task',
+    fixed_price: 21,
+    pricing_details: 'Inclut un workflow beta de triage support avec décision LLM structurée et réponse proposée.',
+    risk_level: 'medium',
+    workspace_mode: 'guided',
+    output_promise: {
+      summary: 'Une décision de triage support avec priorité, catégorie, réponse client et checklist interne.',
+      examples: ['Ticket bug', 'Question facturation', 'Demande how-to', 'Suggestion feature'],
+    },
+    execution_mode: 'llm_prompt',
+    runtime_type: 'workflow_automation',
+    data_policy: {
+      stores_user_data: true,
+      requires_files: false,
+      external_tools: [],
+    },
+    workflow_steps:
+      'llm: Analyser la demande et extraire le problème, le contexte et l’urgence\nllm: Décider la priorité, la catégorie support et le routage recommandé\nllm: Générer une réponse client et une checklist de suivi interne',
+    workspace_actions: ['Trier la demande', 'Décider la priorité', 'Générer la réponse', 'Préparer le suivi'],
+    workspace_actions_en: ['Triage request', 'Decide priority', 'Generate response', 'Prepare follow-up'],
+  },
+  {
+    key: 'lead-qualification-agent',
+    label: 'Lead Qualification Agent',
+    category_slug: 'business-documents',
+    category: 'Sales / CRM',
+    short_description: 'Analyse un lead, décide son niveau de qualification et propose la prochaine action.',
+    target_user: 'Sales B2B, fondateurs et équipes growth qui qualifient des leads entrants.',
+    detailed_description:
+      'Agent workflow beta qui transforme un contexte lead en décision structurée: qualifié oui/non/peut-être, score 0-100, raisons et prochaine action commerciale. Le workflow ne contacte aucun prospect et ne pousse rien dans le CRM en v0.',
+    capabilities: [
+      'Analyser le profil et le besoin d’un lead',
+      'Décider si le lead est qualifié, non qualifié ou incertain',
+      'Attribuer un score de qualification de 0 à 100',
+      'Choisir la prochaine action commerciale',
+      'Générer un message de suivi adapté',
+    ],
+    limitations: [
+      'Ne contacte pas le prospect',
+      'Ne modifie pas le CRM',
+      'Ne scrape pas d’informations externes',
+      'Ne remplace pas la validation sales humaine',
+    ],
+    required_inputs: [
+      'Description du lead',
+      'Entreprise ou segment',
+      'Besoin exprimé',
+      'ICP cible',
+      'Contraintes commerciales connues',
+    ],
+    setup_requirements: {
+      type: 'context',
+      items: ['Profil lead', 'besoin exprimé', 'ICP cible', 'contraintes commerciales'],
+    },
+    deliverables: ['Décision qualified yes/no/maybe', 'Score 0-100', 'Raisons principales', 'Prochaine action', 'Message de suivi'],
+    example_output:
+      'Décision: maybe. Score: 64/100. Next action: demander le volume mensuel et l’outil CRM actuel. Message: merci pour votre demande, pour vérifier le fit pouvez-vous préciser...',
+    known_limits: [
+      'Le scoring dépend du contexte fourni',
+      'Aucune donnée externe n’est enrichie automatiquement',
+      'La décision ne doit pas être utilisée comme unique critère commercial',
+    ],
+    pricing_type: 'task',
+    fixed_price: 24,
+    pricing_details: 'Inclut un workflow beta de qualification lead avec décision LLM structurée et message de suivi.',
+    risk_level: 'medium',
+    workspace_mode: 'guided',
+    output_promise: {
+      summary: 'Une qualification lead avec décision, score, justification et prochaine action commerciale.',
+      examples: ['Lead inbound SaaS', 'Demande démo', 'Prospect incertain', 'Relance commerciale'],
+    },
+    execution_mode: 'llm_prompt',
+    runtime_type: 'workflow_automation',
+    data_policy: {
+      stores_user_data: true,
+      requires_files: false,
+      external_tools: [],
+    },
+    workflow_steps:
+      'llm: Analyser le lead, le contexte entreprise et le besoin exprimé\nllm: Décider si le lead est qualifié, calculer un score 0-100 et choisir la prochaine action\nllm: Générer un email de suivi et un résumé CRM court',
+    workspace_actions: ['Analyser le lead', 'Décider le score', 'Choisir la prochaine action', 'Générer le suivi'],
+    workspace_actions_en: ['Analyze lead', 'Decide score', 'Choose next action', 'Generate follow-up'],
+  },
+  {
+    key: 'crm-enrichment-api-agent',
+    label: 'CRM Enrichment API Agent',
+    category_slug: 'business-documents',
+    category: 'Sales / CRM',
+    short_description: 'Normalise un contexte CRM puis appelle une API creator HTTPS approuvée.',
+    target_user: 'Équipes sales et ops qui veulent enrichir un lead via une API interne validée.',
+    detailed_description:
+      'Agent API beta. AgentHub prépare et normalise le contexte fourni, vérifie si l’appel API est pertinent, puis appelle côté serveur un endpoint HTTPS creator approuvé et signé. L’URL doit être renseignée par le creator puis validée par l’admin avant publication.',
+    capabilities: [
+      'Normaliser un contexte lead ou compte',
+      'Décider si un enrichissement API est pertinent',
+      'Préparer un payload court et structuré',
+      'Appeler une API creator HTTPS approuvée côté serveur',
+      'Restituer une sortie enrichie lisible',
+    ],
+    limitations: [
+      'N’accepte pas d’URL localhost ou IP privée',
+      'N’appelle pas l’endpoint depuis le navigateur',
+      'Ne stocke aucun secret creator côté client',
+      'N’exécute aucun code creator dans AgentHub',
+    ],
+    required_inputs: [
+      'Nom de l’entreprise ou du lead',
+      'Contexte CRM connu',
+      'Objectif d’enrichissement',
+      'Champs attendus si connus',
+    ],
+    setup_requirements: {
+      type: 'context',
+      items: ['Entreprise ou lead', 'contexte CRM', 'objectif d’enrichissement', 'champs attendus'],
+    },
+    deliverables: ['Décision d’appel API', 'Payload normalisé', 'Réponse enrichie', 'Points à vérifier'],
+    example_output:
+      'Décision: appel API pertinent. Payload normalisé: company_name, domain, country, crm_notes. Résultat enrichi: segment estimé, signaux détectés, champs manquants à vérifier.',
+    known_limits: [
+      'Un endpoint HTTPS approuvé est obligatoire',
+      'La réponse dépend entièrement de l’API creator',
+      'Les enrichissements doivent être vérifiés avant usage commercial',
+    ],
+    pricing_type: 'task',
+    fixed_price: 34,
+    pricing_details: 'Inclut un appel serveur signé vers une API creator approuvée et une synthèse du résultat.',
+    risk_level: 'medium',
+    workspace_mode: 'guided',
+    output_promise: {
+      summary: 'Un enrichissement CRM via API creator approuvée avec décision d’appel, résultat et points de contrôle.',
+      examples: ['Enrichissement lead', 'Compte cible', 'Signal CRM', 'Qualification API'],
+    },
+    execution_mode: 'llm_prompt',
+    runtime_type: 'creator_endpoint',
+    data_policy: {
+      stores_user_data: true,
+      requires_files: false,
+      external_tools: [],
+    },
+    creator_endpoint_name: 'CRM Enrichment API',
+    creator_endpoint_url: '',
+    workspace_actions: ['Préparer le contexte', 'Vérifier la pertinence API', 'Envoyer à l’agent', 'Lire l’enrichissement'],
+    workspace_actions_en: ['Prepare context', 'Check API relevance', 'Send to agent', 'Read enrichment'],
+  },
+  {
     key: 'document-summary-pro',
     label: 'Document Summary Pro',
     category_slug: 'business-documents',
@@ -614,8 +803,7 @@ export function templateToCreatorFormValues(template, categories = []) {
   }
 
   const category = categories.find((item) => item.slug === template.category_slug);
-
-  return {
+  const values = {
     name: template.label,
     category_id: category?.id ?? '',
     short_description: template.short_description,
@@ -631,11 +819,16 @@ export function templateToCreatorFormValues(template, categories = []) {
     starting_price_eur: String(template.fixed_price),
     risk_level: template.risk_level,
     pricing_hint: template.pricing_details,
-    execution_method: template.data_policy.external_tools.length
-      ? `External tools: ${template.data_policy.external_tools.join(', ')}`
-      : template.data_policy.requires_files
-        ? 'Agent document: PDF/DOCX privé en beta contrôlée, extraction serveur, aucun outil externe.'
-        : 'Assistant IA guidé: génération texte server-side, document léger en beta contrôlée, aucun outil externe.',
+    execution_method:
+      template.runtime_type === 'workflow_automation'
+        ? 'Agent workflow beta: suite d’étapes validées avec décision LLM structurée.'
+        : template.runtime_type === 'creator_endpoint'
+          ? 'Agent API beta: appel serveur signé vers API creator approuvée.'
+          : template.data_policy.external_tools.length
+            ? `External tools: ${template.data_policy.external_tools.join(', ')}`
+            : template.data_policy.requires_files
+              ? 'Assistant IA guidé avec document: PDF/DOCX privé en beta contrôlée, extraction serveur, aucun outil externe.'
+              : 'Assistant IA guidé: génération texte server-side, document léger en beta contrôlée, aucun outil externe.',
     workspace_mode: template.workspace_mode,
     setup_type: template.setup_requirements.type,
     setup_items: template.setup_requirements.items.join('\n'),
@@ -644,6 +837,28 @@ export function templateToCreatorFormValues(template, categories = []) {
     execution_mode: template.execution_mode,
     runtime_type: template.runtime_type,
   };
+
+  if (template.workflow_steps) {
+    values.workflow_steps = template.workflow_steps;
+  }
+
+  if (template.workflow_endpoint_name) {
+    values.workflow_endpoint_name = template.workflow_endpoint_name;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(template, 'workflow_endpoint_url')) {
+    values.workflow_endpoint_url = template.workflow_endpoint_url;
+  }
+
+  if (template.creator_endpoint_name) {
+    values.creator_endpoint_name = template.creator_endpoint_name;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(template, 'creator_endpoint_url')) {
+    values.creator_endpoint_url = template.creator_endpoint_url;
+  }
+
+  return values;
 }
 
 export function getAgentTemplateByLabel(label) {

@@ -26,13 +26,13 @@ All gates must be open before a workflow can run:
 
 - `WORKFLOW_RUNS_ENABLED=true`;
 - `WORKFLOW_WORKER_SECRET` set server-side and in Supabase Edge secrets;
-- `WORKFLOW_WEBHOOK_SIGNING_SECRET` set server-side and in Supabase Edge secrets;
+- `WORKFLOW_WEBHOOK_SIGNING_SECRET` set server-side and in Supabase Edge secrets only when a workflow uses `webhook:` steps;
 - `agent_runtime_settings.workflow_automation.enabled=true`;
 - `agent_runtime_settings.workflow_automation.run_enabled=true`;
 - creator allowlisted in `creator_runtime_access`;
 - agent version has `runtime_type = workflow_automation`;
 - workflow definition approved;
-- webhook endpoints approved.
+- webhook endpoints approved when webhook steps exist.
 
 Default migration state keeps the runtime disabled.
 
@@ -151,7 +151,7 @@ Edge Function `agent-workflow-worker`:
 
 1. Enable a creator in `creator_runtime_access`.
 2. Enable runtime setting for `workflow_automation`.
-3. Set workflow env vars locally.
+3. Set `WORKFLOW_RUNS_ENABLED=true`, `WORKFLOW_WORKER_SECRET`, `OPENAI_API_KEY`, and `OPENAI_MODEL` locally and in the Edge worker environment.
 4. Creator submits workflow agent with two `llm:` steps.
 5. Admin approves workflow assets.
 6. Admin approves agent.
@@ -159,7 +159,7 @@ Edge Function `agent-workflow-worker`:
 8. User opens workspace and launches workflow.
 9. Verify status reaches `succeeded`.
 10. Verify result appears in workspace history.
-11. Repeat with one `webhook:` step against a reviewed HTTPS test endpoint.
+11. For webhook workflows only, also set `WORKFLOW_WEBHOOK_SIGNING_SECRET` and repeat with one `webhook:` step against a reviewed HTTPS test endpoint.
 
 ## Known Limitations
 

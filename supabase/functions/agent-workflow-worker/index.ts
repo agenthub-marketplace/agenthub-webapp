@@ -671,7 +671,7 @@ Deno.serve(async (request: Request) => {
   const openaiApiKey = env("OPENAI_API_KEY");
   const webhookSigningSecret = env("WORKFLOW_WEBHOOK_SIGNING_SECRET");
 
-  if (!supabaseUrl || !serviceRoleKey || !openaiApiKey || !webhookSigningSecret) {
+  if (!supabaseUrl || !serviceRoleKey || !openaiApiKey) {
     return json(500, { error: "worker-env-missing" });
   }
 
@@ -840,6 +840,10 @@ Deno.serve(async (request: Request) => {
 
           output = result.output;
         } else {
+          if (!webhookSigningSecret) {
+            throw new Error("workflow-webhook-signing-secret-missing");
+          }
+
           const { data: endpoint, error: endpointError } = await supabase
             .from("creator_webhook_endpoints")
             .select("id,name,endpoint_url,status")

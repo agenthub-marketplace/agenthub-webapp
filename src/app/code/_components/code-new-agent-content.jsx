@@ -54,13 +54,13 @@ const errorMessages = {
   'agent-insert-failed': 'La création de l’agent a échoué.',
   'version-insert-failed': 'La création de la version de validation a échoué.',
   'agent-submit-failed': 'La soumission de l’agent a échoué.',
-  'invalid-workflow': 'Le workflow beta est réservé à une phase interne.',
-  'invalid-workflow-endpoint': 'Le workflow beta est réservé à une phase interne.',
-  'workflow-endpoint-failed': 'Le workflow beta est réservé à une phase interne.',
-  'workflow-create-failed': 'Le workflow beta est réservé à une phase interne.',
-  'invalid-creator-endpoint': 'L’agent API est réservé à une beta interne.',
-  'creator-endpoint-failed': 'L’agent API est réservé à une beta interne.',
-  'creator-endpoint-config-failed': 'L’agent API est réservé à une beta interne.',
+  'invalid-workflow': 'Le workflow beta doit contenir 2 à 5 étapes au format "llm: ..." ou "webhook: ...".',
+  'invalid-workflow-endpoint': 'L’endpoint webhook doit être une URL HTTPS publique, sans localhost ni IP privée.',
+  'workflow-endpoint-failed': 'Impossible d’enregistrer l’endpoint webhook du workflow.',
+  'workflow-create-failed': 'Impossible d’enregistrer la définition workflow.',
+  'invalid-creator-endpoint': 'L’agent API nécessite une URL HTTPS publique valide, sans localhost ni IP privée.',
+  'creator-endpoint-failed': 'Impossible d’enregistrer l’endpoint API creator.',
+  'creator-endpoint-config-failed': 'Impossible de lier l’endpoint API à cette version d’agent.',
 };
 
 const emptyValues = {
@@ -245,6 +245,22 @@ function RuntimeCard({ disabled, icon: Icon, onClick, selected = false, title, t
   );
 }
 
+function getTemplateRuntimeLabel(template) {
+  if (template.runtime_type === 'workflow_automation') {
+    return 'Agent workflow';
+  }
+
+  if (template.runtime_type === 'creator_endpoint') {
+    return 'Agent API';
+  }
+
+  if (template.data_policy?.requires_files) {
+    return 'Document beta';
+  }
+
+  return 'Assistant IA guidé';
+}
+
 export default function CodeNewAgentContent({
   canUseCreatorEndpoint = false,
   canUseWorkflowAutomation = false,
@@ -256,7 +272,25 @@ export default function CodeNewAgentContent({
   const action = submitAgentForReviewAction.bind(null, 'fr');
   const [currentStep, setCurrentStep] = useState(0);
   const [values, setValues] = useState(emptyValues);
-  const selectedTemplate = useMemo(() => AGENT_TEMPLATES.find((item) => item.key === values.agent_template) ?? null, [values.agent_template]);
+  const visibleTemplates = useMemo(
+    () =>
+      AGENT_TEMPLATES.filter((template) => {
+        if (template.runtime_type === 'workflow_automation') {
+          return canUseWorkflowAutomation;
+        }
+
+        if (template.runtime_type === 'creator_endpoint') {
+          return canUseCreatorEndpoint;
+        }
+
+        return true;
+      }),
+    [canUseCreatorEndpoint, canUseWorkflowAutomation],
+  );
+  const selectedTemplate = useMemo(
+    () => visibleTemplates.find((item) => item.key === values.agent_template) ?? null,
+    [values.agent_template, visibleTemplates],
+  );
   const errorMessage = error && errorMessages[error] ? errorMessages[error] : null;
   const canSubmit = categories.length > 0 && !creatorProfileMissing && !profileError;
 
@@ -268,7 +302,7 @@ export default function CodeNewAgentContent({
   }
 
   function applyTemplate(templateKey) {
-    const template = AGENT_TEMPLATES.find((item) => item.key === templateKey);
+    const template = visibleTemplates.find((item) => item.key === templateKey);
     const templateValues = templateToCreatorFormValues(template, categories);
 
     if (!templateValues) {
@@ -280,8 +314,8 @@ export default function CodeNewAgentContent({
       ...emptyValues,
       ...templateValues,
       agent_template: templateKey,
-      execution_mode: 'llm_prompt',
-      runtime_type: 'llm_prompt',
+      execution_mode: templateValues.execution_mode ?? 'llm_prompt',
+      runtime_type: templateValues.runtime_type ?? 'llm_prompt',
     });
   }
 
@@ -358,7 +392,7 @@ export default function CodeNewAgentContent({
                 Les templates beta donnent une fiche réaliste, modifiable avant soumission.
               </p>
               <div className="mt-6 grid gap-3">
-                {AGENT_TEMPLATES.map((template) => (
+                {visibleTemplates.map((template) => (
                   <button
                     key={template.key}
                     type="button"
@@ -374,18 +408,28 @@ export default function CodeNewAgentContent({
                         <h3 className="font-display text-lg font-bold text-[#111827]">{template.label}</h3>
                         <p className="mt-1 text-sm leading-6 text-[#4B5563]">{template.short_description}</p>
                       </div>
-                      <span className="rounded-full border border-[#D8DDEE] bg-white px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
-                        {template.category}
-                      </span>
-                      {template.data_policy?.requires_files && (
-                        <span className="rounded-full border border-[#DDD6FE] bg-[#FAF5FF] px-2.5 py-1 text-[10px] font-label text-[#6B3FA0]">
-                          Document beta
+                      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <span className="rounded-full border border-[#D8DDEE] bg-white px-2.5 py-1 text-[10px] font-label text-[#6B7280]">
+                          {template.category}
                         </span>
-                      )}
+                        <span className="rounded-full border border-[#DDD6FE] bg-[#FAF5FF] px-2.5 py-1 text-[10px] font-label text-[#6B3FA0]">
+                          {getTemplateRuntimeLabel(template)}
+                        </span>
+                        {(template.runtime_type === 'workflow_automation' || template.runtime_type === 'creator_endpoint') && (
+                          <span className="rounded-full border border-[#C4B5FD] bg-[#F3E8FF] px-2.5 py-1 text-[10px] font-label text-[#5B21B6]">
+                            Décision LLM
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))}
               </div>
+              {(!canUseWorkflowAutomation || !canUseCreatorEndpoint) && (
+                <div className="mt-5 rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4 text-sm leading-6 text-[#4B5563]">
+                  Certains templates avancés apparaissent uniquement après allowlist admin du runtime correspondant.
+                </div>
+              )}
             </CodePanel>
             <CodePanel>
               <p className="font-label mb-3 text-xs text-[#6B3FA0]">TEMPLATE SÉLECTIONNÉ</p>

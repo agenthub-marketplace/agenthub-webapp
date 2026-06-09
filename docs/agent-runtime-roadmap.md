@@ -21,6 +21,16 @@ Assistant IA guidé
 
 `runtime_type` remains the internal routing field. `execution_mode` stays in place so the current assistant runner does not break. `document_file` is retained as a compatibility/feature-flag value for the document input capability.
 
+## Real Agent Beta Templates
+
+For the closed beta, the first templates that should be presented as advanced agents are:
+
+- Support Triage Agent (`workflow_automation`): classifies a support request, decides priority/category, then produces a customer reply and internal checklist.
+- Lead Qualification Agent (`workflow_automation`): decides lead qualification, score, and next commercial action before drafting follow-up.
+- CRM Enrichment API Agent (`creator_endpoint`): normalizes a CRM enrichment request, decides if the API call is relevant, then calls an approved creator endpoint server-side.
+
+These templates are creator-visible only when the creator is allowlisted for the matching runtime. They still require admin review, asset approval, and security review before publication.
+
 ## Active Runtime
 
 ### `llm_prompt`
