@@ -80,6 +80,24 @@ function responseRun(run: EndpointRunRow, outputText?: string | null) {
   };
 }
 
+async function loadEndpointStatus(
+  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
+  input: { agentRunId: string; profileId: string },
+) {
+  const { data, error } = await supabase
+    .from("agent_endpoint_runs")
+    .select("id,agent_run_id,status,response_excerpt,error_code,created_at,completed_at")
+    .eq("agent_run_id", input.agentRunId)
+    .eq("user_id", input.profileId)
+    .maybeSingle<EndpointRunRow>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+}
+
 export async function POST(request: Request) {
   const profile = await getCurrentProfile();
 
@@ -334,5 +352,68 @@ export async function POST(request: Request) {
     ),
     runId: createdRun.id,
     status: "succeeded",
+  });
+}
+
+export async function GET(request: Request) {
+  const profile = await getCurrentProfile();
+
+  if (!profile) {
+    return jsonError(401, "unauthorized", "auth-required");
+  }
+
+  const url = new URL(request.url);
+  const runId = url.searchParams.get("runId");
+
+  if (!runId) {
+    return jsonError(400, "failed", "missing-run-id");
+  }
+
+  const supabase = createSupabaseServiceClient();
+
+  if (!supabase) {
+    return jsonError(500, "failed", "missing-service-client");
+  }
+
+  const staleRunCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const staleRunCompletedAt = new Date().toISOString();
+
+  await supabase
+    .from("agent_endpoint_runs")
+    .update({
+      completed_at: staleRunCompletedAt,
+      error_code: "stale-creator-endpoint-run",
+      status: "failed",
+    })
+    .eq("agent_run_id", runId)
+    .eq("user_id", profile.id)
+    .eq("status", "running")
+    .lt("created_at", staleRunCutoff);
+
+  await supabase
+    .from("agent_runs")
+    .update({
+      completed_at: staleRunCompletedAt,
+      error_code: "stale-creator-endpoint-run",
+      status: "failed",
+    })
+    .eq("id", runId)
+    .eq("user_id", profile.id)
+    .eq("provider", "agenthub_creator_endpoint")
+    .eq("status", "running")
+    .lt("created_at", staleRunCutoff);
+
+  const run = await loadEndpointStatus(supabase, {
+    agentRunId: runId,
+    profileId: profile.id,
+  });
+
+  if (!run) {
+    return jsonError(404, "not_found", "endpoint-run-not-found");
+  }
+
+  return NextResponse.json({
+    run: responseRun(run),
+    status: run.status,
   });
 }

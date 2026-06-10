@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Loader2, PlugZap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,11 @@ const copy = {
     running: 'Un appel agent API est déjà en cours...',
     remaining: 'caractères restants',
     result: 'Résultat agent API',
-    selectAction: 'Ajoutez votre demande, puis AgentHub appelle l’API approuvée côté serveur.',
+    selectAction: 'Ajoutez votre demande. AgentHub appellera l’API créateur approuvée côté serveur, avec signature et historique conservé ici.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
-    title: 'Agent API',
+    showMoreRuns: 'Voir plus d’appels API',
+    title: 'Agent API créateur',
   },
   en: {
     disabled: 'The API agent is disabled right now.',
@@ -35,10 +36,11 @@ const copy = {
     running: 'An API agent call is already running...',
     remaining: 'characters remaining',
     result: 'API agent result',
-    selectAction: 'Add your request, then AgentHub calls the approved API server-side.',
+    selectAction: 'Add your request. AgentHub will call the approved creator API server-side, with signing and history kept here.',
     showLess: 'Collapse',
     showMore: 'View full result',
-    title: 'API agent',
+    showMoreRuns: 'Show more API calls',
+    title: 'Creator API agent',
   },
 };
 
@@ -72,6 +74,7 @@ function statusLabel(status, locale) {
 
 export default function CreatorEndpointWorkspaceActions({
   enabled = false,
+  disabledMessage,
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
@@ -83,10 +86,46 @@ export default function CreatorEndpointWorkspaceActions({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [expandedRunIds, setExpandedRunIds] = useState([]);
+  const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const remainingChars = maxInputChars - inputText.length;
-  const latestRuns = useMemo(() => runs.slice(0, 5), [runs]);
-  const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting;
+  const latestRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
+  const activeRunId = runs.find((run) => run.status === 'running')?.id;
+  const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting && !activeRunId;
+
+  useEffect(() => {
+    if (!activeRunId) {
+      return undefined;
+    }
+
+    const timer = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/agent-runs/endpoint?runId=${encodeURIComponent(activeRunId)}`, {
+          cache: 'no-store',
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.run) {
+          return;
+        }
+
+        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
+
+        if (data.run.status === 'succeeded') {
+          setResult(data.run.outputText);
+          setError(null);
+        }
+
+        if (data.run.status === 'failed') {
+          setError(data.run.errorCode || t.error);
+        }
+      } catch {
+        // Keep polling; endpoint status can be transient during beta.
+      }
+    }, 2500);
+
+    return () => clearInterval(timer);
+  }, [activeRunId, t.error]);
 
   async function submitRun(event) {
     event.preventDefault();
@@ -115,7 +154,7 @@ export default function CreatorEndpointWorkspaceActions({
 
       if (response.ok && data.status === 'running' && data.run) {
         setError(null);
-        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
         setResult(null);
         return;
       }
@@ -123,7 +162,7 @@ export default function CreatorEndpointWorkspaceActions({
       if (!response.ok || data.status !== 'succeeded') {
         setError(data.error || t.error);
         if (data.run) {
-          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
         }
         return;
       }
@@ -132,7 +171,7 @@ export default function CreatorEndpointWorkspaceActions({
       setInputText('');
 
       if (data.run) {
-        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
       }
     } catch {
       setError(t.error);
@@ -154,9 +193,9 @@ export default function CreatorEndpointWorkspaceActions({
           <PlugZap className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-label mb-2 text-xs text-[#9B72CF]">AGENT API BETA</p>
+          <p className="font-label mb-2 text-xs text-[#9B72CF]">{locale === 'en' ? 'CREATOR INFRA FALLBACK' : 'FALLBACK INFRA CRÉATEUR'}</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : disabledMessage || t.disabled}</p>
         </div>
       </div>
 
@@ -254,6 +293,15 @@ export default function CreatorEndpointWorkspaceActions({
               );
             })}
           </div>
+        )}
+        {runs.length > visibleRunCount && (
+          <button
+            type="button"
+            onClick={() => setVisibleRunCount((count) => count + 5)}
+            className="mt-4 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+          >
+            {t.showMoreRuns}
+          </button>
         )}
       </div>
     </div>

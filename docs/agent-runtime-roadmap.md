@@ -9,6 +9,19 @@ AgentHub now separates two concepts:
 
 Product-facing publication types should be explicit. A simple `llm_prompt` run is now presented as **Assistant IA guidé**, not as a full advanced agent.
 
+Strategic follow-up specs:
+
+- `docs/agent-manifest-v1.md` defines the shared manifest that will connect
+  creator submission, admin review, security precheck, workspace rendering, and
+  revenue analytics.
+- `docs/security-precheck-agent.md` defines the non-blocking triage agent that
+  prepares risk findings for admin review.
+- `docs/workspace-dynamic-blocks.md` defines the workspace block registry for
+  runtime-specific workspaces.
+- `docs/agenthub-next-implementation-plan.md` defines the first coding sequence:
+  manifest helper, security precheck, admin review integration, dynamic
+  workspace recipe, creator-hosted infra contract, and revenue ledger planning.
+
 The beta progression is:
 
 ```text
@@ -236,3 +249,11 @@ Assistant IA guidé text runs execute only when:
 Agent document runs execute only when the publication is `llm_prompt` with document-required contract data, or a legacy/internal `document_file` publication, and the document input capability is enabled.
 
 All unrelated runtime types must refuse cleanly.
+
+## Related Docs
+
+- `docs/document-file-runtime-beta.md`
+- `docs/workflow-automation-runtime-beta.md`
+- `docs/creator-infra-fallback-v0.md`
+- `docs/security-precheck-agent.md`
+- `docs/workspace-dynamic-blocks.md`

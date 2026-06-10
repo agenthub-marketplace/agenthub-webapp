@@ -1,6 +1,6 @@
 # AgentHub current state
 
-Last updated: 2026-06-02
+Last updated: 2026-06-10
 
 ## Summary
 
@@ -115,21 +115,27 @@ These are intentionally out of scope for the current closed beta preparation:
 
 ## Immediate next focus
 
-The next milestone is a closed beta with a small number of clean LLM-ready agents:
+The next milestone is moving from isolated runtime support to a workspace that
+can support every approved agent type with clear guardrails:
 
-- 5 strong templates, not 20 weak ones.
-- Clear creator submission flow.
-- Admin approval quality control.
-- Stripe sandbox checkout.
-- Workspace LLM actions.
-- Stored run history.
-- Verified review after access.
-- Notion or equivalent feedback tracking.
+- Agent Manifest V1 as the shared source of truth for creator submission,
+  admin review, security precheck, workspace rendering, and revenue analytics.
+- Security Precheck Agent to triage submissions before admin review, without
+  replacing human decisions.
+- Dynamic workspace blocks so each runtime has the right setup, input,
+  execution, result, history, and review experience.
+- Creator-hosted infrastructure support for agents that cannot be fully served
+  by AgentHub-hosted runtimes.
+- Revenue ledger planning before Stripe Connect payouts.
 
 Operational references:
 
 - Closed beta test plan: `docs/beta-closed-test-plan.md`.
 - Beta ops runbook: `docs/beta-ops-runbook.md`.
 - Read-only sanity SQL: `scripts/beta-sanity.sql`.
+- Agent Manifest V1: `docs/agent-manifest-v1.md`.
+- Security Precheck Agent: `docs/security-precheck-agent.md`.
+- Workspace Dynamic Blocks: `docs/workspace-dynamic-blocks.md`.
+- Next implementation sequence: `docs/agenthub-next-implementation-plan.md`.
 
 Current rule: the frontend is frozen except for P0/P1 fixes. Backend, data, and beta operations are the active focus. Next operational step is a Day 2 limited tester launch with 3 to 5 internal testers.

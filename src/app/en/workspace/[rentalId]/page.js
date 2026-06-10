@@ -7,18 +7,16 @@ import WorkspaceRunActions from '@/components/workspace/WorkspaceRunActions';
 import DocumentWorkspaceActions from '@/components/workspace/DocumentWorkspaceActions';
 import WorkflowWorkspaceActions from '@/components/workspace/WorkflowWorkspaceActions';
 import CreatorEndpointWorkspaceActions from '@/components/workspace/CreatorEndpointWorkspaceActions';
+import WorkspaceAgentExperience from '@/components/workspace/WorkspaceAgentExperience';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
-import { serverEnv } from '@/lib/env.server';
 import { getWorkspaceActionLabels } from '@/lib/workspace-actions';
+import { buildWorkspaceRuntimeContract } from '@/server/agents/workspace-runtime-contract';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { getUserAgentRuns } from '@/server/llm/runs';
-import { isDocumentRuntimeRunEnabled } from '@/server/documents/runtime';
-import { isCreatorEndpointRuntimeRunEnabled } from '@/server/endpoints/runtime';
-import { isWorkflowRuntimeRunEnabled } from '@/server/workflows/runtime';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
-import { AlertTriangle, ArrowLeft, Bot, Check, Clock, Euro, MessageSquareText, ShieldCheck, Star } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Euro, ShieldCheck, Star } from 'lucide-react';
 
 const WORKSPACE_MODE_LABELS = {
   instant: 'Instant access',
@@ -47,28 +45,6 @@ function formatPrice(cents, currency = 'eur') {
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
     style: 'currency',
   }).format(cents / 100);
-}
-
-function ListBlock({ emptyText, icon: Icon = Check, items = [], title, tone = 'success' }) {
-  const color = tone === 'warning' ? 'text-[#F59E0B]' : 'text-[#10B981]';
-
-  return (
-    <div className="rounded-2xl border border-[#2F184B] bg-[#0A0816] p-5">
-      <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{title}</h3>
-      {items.length > 0 ? (
-        <ul className="space-y-2 text-sm text-[#C8B1E4]">
-          {items.map((item, index) => (
-            <li key={`${item}-${index}`} className="flex gap-2">
-              <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-[#9B72CF]">{emptyText}</p>
-      )}
-    </div>
-  );
 }
 
 function unavailableCopy(rental) {
@@ -190,45 +166,99 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     workspaceMode: contract.workspaceMode,
   });
   const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
-  const documentInputMode =
-    contract.runtimeType === 'document_file' ||
-    (contract.runtimeType === 'llm_prompt' && (contract.dataPolicy.requires_files || contract.workspaceMode === 'document_required'));
-  const documentRuntimeRunEnabled =
-    documentInputMode ? await isDocumentRuntimeRunEnabled() : false;
-  const workflowRuntimeRunEnabled =
-    contract.runtimeType === 'workflow_automation' ? await isWorkflowRuntimeRunEnabled() : false;
-  const creatorEndpointRuntimeRunEnabled =
-    contract.runtimeType === 'creator_endpoint' ? await isCreatorEndpointRuntimeRunEnabled() : false;
-  const llmRunnerEnabled =
-    serverEnv.llmRunsEnabled &&
-    Boolean(serverEnv.openaiApiKey) &&
-    contract.runtimeType === 'llm_prompt' &&
-    contract.executionMode === 'llm_prompt' &&
-    !documentInputMode &&
-    contract.dataPolicy.external_tools.length === 0 &&
-    rental.agent?.status === 'approved';
-  const documentRunnerEnabled =
-    serverEnv.documentRunsEnabled &&
-    Boolean(serverEnv.openaiApiKey) &&
-    documentRuntimeRunEnabled &&
-    documentInputMode &&
-    (contract.runtimeType === 'document_file' || contract.runtimeType === 'llm_prompt') &&
-    rental.agent?.status === 'approved';
-  const workflowRunnerEnabled =
-    serverEnv.workflowRunsEnabled &&
-    workflowRuntimeRunEnabled &&
-    contract.runtimeType === 'workflow_automation' &&
-    contract.executionMode === 'llm_prompt' &&
-    rental.agent?.status === 'approved';
-  const creatorEndpointRunnerEnabled =
-    serverEnv.creatorEndpointRunsEnabled &&
-    Boolean(serverEnv.creatorEndpointSigningSecret) &&
-    creatorEndpointRuntimeRunEnabled &&
-    contract.runtimeType === 'creator_endpoint' &&
-    contract.executionMode === 'llm_prompt' &&
-    rental.agent?.status === 'approved';
+  const runtimeContract = await buildWorkspaceRuntimeContract({
+    actions,
+    agentRuns,
+    locale: 'en',
+    rental,
+  });
   const reviewAction = submitRentalReviewAction.bind(null, 'en');
   const stopAction = stopAgentAccessAction.bind(null, 'en');
+  const requestedTab = typeof query?.tab === 'string' ? query.tab : 'overview';
+  const activeTab = ['overview', 'setup', 'use', 'details', 'review'].includes(requestedTab) ? requestedTab : 'overview';
+  const runnerSlot = runtimeContract.runner.kind === 'creator_endpoint' ? (
+    <CreatorEndpointWorkspaceActions
+      enabled={runtimeContract.enabled}
+      disabledMessage={runtimeContract.runner.disabledMessage}
+      initialRuns={runtimeContract.history}
+      locale="en"
+      maxInputChars={runtimeContract.limits.maxInputChars}
+      rentalId={rental.id}
+    />
+  ) : runtimeContract.runner.kind === 'workflow' ? (
+    <WorkflowWorkspaceActions
+      enabled={runtimeContract.enabled}
+      disabledMessage={runtimeContract.runner.disabledMessage}
+      initialRuns={runtimeContract.history}
+      locale="en"
+      maxInputChars={runtimeContract.limits.maxInputChars}
+      rentalId={rental.id}
+    />
+  ) : runtimeContract.runner.kind === 'document' ? (
+    <DocumentWorkspaceActions
+      actions={runtimeContract.actions}
+      enabled={runtimeContract.enabled}
+      disabledMessage={runtimeContract.runner.disabledMessage}
+      initialRuns={runtimeContract.history}
+      locale="en"
+      maxFileBytes={runtimeContract.limits.maxFileBytes}
+      maxInputChars={runtimeContract.limits.maxInputChars}
+      rentalId={rental.id}
+    />
+  ) : (
+    <WorkspaceRunActions
+      actions={runtimeContract.actions}
+      enabled={runtimeContract.enabled}
+      disabledMessage={runtimeContract.runner.disabledMessage}
+      initialRuns={runtimeContract.history}
+      locale="en"
+      maxInputChars={runtimeContract.limits.maxInputChars}
+      rentalId={rental.id}
+    />
+  );
+  const reviewSlot = (
+    <>
+      {reviewSubmitted && (
+        <div className="mb-4 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
+          Your verified review has been published.
+        </div>
+      )}
+      {reviewError && (
+        <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
+          Unable to publish this review right now.
+        </div>
+      )}
+      {rental.review ? (
+        <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+          <div className="mb-2 flex gap-1 text-[#F59E0B]">
+            {Array.from({ length: rental.review.rating }).map((_, index) => (
+              <Star key={index} className="h-4 w-4 fill-current" />
+            ))}
+          </div>
+          {rental.review.title && <p className="font-display font-bold text-[#F4EFFA]">{rental.review.title}</p>}
+          {rental.review.body && <p className="mt-2 text-sm text-[#C8B1E4]">{rental.review.body}</p>}
+        </div>
+      ) : (
+        <form action={reviewAction} className="space-y-3">
+          <input type="hidden" name="rental_id" value={rental.id} />
+          <input type="hidden" name="return_to" value={`/en/workspace/${rental.id}?tab=review`} />
+          <select name="rating" required className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none focus:border-[#7C3AED]">
+            <option value="">Rating</option>
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Very good</option>
+            <option value="3">3 - Good</option>
+            <option value="2">2 - Needs work</option>
+            <option value="1">1 - Unsatisfied</option>
+          </select>
+          <input name="title" placeholder="Short title" className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED]" />
+          <textarea name="body" required minLength={5} rows={4} placeholder="Your feedback after using this agent..." className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED]" />
+          <Button type="submit" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+            Publish review
+          </Button>
+        </form>
+      )}
+    </>
+  );
 
   return (
     <div className="min-h-screen">
@@ -290,129 +320,18 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
             </form>
           </aside>
 
-          <section className="space-y-6">
-            {contract.runtimeType === 'creator_endpoint' ? (
-              <CreatorEndpointWorkspaceActions
-                enabled={creatorEndpointRunnerEnabled}
-                initialRuns={agentRuns}
-                locale="en"
-                maxInputChars={serverEnv.llmRunMaxInputChars}
-                rentalId={rental.id}
-              />
-            ) : contract.runtimeType === 'workflow_automation' ? (
-              <WorkflowWorkspaceActions
-                enabled={workflowRunnerEnabled}
-                initialRuns={agentRuns}
-                locale="en"
-                maxInputChars={serverEnv.llmRunMaxInputChars}
-                rentalId={rental.id}
-              />
-            ) : documentInputMode ? (
-              <DocumentWorkspaceActions
-                actions={actions}
-                enabled={documentRunnerEnabled}
-                initialRuns={agentRuns}
-                locale="en"
-                maxFileBytes={serverEnv.documentMaxFileBytes}
-                maxInputChars={serverEnv.llmRunMaxInputChars}
-                rentalId={rental.id}
-              />
-            ) : (
-              <WorkspaceRunActions
-                actions={actions}
-                enabled={llmRunnerEnabled}
-                initialRuns={agentRuns}
-                locale="en"
-                maxInputChars={serverEnv.llmRunMaxInputChars}
-                rentalId={rental.id}
-              />
-            )}
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <ListBlock title="What this agent can help with" items={rental.agent.capabilities} emptyText="No detailed capability was provided." />
-              <ListBlock title="Inputs to prepare" items={rental.agent.requiredInputsList} emptyText="No specific input was provided." />
-              <ListBlock title="Expected deliverables" items={rental.agent.deliverables} emptyText="No deliverable listed." />
-              <ListBlock title="Usage examples" items={contract.outputPromise.examples} emptyText="No example yet." />
-              <ListBlock title="Important limitations" items={rental.agent.limitations} emptyText="No published limitation." icon={AlertTriangle} tone="warning" />
-            </div>
-
-            <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
-                  <Bot className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Guided workspace</h2>
-                  <p className="text-sm text-[#9B72CF]">{setupLabel}</p>
-                </div>
-              </div>
-              {contract.setupRequirements.items.length > 0 ? (
-                <ul className="space-y-2 text-sm text-[#C8B1E4]">
-                  {contract.setupRequirements.items.map((item, index) => (
-                    <li key={`${item}-${index}`} className="flex gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5 text-sm leading-relaxed text-[#C8B1E4]">
-                  Access is active. No extra setup is required before use.
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
-                  <MessageSquareText className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Verified review</h2>
-                  <p className="text-sm text-[#9B72CF]">Available because you own active access.</p>
-                </div>
-              </div>
-              {reviewSubmitted && (
-                <div className="mb-4 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-                  Your verified review has been published.
-                </div>
-              )}
-              {reviewError && (
-                <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
-                  Unable to publish this review right now.
-                </div>
-              )}
-              {rental.review ? (
-                <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
-                  <div className="mb-2 flex gap-1 text-[#F59E0B]">
-                    {Array.from({ length: rental.review.rating }).map((_, index) => (
-                      <Star key={index} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                  {rental.review.title && <p className="font-display font-bold text-[#F4EFFA]">{rental.review.title}</p>}
-                  {rental.review.body && <p className="mt-2 text-sm text-[#C8B1E4]">{rental.review.body}</p>}
-                </div>
-              ) : (
-                <form action={reviewAction} className="space-y-3">
-                  <input type="hidden" name="rental_id" value={rental.id} />
-                  <input type="hidden" name="return_to" value={`/en/workspace/${rental.id}`} />
-                  <select name="rating" required className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none focus:border-[#7C3AED]">
-                    <option value="">Rating</option>
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Very good</option>
-                    <option value="3">3 - Good</option>
-                    <option value="2">2 - Needs work</option>
-                    <option value="1">1 - Unsatisfied</option>
-                  </select>
-                  <input name="title" placeholder="Short title" className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED]" />
-                  <textarea name="body" required minLength={5} rows={4} placeholder="Your feedback after using this agent..." className="w-full rounded-xl border border-[#2F184B] bg-[#080612] px-3 py-2.5 text-sm text-[#F4EFFA] outline-none placeholder:text-[#6F5B8F] focus:border-[#7C3AED]" />
-                  <Button type="submit" className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
-                    Publish review
-                  </Button>
-                </form>
-              )}
-            </div>
-          </section>
+          <WorkspaceAgentExperience
+            activeTab={activeTab}
+            accessLabel={accessLabel}
+            agent={rental.agent}
+            baseHref={`/en/workspace/${rental.id}`}
+            contract={contract}
+            locale="en"
+            reviewSlot={reviewSlot}
+            runnerSlot={runnerSlot}
+            setupLabel={setupLabel}
+            workspaceManifest={runtimeContract.workspaceManifest}
+          />
         </div>
       </main>
       <Footer />

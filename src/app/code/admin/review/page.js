@@ -28,6 +28,70 @@ function hasChangesRequest(agent) {
   return agent?.latestAdminReview?.decision === 'in_review' && Boolean(agent.latestAdminReview.notes?.trim());
 }
 
+function publicationLabel(value) {
+  if (value === 'advanced_agent') {
+    return 'Agent avancé';
+  }
+
+  return 'Assistant IA guidé';
+}
+
+function infraLabel(value) {
+  if (value === 'creator_hosted') {
+    return 'Infra créateur';
+  }
+
+  if (value === 'hybrid') {
+    return 'Infra hybride';
+  }
+
+  return 'Infra AgentHub';
+}
+
+const precheckRiskLabels = {
+  blocked: 'Bloqué',
+  high: 'Risque haut',
+  low: 'Risque bas',
+  medium: 'Risque moyen',
+};
+
+const precheckRecommendationLabels = {
+  block_publication: 'Bloquer publication',
+  request_changes: 'Demander modifications',
+  review_standard: 'Review standard',
+  security_review_required: 'Security review requise',
+};
+
+const precheckRiskTone = {
+  blocked: 'failed',
+  high: 'rejected',
+  low: 'approved',
+  medium: 'in_review',
+};
+
+function FindingList({ emptyText, findings }) {
+  if (!findings?.length) {
+    return <p className="text-sm text-[#6B7280]">{emptyText}</p>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {findings.map((finding) => (
+        <li key={finding.code} className="rounded-xl border border-[#E5E7EB] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-[#111827]">{finding.title}</p>
+            <span className="font-label rounded-full border border-[#DDD6FE] px-2 py-1 text-[10px] text-[#6B3FA0]">
+              {finding.code}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-[#4B5563]">{finding.detail}</p>
+          <p className="mt-2 text-xs font-semibold text-[#5B21B6]">{finding.suggestedAdminAction}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ReviewActions({ agent }) {
   if (agent.status === 'submitted') {
     return (
@@ -137,6 +201,118 @@ export default async function AdminReviewPage({ searchParams }) {
                 <div className="mt-5 rounded-2xl border border-[#DDD6FE] bg-white p-4">
                   <p className="font-label mb-2 text-xs text-[#6B3FA0]">Promesse de résultat</p>
                   <p className="text-sm leading-6 text-[#4B5563]">{agent.contract.outputPromise.summary || 'Promesse non renseignée.'}</p>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-[#C4B5FD] bg-[#FAF7FF] p-4">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-label text-xs text-[#6B3FA0]">Agent Manifest V1</p>
+                      <p className="mt-1 text-sm text-[#4B5563]">
+                        Vue dérivée serveur pour préparer le précheck sécurité et le workspace dynamique.
+                      </p>
+                    </div>
+                    {agent.manifestError && <StatusBadge status="failed" label={agent.manifestError} />}
+                  </div>
+                  {agent.manifest ? (
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Publication</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">{publicationLabel(agent.manifest.publicationType)}</p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Infrastructure</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">{infraLabel(agent.manifest.infraMode)}</p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Blocs workspace</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">{agent.manifest.workspaceBlocks.length} blocs</p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Security gate</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">
+                          {agent.manifest.securityProfile.securityReviewRequired ? agent.manifest.securityProfile.securityReviewStatus : 'Non requis'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3 md:col-span-2">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Exigences runtime</p>
+                        <p className="mt-1 text-sm text-[#374151]">
+                          {[
+                            agent.manifest.runtimeRequirements.requiresOpenai ? 'OpenAI' : null,
+                            agent.manifest.runtimeRequirements.requiresDocumentExtraction ? 'Extraction document' : null,
+                            agent.manifest.runtimeRequirements.requiresWorkflowWorker ? 'Worker workflow' : null,
+                            agent.manifest.runtimeRequirements.requiresCreatorEndpoint ? 'Endpoint creator' : null,
+                            agent.manifest.runtimeRequirements.requiresRuntimeAllowlist ? 'Allowlist creator' : null,
+                            agent.manifest.runtimeRequirements.requiresAssetApproval ? 'Asset approval' : null,
+                          ].filter(Boolean).join(' · ') || 'Aucune exigence spéciale'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3 md:col-span-2">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Blocages dérivés</p>
+                        <p className="mt-1 text-sm text-[#374151]">
+                          {agent.manifest.securityProfile.blockingFindings.length > 0
+                            ? agent.manifest.securityProfile.blockingFindings.join(' · ')
+                            : 'Aucun blocage manifeste détecté'}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-[#C4B5FD] bg-[linear-gradient(135deg,#FFFFFF_0%,#F5F3FF_100%)] p-4 md:col-span-2 xl:col-span-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-label text-xs text-[#6B3FA0]">Security Precheck v0</p>
+                            <h3 className="mt-1 text-lg font-bold text-[#111827]">
+                              {precheckRecommendationLabels[agent.manifest.securityPrecheck.recommendation] || agent.manifest.securityPrecheck.recommendation}
+                            </h3>
+                            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                              {agent.manifest.securityPrecheck.summary}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <StatusBadge
+                              status={precheckRiskTone[agent.manifest.securityPrecheck.riskLevel] || 'in_review'}
+                              label={precheckRiskLabels[agent.manifest.securityPrecheck.riskLevel] || agent.manifest.securityPrecheck.riskLevel}
+                            />
+                            <StatusBadge status="in_review" label={agent.manifest.securityPrecheck.recommendation} />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                          <div className="rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-4">
+                            <p className="font-label mb-3 text-xs text-[#991B1B]">Bloquants</p>
+                            <FindingList
+                              findings={agent.manifest.securityPrecheck.blockers}
+                              emptyText="Aucun blocage déterministe détecté."
+                            />
+                          </div>
+                          <div className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+                            <p className="font-label mb-3 text-xs text-[#92400E]">À vérifier</p>
+                            <FindingList
+                              findings={agent.manifest.securityPrecheck.warnings}
+                              emptyText="Aucun warning sécurité ou qualité détecté."
+                            />
+                          </div>
+                          <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-4">
+                            <p className="font-label mb-3 text-xs text-[#166534]">Validé</p>
+                            <FindingList
+                              findings={agent.manifest.securityPrecheck.passed.slice(0, 4)}
+                              emptyText="Aucun check validé automatiquement."
+                            />
+                          </div>
+                        </div>
+
+                        {agent.manifest.securityPrecheck.adminQuestions.length > 0 && (
+                          <div className="mt-4 rounded-2xl border border-[#DDD6FE] bg-white p-4">
+                            <p className="font-label mb-2 text-xs text-[#6B3FA0]">Questions admin suggérées</p>
+                            <ul className="space-y-1 text-sm text-[#4B5563]">
+                              {agent.manifest.securityPrecheck.adminQuestions.map((question) => (
+                                <li key={question}>• {question}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <CodeAlert tone="error">Impossible de dériver le manifest de cette version.</CodeAlert>
+                  )}
                 </div>
 
                 {agent.workflow && (

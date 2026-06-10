@@ -152,7 +152,7 @@ export default async function WorkspacePage({ searchParams }) {
           </div>
         )}
 
-        {!error && activeRentals.length === 0 && (
+        {!error && activeRentals.length === 0 && attentionRentals.length === 0 && paymentStateOrders.length === 0 && (
           <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1A1130] text-[#9B72CF]">
               <Bot className="h-7 w-7" />

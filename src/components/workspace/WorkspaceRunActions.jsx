@@ -21,6 +21,7 @@ const copy = {
     selectAction: 'Choisissez une action, ajoutez votre contexte, puis générez une réponse.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
+    showMoreRuns: 'Voir plus d’exécutions',
     title: 'Démarrer avec cet assistant',
   },
   en: {
@@ -38,6 +39,7 @@ const copy = {
     selectAction: 'Choose an action, add context, then generate a response.',
     showLess: 'Collapse',
     showMore: 'View full result',
+    showMoreRuns: 'Show more executions',
     title: 'Start with this assistant',
   },
 };
@@ -73,6 +75,7 @@ function statusLabel(status, locale) {
 export default function WorkspaceRunActions({
   actions = [],
   enabled = false,
+  disabledMessage,
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
@@ -85,11 +88,12 @@ export default function WorkspaceRunActions({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [expandedRunIds, setExpandedRunIds] = useState([]);
+  const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const selectedAction = actions[selectedIndex] ?? actions[0] ?? null;
   const canSubmit = enabled && selectedAction && inputText.trim().length >= 3 && !isSubmitting;
   const remainingChars = maxInputChars - inputText.length;
-  const latestRuns = useMemo(() => runs.slice(0, 5), [runs]);
+  const latestRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
 
   async function submitRun(event) {
     event.preventDefault();
@@ -121,7 +125,7 @@ export default function WorkspaceRunActions({
         setError(data.error || t.error);
 
         if (data.run) {
-          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
         }
 
         return;
@@ -131,7 +135,7 @@ export default function WorkspaceRunActions({
       setInputText('');
 
       if (data.run) {
-        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
       }
     } catch {
       setError(t.error);
@@ -155,7 +159,7 @@ export default function WorkspaceRunActions({
         <div>
           <p className="font-label mb-2 text-xs text-[#9B72CF]">{enabled ? 'ASSISTANT IA GUIDÉ' : 'ACCES DIRECT'}</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : disabledMessage || t.disabled}</p>
         </div>
       </div>
 
@@ -269,6 +273,15 @@ export default function WorkspaceRunActions({
               );
             })}
           </div>
+        )}
+        {runs.length > visibleRunCount && (
+          <button
+            type="button"
+            onClick={() => setVisibleRunCount((count) => count + 5)}
+            className="mt-4 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+          >
+            {t.showMoreRuns}
+          </button>
         )}
       </div>
     </div>

@@ -24,6 +24,7 @@ const copy = {
     selectAction: 'Ajoutez un document, choisissez une action, puis lancez l’analyse.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
+    showMoreRuns: 'Voir plus d’analyses',
     title: 'Ajouter un document',
     upload: 'Extraire le document',
     uploading: 'Upload et extraction...',
@@ -46,6 +47,7 @@ const copy = {
     selectAction: 'Add a document, choose an action, then run the analysis.',
     showLess: 'Collapse',
     showMore: 'View full result',
+    showMoreRuns: 'Show more analyses',
     title: 'Add a document',
     upload: 'Extract document',
     uploading: 'Uploading and extracting...',
@@ -91,6 +93,7 @@ function formatBytes(value) {
 export default function DocumentWorkspaceActions({
   actions = [],
   enabled = false,
+  disabledMessage,
   initialRuns = [],
   locale = 'fr',
   maxFileBytes = 3500000,
@@ -106,10 +109,11 @@ export default function DocumentWorkspaceActions({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [expandedRunIds, setExpandedRunIds] = useState([]);
+  const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const selectedAction = actions[selectedIndex] ?? actions[0] ?? null;
-  const latestRuns = useMemo(() => runs.slice(0, 5), [runs]);
+  const latestRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
   const remainingChars = maxInputChars - inputText.length;
   const canUpload = enabled && selectedFile && selectedFile.size <= maxFileBytes && !isUploading && !isSubmitting;
   const canSubmit = enabled && documentFile?.status === 'extracted' && selectedAction && !isSubmitting && !isUploading;
@@ -182,7 +186,7 @@ export default function DocumentWorkspaceActions({
       if (!response.ok || data.status !== 'succeeded') {
         setError(data.error || t.error);
         if (data.run) {
-          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+          setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
         }
         return;
       }
@@ -193,7 +197,7 @@ export default function DocumentWorkspaceActions({
       setSelectedFile(null);
 
       if (data.run) {
-        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)].slice(0, 5));
+        setRuns((current) => [data.run, ...current.filter((run) => run.id !== data.run.id)]);
       }
     } catch {
       setError(t.error);
@@ -217,7 +221,7 @@ export default function DocumentWorkspaceActions({
         <div>
           <p className="font-label mb-2 text-xs text-[#9B72CF]">DOCUMENT RUNTIME BETA</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : disabledMessage || t.disabled}</p>
         </div>
       </div>
 
@@ -370,6 +374,15 @@ export default function DocumentWorkspaceActions({
               );
             })}
           </div>
+        )}
+        {runs.length > visibleRunCount && (
+          <button
+            type="button"
+            onClick={() => setVisibleRunCount((count) => count + 5)}
+            className="mt-4 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+          >
+            {t.showMoreRuns}
+          </button>
         )}
       </div>
     </div>

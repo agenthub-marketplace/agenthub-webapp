@@ -2,6 +2,7 @@ import "server-only";
 
 import { normalizeAgentContract, type AgentContract, type AgentRuntimeType } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildAgentManifest, type AgentManifestV1 } from "@/server/agents/manifest";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 export type AdminReviewQueueItem = {
@@ -41,6 +42,8 @@ export type AdminReviewQueueItem = {
     id: string;
     status: string;
   } | null;
+  manifest: AgentManifestV1 | null;
+  manifestError: string | null;
   latestAdminReview: {
     decision: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "suspended";
     notes: string | null;
@@ -181,6 +184,8 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
   const workflowByVersion = new Map<string, AdminReviewQueueItem["workflow"]>();
   const creatorEndpointByVersion = new Map<string, AdminReviewQueueItem["creatorEndpoint"]>();
   const securityReviewByVersion = new Map<string, AdminReviewQueueItem["securityReview"]>();
+  const manifestByVersion = new Map<string, AgentManifestV1 | null>();
+  const manifestErrorByVersion = new Map<string, string | null>();
 
   if (agentIds.length > 0) {
     const { data: versions } = await supabase
@@ -218,6 +223,14 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
   }
 
   const reviewVersionIds = Array.from(new Set([...reviewVersionIdByAgent.values()]));
+
+  await Promise.all(
+    reviewVersionIds.map(async (versionId) => {
+      const result = await buildAgentManifest(versionId);
+      manifestByVersion.set(versionId, result.manifest);
+      manifestErrorByVersion.set(versionId, result.error);
+    }),
+  );
 
   const { data: runtimeSettings } = await supabase
     .from("agent_runtime_settings")
@@ -369,6 +382,8 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
         workflow: versionId ? workflowByVersion.get(versionId) ?? null : null,
         creatorEndpoint: versionId ? creatorEndpointByVersion.get(versionId) ?? null : null,
         securityReview: versionId ? securityReviewByVersion.get(versionId) ?? null : null,
+        manifest: versionId ? manifestByVersion.get(versionId) ?? null : null,
+        manifestError: versionId ? manifestErrorByVersion.get(versionId) ?? null : null,
         latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
       };
     }),

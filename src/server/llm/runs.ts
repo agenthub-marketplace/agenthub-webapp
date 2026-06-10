@@ -51,7 +51,7 @@ export function isMissingAgentRunsSchemaError(error: { code?: string; message?: 
   return errorText.includes("agent_runs") || errorText.includes("schema cache");
 }
 
-export async function getUserAgentRuns(userId: string, rentalId: string) {
+export async function getUserAgentRuns(userId: string, rentalId: string, limit = 20) {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -64,7 +64,7 @@ export async function getUserAgentRuns(userId: string, rentalId: string) {
     .eq("user_id", userId)
     .eq("rental_request_id", rentalId)
     .order("created_at", { ascending: false })
-    .limit(5)
+    .limit(limit)
     .returns<AgentRunRow[]>();
 
   if (error) {

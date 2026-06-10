@@ -21,6 +21,7 @@ const copy = {
     selectAction: 'Ajoutez votre demande, puis lancez le workflow validé par AgentHub.',
     showLess: 'Réduire',
     showMore: 'Voir le résultat complet',
+    showMoreRuns: 'Voir plus de workflows',
     title: 'Lancer le workflow',
   },
   en: {
@@ -38,6 +39,7 @@ const copy = {
     selectAction: 'Add your request, then run the AgentHub-reviewed workflow.',
     showLess: 'Collapse',
     showMore: 'View full result',
+    showMoreRuns: 'Show more workflows',
     title: 'Run workflow',
   },
 };
@@ -72,6 +74,7 @@ function statusLabel(status, locale) {
 
 export default function WorkflowWorkspaceActions({
   enabled = false,
+  disabledMessage,
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
@@ -84,12 +87,14 @@ export default function WorkflowWorkspaceActions({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [expandedRunIds, setExpandedRunIds] = useState([]);
+  const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const remainingChars = maxInputChars - inputText.length;
-  const latestRuns = useMemo(() => runs.slice(0, 5), [runs]);
-  const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting;
-  const activeRunId = workflowRun?.agentRunId;
-  const activeStatus = workflowRun?.status;
+  const latestRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
+  const runningRun = runs.find((run) => run.status === 'running');
+  const activeRunId = workflowRun?.agentRunId ?? runningRun?.id;
+  const activeStatus = workflowRun?.status ?? runningRun?.status;
+  const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting && !activeRunId;
 
   useEffect(() => {
     if (!activeRunId || !['queued', 'running'].includes(activeStatus)) {
@@ -124,7 +129,7 @@ export default function WorkflowWorkspaceActions({
                 status: 'succeeded',
               },
               ...current.filter((run) => run.id !== data.workflowRun.agentRunId),
-            ].slice(0, 5),
+            ],
           );
         }
 
@@ -143,7 +148,7 @@ export default function WorkflowWorkspaceActions({
                 status: 'failed',
               },
               ...current.filter((run) => run.id !== data.workflowRun.agentRunId),
-            ].slice(0, 5),
+            ],
           );
         }
       } catch {
@@ -213,7 +218,7 @@ export default function WorkflowWorkspaceActions({
         <div>
           <p className="font-label mb-2 text-xs text-[#9B72CF]">WORKFLOW AUTOMATION BETA</p>
           <h2 className="font-display text-xl font-bold text-[#F4EFFA]">{t.title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : t.disabled}</p>
+          <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{enabled ? t.selectAction : disabledMessage || t.disabled}</p>
         </div>
       </div>
 
@@ -311,6 +316,15 @@ export default function WorkflowWorkspaceActions({
               );
             })}
           </div>
+        )}
+        {runs.length > visibleRunCount && (
+          <button
+            type="button"
+            onClick={() => setVisibleRunCount((count) => count + 5)}
+            className="mt-4 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+          >
+            {t.showMoreRuns}
+          </button>
         )}
       </div>
     </div>
