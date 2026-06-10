@@ -22,6 +22,11 @@ type CreatorAgentNotificationRow = {
   updated_at: string;
 };
 
+type CountResult = {
+  count: number | null;
+  error: unknown;
+};
+
 type AdminReviewNotificationRow = {
   id: string;
   agent_id: string;
@@ -72,6 +77,18 @@ function titleForDecision(decision: AdminReviewNotificationRow["decision"], note
   return "Mise à jour admin";
 }
 
+function countValue(result: CountResult) {
+  return result.error ? 0 : result.count ?? 0;
+}
+
+function pluralizeAgent(count: number) {
+  return `agent${count === 1 ? "" : "s"}`;
+}
+
+function pluralizeEndpoint(count: number) {
+  return `endpoint${count === 1 ? "" : "s"}`;
+}
+
 export async function getCurrentUserNotifications(): Promise<AppNotification[]> {
   const profile = await getCurrentProfile();
   const supabase = await createSupabaseServerClient();
@@ -83,18 +100,95 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
   const notifications: AppNotification[] = [];
 
   if (profile.role === "admin") {
-    const { count } = await supabase
-      .from("agents")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["submitted", "in_review"]);
+    const [
+      reviewQueueResult,
+      workflowEndpointResult,
+      creatorEndpointResult,
+      workflowAssetResult,
+      creatorEndpointAssetResult,
+      securityReviewResult,
+      pendingPaymentResult,
+      blockedPaymentResult,
+    ] = await Promise.all([
+      supabase.from("agents").select("id", { count: "exact", head: true }).in("status", ["submitted", "in_review"]),
+      supabase.from("creator_webhook_endpoints").select("id", { count: "exact", head: true }).eq("status", "submitted"),
+      supabase.from("creator_api_endpoints").select("id", { count: "exact", head: true }).eq("status", "submitted"),
+      supabase.from("agent_version_workflows").select("id", { count: "exact", head: true }).eq("status", "submitted"),
+      supabase.from("agent_version_creator_endpoints").select("id", { count: "exact", head: true }).eq("status", "submitted"),
+      supabase.from("security_reviews").select("id", { count: "exact", head: true }).in("status", ["pending", "in_review"]),
+      supabase.from("payments").select("id", { count: "exact", head: true }).in("status", ["pending", "checkout_opened"]),
+      supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "paid_blocked"),
+    ]);
 
-    if ((count ?? 0) > 0) {
+    const reviewQueueCount = countValue(reviewQueueResult);
+    const endpointCount = countValue(workflowEndpointResult) + countValue(creatorEndpointResult);
+    const workflowAssetCount = countValue(workflowAssetResult) + countValue(creatorEndpointAssetResult);
+    const securityReviewCount = countValue(securityReviewResult);
+    const pendingPaymentCount = countValue(pendingPaymentResult);
+    const blockedPaymentCount = countValue(blockedPaymentResult);
+
+    if (reviewQueueCount > 0) {
       notifications.push({
         id: "admin-review-queue",
         title: "File de validation",
-        body: `${count} agent${count === 1 ? "" : "s"} à vérifier dans le panneau admin.`,
+        body: `${reviewQueueCount} ${pluralizeAgent(reviewQueueCount)} à vérifier dans le panneau admin.`,
         href: "/code/admin/review",
         tone: "warning",
+        createdAt: null,
+      });
+    }
+
+    if (workflowAssetCount > 0) {
+      notifications.push({
+        id: "admin-workflow-assets",
+        title: "Assets runtime à valider",
+        body: `${workflowAssetCount} asset${workflowAssetCount === 1 ? "" : "s"} workflow/API attendent une décision admin.`,
+        href: "/code/admin/review",
+        tone: "warning",
+        createdAt: null,
+      });
+    }
+
+    if (endpointCount > 0) {
+      notifications.push({
+        id: "admin-endpoints-submitted",
+        title: "Endpoints creator à vérifier",
+        body: `${endpointCount} ${pluralizeEndpoint(endpointCount)} webhook/API attendent une validation.`,
+        href: "/code/admin/endpoints",
+        tone: "warning",
+        createdAt: null,
+      });
+    }
+
+    if (securityReviewCount > 0) {
+      notifications.push({
+        id: "admin-security-reviews",
+        title: "Security reviews ouvertes",
+        body: `${securityReviewCount} review${securityReviewCount === 1 ? "" : "s"} sécurité à traiter avant publication avancée.`,
+        href: "/code/admin/security/reviews",
+        tone: "error",
+        createdAt: null,
+      });
+    }
+
+    if (blockedPaymentCount > 0) {
+      notifications.push({
+        id: "admin-payments-blocked",
+        title: "Paiements à surveiller",
+        body: `${blockedPaymentCount} activation${blockedPaymentCount === 1 ? "" : "s"} bloquée${blockedPaymentCount === 1 ? "" : "s"} après paiement.`,
+        href: "/code/admin/payments",
+        tone: "error",
+        createdAt: null,
+      });
+    }
+
+    if (pendingPaymentCount > 0) {
+      notifications.push({
+        id: "admin-payments-pending",
+        title: "Paiements en attente",
+        body: `${pendingPaymentCount} paiement${pendingPaymentCount === 1 ? "" : "s"} sandbox encore ouvert${pendingPaymentCount === 1 ? "" : "s"}.`,
+        href: "/code/admin/ops",
+        tone: "info",
         createdAt: null,
       });
     }

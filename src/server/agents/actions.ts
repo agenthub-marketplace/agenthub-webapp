@@ -48,6 +48,31 @@ function readText(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function readEndpointUrl(formData: FormData, key: string) {
+  return readText(formData, key)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/^[`"'“”‘’<]+|[`"'“”‘’>]+$/g, "")
+    .replace(/[.,;:]+$/g, "")
+    .trim();
+}
+
+function safeEndpointUrlDebug(value: string) {
+  try {
+    const url = new URL(value);
+
+    return {
+      host: url.host,
+      path: url.pathname,
+      protocol: url.protocol,
+    };
+  } catch {
+    return {
+      rawLength: value.length,
+      validUrl: false,
+    };
+  }
+}
+
 function redirectWithError(locale: Locale, error: string): never {
   redirect(`/code/agents/new?error=${encodeURIComponent(error)}`);
 }
@@ -213,9 +238,9 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "invalid-contract");
   }
 
-  const workflowEndpointUrl = readText(formData, "workflow_endpoint_url");
+  const workflowEndpointUrl = readEndpointUrl(formData, "workflow_endpoint_url");
   const workflowEndpointName = readText(formData, "workflow_endpoint_name") || `${values.name} workflow endpoint`;
-  const creatorEndpointUrl = readText(formData, "creator_endpoint_url");
+  const creatorEndpointUrl = readEndpointUrl(formData, "creator_endpoint_url");
   const creatorEndpointName = readText(formData, "creator_endpoint_name") || `${values.name} creator endpoint`;
   const hasWebhookStep = readText(formData, "workflow_steps")
     .split(/\r?\n/)
@@ -229,7 +254,12 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "invalid-workflow");
   }
 
-  if (runtimeType === "creator_endpoint" && (!creatorEndpointUrl || !(await isSafeResolvedWorkflowEndpointUrl(creatorEndpointUrl)))) {
+  if (runtimeType === "creator_endpoint" && !creatorEndpointUrl) {
+    redirectWithError(locale, "missing-creator-endpoint");
+  }
+
+  if (runtimeType === "creator_endpoint" && !(await isSafeResolvedWorkflowEndpointUrl(creatorEndpointUrl))) {
+    console.warn("Creator endpoint URL rejected", safeEndpointUrlDebug(creatorEndpointUrl));
     redirectWithError(locale, "invalid-creator-endpoint");
   }
 

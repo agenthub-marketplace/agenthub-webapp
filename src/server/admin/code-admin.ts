@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AgentRuntimeType } from "@/lib/agent-contract";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RuntimeAccessRow = {
@@ -16,6 +17,10 @@ type CreatorAdminRow = {
   verified_at: string | null;
   created_at: string;
   creator_runtime_access: RuntimeAccessRow[] | null;
+  profiles:
+    | { display_name: string | null; email: string | null; role: string | null }
+    | { display_name: string | null; email: string | null; role: string | null }[]
+    | null;
   agents: { id: string; status: string }[] | null;
 };
 
@@ -112,7 +117,7 @@ function mapAccess(rows: RuntimeAccessRow[] | null | undefined) {
 }
 
 export async function getAdminCreators() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
     return { creators: [], error: "missing-config" };
@@ -121,7 +126,7 @@ export async function getAdminCreators() {
   const { data, error } = await supabase
     .from("creator_profiles")
     .select(
-      "id,public_name,verified_at,created_at,creator_runtime_access(runtime_type,enabled,notes,updated_at),agents(id,status)",
+      "id,public_name,verified_at,created_at,profiles!creator_profiles_user_id_fkey(email,display_name,role),creator_runtime_access(runtime_type,enabled,notes,updated_at),agents(id,status)",
     )
     .order("created_at", { ascending: false })
     .limit(200)
@@ -135,13 +140,14 @@ export async function getAdminCreators() {
     creators: (data ?? []).map((creator) => {
       const access = mapAccess(creator.creator_runtime_access);
       const agents = creator.agents ?? [];
+      const profile = readSingle(creator.profiles);
 
       return {
         id: creator.id,
         publicName: creator.public_name,
-        email: "masqué en beta",
-        displayName: null,
-        role: "creator",
+        email: profile?.email ?? "Email introuvable",
+        displayName: profile?.display_name ?? null,
+        role: profile?.role ?? "creator",
         verifiedAt: creator.verified_at,
         createdAt: creator.created_at,
         agentCount: agents.length,

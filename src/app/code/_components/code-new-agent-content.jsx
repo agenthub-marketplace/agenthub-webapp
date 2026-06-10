@@ -58,6 +58,7 @@ const errorMessages = {
   'invalid-workflow-endpoint': 'L’endpoint webhook doit être une URL HTTPS publique, sans localhost ni IP privée.',
   'workflow-endpoint-failed': 'Impossible d’enregistrer l’endpoint webhook du workflow.',
   'workflow-create-failed': 'Impossible d’enregistrer la définition workflow.',
+  'missing-creator-endpoint': 'Ajoutez une URL endpoint HTTPS publique pour créer cet agent API.',
   'invalid-creator-endpoint': 'L’agent API nécessite une URL HTTPS publique valide, sans localhost ni IP privée.',
   'creator-endpoint-failed': 'Impossible d’enregistrer l’endpoint API creator.',
   'creator-endpoint-config-failed': 'Impossible de lier l’endpoint API à cette version d’agent.',
@@ -113,6 +114,14 @@ function lines(value) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function normalizeEndpointUrl(value) {
+  return value
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/^[`"'“”‘’<]+|[`"'“”‘’>]+$/g, '')
+    .replace(/[.,;:]+$/g, '')
+    .trim();
 }
 
 function Stepper({ currentStep, setCurrentStep, templateSelected }) {
@@ -339,6 +348,16 @@ export default function CodeNewAgentContent({
     return {
       name,
       value: values[name] ?? '',
+      onChange: (event) => updateField(name, event.target.value),
+      ...props,
+    };
+  }
+
+  function endpointInput(name, props = {}) {
+    return {
+      name,
+      value: values[name] ?? '',
+      onBlur: (event) => updateField(name, normalizeEndpointUrl(event.target.value)),
       onChange: (event) => updateField(name, event.target.value),
       ...props,
     };
@@ -647,7 +666,7 @@ export default function CodeNewAgentContent({
                   <input {...textInput('workflow_endpoint_name')} className={inputClass} />
                 </Field>
                 <Field label="URL endpoint webhook" hint="HTTPS public uniquement. Pas de localhost/IP privée.">
-                  <input {...textInput('workflow_endpoint_url', { placeholder: 'https://example.com/agenthub/webhook' })} className={inputClass} />
+                  <input {...endpointInput('workflow_endpoint_url', { placeholder: 'https://example.com/agenthub/webhook' })} className={inputClass} />
                 </Field>
               </div>
             </CodePanel>
@@ -670,7 +689,7 @@ export default function CodeNewAgentContent({
                   <input {...textInput('creator_endpoint_name')} className={inputClass} />
                 </Field>
                 <Field label="URL endpoint" hint="HTTPS public uniquement. Réponse JSON attendue: { output_text: string }.">
-                  <input {...textInput('creator_endpoint_url', { placeholder: 'https://example.com/agenthub/endpoint' })} className={inputClass} />
+                  <input {...endpointInput('creator_endpoint_url', { placeholder: 'https://example.com/agenthub/endpoint' })} className={inputClass} />
                 </Field>
               </div>
             </CodePanel>
