@@ -292,8 +292,14 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
         </Link>
 
         {accessCreated && (
-          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            Votre accès est activé. Vous pouvez retrouver cet agent depuis “Mes agents”.
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7] sm:flex-row sm:items-center sm:justify-between">
+            <p>Votre accès est activé. Vous pouvez retrouver cet agent depuis “Mes agents”.</p>
+            <Link
+              href={`/agenthub/workspace/${rental.id}?tab=use`}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#10B981] px-4 text-sm font-bold text-[#07130F] transition-colors hover:bg-[#34D399]"
+            >
+              Utiliser maintenant
+            </Link>
           </div>
         )}
 

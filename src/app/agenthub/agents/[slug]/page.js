@@ -300,9 +300,9 @@ export default async function Page({ params, searchParams }) {
                     <span>Activé le {formatOrderDate(orderState.createdAt)}</span>
                     <span>Montant : {formatOrderPrice(orderState.priceCents, orderState.currency)}</span>
                   </div>
-                  <Link href={`/agenthub/workspace/${orderState.rentalId}`} className="mt-4 block">
+                  <Link href={`/agenthub/workspace/${orderState.rentalId}?tab=use`} className="mt-4 block">
                     <Button className="w-full border-0 bg-[#10B981] text-[#07130F] hover:bg-[#34D399]">
-                      Ouvrir mon agent
+                      Ouvrir et utiliser
                     </Button>
                   </Link>
                 </div>
