@@ -12,7 +12,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "agent:loop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1",
+    "agent:workspace": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/workspace-fluidity.md",
+    "agent:activation": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/activation-flow-audit.md",
+    "agent:reviews": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/verified-reviews-audit.md",
+    "agent:admin-states": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/admin-review-state-map.md",
+    "agent:creator-guards": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/creator-submission-guardrails.md",
+    "agent:validate": "npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
