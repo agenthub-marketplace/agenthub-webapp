@@ -7,6 +7,7 @@ import {
   type ExecutionMode,
   type WorkspaceMode,
 } from "@/lib/agent-contract";
+import { evaluateAgentContractQuality, type AgentContractQualityCheck } from "@/lib/agent-contract-quality";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
@@ -71,6 +72,13 @@ export type AgentManifestV1 = {
     fixedPriceCents: number | null;
     payoutStatus: "not_enabled";
     pricingType: string;
+  };
+  qualityProfile: {
+    blockerCount: number;
+    checks: AgentContractQualityCheck[];
+    readyForClosedBeta: boolean;
+    score: number;
+    warningCount: number;
   };
   publicationType: AgentPublicationType;
   runtimeRequirements: {
@@ -564,6 +572,23 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
   const category = readSingle(agent.agent_categories);
   const type = publicationType(contract.runtimeType);
   const infra = infraMode(contract.runtimeType);
+  const qualityReport = evaluateAgentContractQuality({
+    capabilities: version.capabilities,
+    dataPolicy: version.data_policy,
+    deliverables: version.deliverables,
+    executionMode: version.execution_mode,
+    limitations: version.limitations,
+    name: agent.name,
+    outputPromise: version.output_promise,
+    requiredInputs: version.required_inputs,
+    riskLevel: agent.risk_level,
+    runtimeType: version.runtime_type,
+    setupRequirements: version.setup_requirements,
+    startingPriceCents: agent.starting_price_cents,
+    summary: agent.summary,
+    workspaceMode: version.workspace_mode,
+  });
+  const qualityScore = Math.max(0, 100 - qualityReport.blockerCount * 25 - qualityReport.warningCount * 8);
   const requiresSecurityReview =
     contract.runtimeType === "document_file" || contract.runtimeType === "workflow_automation" || contract.runtimeType === "creator_endpoint";
 
@@ -668,6 +693,13 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
         fixedPriceCents: agent.starting_price_cents,
         payoutStatus: "not_enabled",
         pricingType: agent.pricing_type,
+      },
+      qualityProfile: {
+        blockerCount: qualityReport.blockerCount,
+        checks: qualityReport.checks,
+        readyForClosedBeta: qualityReport.readyForClosedBeta,
+        score: qualityScore,
+        warningCount: qualityReport.warningCount,
       },
       publicationType: type,
       runtimeRequirements: {

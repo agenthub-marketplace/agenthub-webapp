@@ -233,6 +233,28 @@ function FindingList({ emptyText, findings }) {
   );
 }
 
+function QualityCheckList({ checks = [] }) {
+  const failedChecks = checks.filter((check) => check.status === 'fail');
+
+  if (failedChecks.length === 0) {
+    return <p className="text-sm text-[#166534]">Aucun point qualité bloquant ou warning détecté.</p>;
+  }
+
+  return (
+    <ul className="mt-3 space-y-2">
+      {failedChecks.slice(0, 5).map((check) => (
+        <li key={check.id} className="rounded-xl border border-[#E5E7EB] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-[#111827]">{check.label}</p>
+            <StatusBadge status={check.severity === 'blocker' ? 'failed' : 'in_review'} label={check.severity} />
+          </div>
+          <p className="mt-1 text-xs leading-5 text-[#4B5563]">{check.detail}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ReviewActions({ agent }) {
   if (agent.status === 'submitted') {
     return (
@@ -396,6 +418,12 @@ export default async function AdminReviewPage({ searchParams }) {
                           {agent.manifest.securityProfile.securityReviewRequired ? agent.manifest.securityProfile.securityReviewStatus : 'Non requis'}
                         </p>
                       </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Score qualité</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">
+                          {agent.manifest.qualityProfile.score}/100
+                        </p>
+                      </div>
                       <div className="rounded-xl border border-[#DDD6FE] bg-white p-3 md:col-span-2">
                         <p className="font-label text-[10px] text-[#6B3FA0]">Exigences runtime</p>
                         <p className="mt-1 text-sm text-[#374151]">
@@ -414,8 +442,26 @@ export default async function AdminReviewPage({ searchParams }) {
                         <p className="mt-1 text-sm text-[#374151]">
                           {agent.manifest.securityProfile.blockingFindings.length > 0
                             ? agent.manifest.securityProfile.blockingFindings.join(' · ')
-                            : 'Aucun blocage manifeste détecté'}
+                          : 'Aucun blocage manifeste détecté'}
                         </p>
+                      </div>
+                      <div className="rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#F8FAFC_100%)] p-4 md:col-span-2 xl:col-span-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-label text-xs text-[#6B3FA0]">Agent Quality Score interne</p>
+                            <h3 className="mt-1 text-lg font-bold text-[#111827]">
+                              {agent.manifest.qualityProfile.readyForClosedBeta ? 'Prêt beta fermée' : 'Qualité à corriger'}
+                            </h3>
+                            <p className="mt-2 text-sm text-[#4B5563]">
+                              {agent.manifest.qualityProfile.blockerCount} blocage(s), {agent.manifest.qualityProfile.warningCount} warning(s). Score non public, réservé à la review admin.
+                            </p>
+                          </div>
+                          <StatusBadge
+                            status={agent.manifest.qualityProfile.readyForClosedBeta ? 'approved' : 'failed'}
+                            label={`${agent.manifest.qualityProfile.score}/100`}
+                          />
+                        </div>
+                        <QualityCheckList checks={agent.manifest.qualityProfile.checks} />
                       </div>
                       <div className="rounded-2xl border border-[#C4B5FD] bg-[linear-gradient(135deg,#FFFFFF_0%,#F5F3FF_100%)] p-4 md:col-span-2 xl:col-span-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">

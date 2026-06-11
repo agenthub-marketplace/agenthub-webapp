@@ -3,6 +3,7 @@ import "server-only";
 import type { AgentRuntimeType } from "@/lib/agent-contract";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 type RuntimeAccessRow = {
   enabled: boolean;
@@ -103,6 +104,83 @@ type AgentRunOpsRow = {
   user_id: string;
   agents: { name: string; slug: string } | { name: string; slug: string }[] | null;
   profiles: { email: string } | { email: string }[] | null;
+};
+
+type AdvancedAgentVersionRow = {
+  agent_id: string;
+  created_at: string;
+  execution_mode: string | null;
+  id: string;
+  runtime_type: AgentRuntimeType;
+  workspace_mode: string | null;
+  agents:
+    | {
+        active_version_id: string | null;
+        creator_id: string;
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+      }
+    | Array<{
+        active_version_id: string | null;
+        creator_id: string;
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+      }>
+    | null;
+};
+
+type AdvancedAgentRow = {
+  active_version_id: string | null;
+  creator_id: string;
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+};
+
+type CreatorIdentityRow = {
+  id: string;
+  public_name: string;
+  profiles: { email: string | null } | { email: string | null }[] | null;
+};
+
+type WorkflowDiagnosticRow = {
+  agent_version_id: string;
+  definition: unknown;
+  id: string;
+  status: string;
+};
+
+type EndpointDiagnosticConfigRow = {
+  agent_version_id: string;
+  creator_api_endpoints:
+    | { endpoint_url: string; id: string; name: string; status: string }
+    | Array<{ endpoint_url: string; id: string; name: string; status: string }>
+    | null;
+  endpoint_id: string;
+  id: string;
+  status: string;
+};
+
+type SecurityReviewDiagnosticRow = {
+  agent_version_id: string | null;
+  created_at: string;
+  id: string;
+  runtime_type: string;
+  status: string;
+};
+
+type AgentRunDiagnosticRow = {
+  agent_version_id: string;
+  created_at: string;
+  error_code: string | null;
+  id: string;
+  provider: string;
+  status: string;
 };
 
 function readSingle<T>(value: T | T[] | null) {
@@ -404,6 +482,274 @@ export async function getAdminOpsSnapshot() {
       actorEmail: readSingle(log.profiles)?.email ?? "admin inconnu",
     })),
     error: null,
+  };
+}
+
+function latestByVersion<T extends { agent_version_id: string | null; created_at: string }>(rows: T[] | null | undefined) {
+  const result = new Map<string, T>();
+
+  for (const row of rows ?? []) {
+    if (!row.agent_version_id) {
+      continue;
+    }
+
+    if (!result.has(row.agent_version_id)) {
+      result.set(row.agent_version_id, row);
+    }
+  }
+
+  return result;
+}
+
+function diagnosticCheck(input: { key: string; label: string; ok: boolean; detail?: string | null }) {
+  return {
+    detail: input.detail ?? null,
+    key: input.key,
+    label: input.label,
+    ok: input.ok,
+  };
+}
+
+function firstBlocker(checks: Array<{ detail: string | null; label: string; ok: boolean }>) {
+  const blocked = checks.find((check) => !check.ok);
+
+  return blocked ? `${blocked.label}${blocked.detail ? `: ${blocked.detail}` : ""}` : null;
+}
+
+export async function getAdvancedAgentDiagnostics() {
+  const supabase = createSupabaseServiceClient();
+
+  if (!supabase) {
+    return { diagnostics: [], error: "missing-config", summary: { blocked: 0, ready: 0, total: 0 } };
+  }
+
+  const { data: versions, error: versionError } = await supabase
+    .from("agent_versions")
+    .select("id,agent_id,runtime_type,execution_mode,workspace_mode,created_at,agents!inner(id,name,slug,status,creator_id,active_version_id)")
+    .in("runtime_type", ["workflow_automation", "creator_endpoint"])
+    .order("created_at", { ascending: false })
+    .limit(100)
+    .returns<AdvancedAgentVersionRow[]>();
+
+  if (versionError) {
+    return { diagnostics: [], error: "advanced-agents-load-failed", summary: { blocked: 0, ready: 0, total: 0 } };
+  }
+
+  const normalizedVersions: Array<AdvancedAgentVersionRow & { agent: AdvancedAgentRow }> = [];
+
+  for (const version of versions ?? []) {
+    const agent = readSingle(version.agents) as AdvancedAgentRow | null;
+
+    if (agent) {
+      normalizedVersions.push({ ...version, agent });
+    }
+  }
+  const versionIds = [...new Set(normalizedVersions.map((version) => version.id))];
+  const creatorIds = [...new Set(normalizedVersions.map((version) => version.agent.creator_id))];
+
+  const [
+    creatorsResult,
+    runtimeSettingsResult,
+    accessResult,
+    workflowsResult,
+    endpointConfigsResult,
+    securityReviewsResult,
+    runsResult,
+  ] = await Promise.all([
+    creatorIds.length
+      ? supabase
+          .from("creator_profiles")
+          .select("id,public_name,profiles!creator_profiles_user_id_fkey(email)")
+          .in("id", creatorIds)
+          .returns<CreatorIdentityRow[]>()
+      : Promise.resolve({ data: [] as CreatorIdentityRow[], error: null }),
+    supabase
+      .from("agent_runtime_settings")
+      .select("runtime_type,enabled,creator_visible,run_enabled,description,updated_at")
+      .in("runtime_type", ["workflow_automation", "creator_endpoint"])
+      .returns<RuntimeSettingRow[]>(),
+    creatorIds.length
+      ? supabase
+          .from("creator_runtime_access")
+          .select("creator_id,runtime_type,enabled,notes,updated_at")
+          .in("creator_id", creatorIds)
+          .in("runtime_type", ["workflow_automation", "creator_endpoint"])
+          .returns<(RuntimeAccessRow & { creator_id: string })[]>()
+      : Promise.resolve({ data: [] as Array<RuntimeAccessRow & { creator_id: string }>, error: null }),
+    versionIds.length
+      ? supabase
+          .from("agent_version_workflows")
+          .select("id,agent_version_id,status,definition,created_at")
+          .in("agent_version_id", versionIds)
+          .returns<(WorkflowDiagnosticRow & { created_at: string })[]>()
+      : Promise.resolve({ data: [] as Array<WorkflowDiagnosticRow & { created_at: string }>, error: null }),
+    versionIds.length
+      ? supabase
+          .from("agent_version_creator_endpoints")
+          .select("id,agent_version_id,endpoint_id,status,created_at,creator_api_endpoints!agent_version_creator_endpoints_endpoint_id_fkey(id,name,status,endpoint_url)")
+          .in("agent_version_id", versionIds)
+          .returns<(EndpointDiagnosticConfigRow & { created_at: string })[]>()
+      : Promise.resolve({ data: [] as Array<EndpointDiagnosticConfigRow & { created_at: string }>, error: null }),
+    versionIds.length
+      ? supabase
+          .from("security_reviews")
+          .select("id,agent_version_id,runtime_type,status,created_at")
+          .in("agent_version_id", versionIds)
+          .order("created_at", { ascending: false })
+          .returns<SecurityReviewDiagnosticRow[]>()
+      : Promise.resolve({ data: [] as SecurityReviewDiagnosticRow[], error: null }),
+    versionIds.length
+      ? supabase
+          .from("agent_runs")
+          .select("id,agent_version_id,status,provider,error_code,created_at")
+          .in("agent_version_id", versionIds)
+          .order("created_at", { ascending: false })
+          .returns<AgentRunDiagnosticRow[]>()
+      : Promise.resolve({ data: [] as AgentRunDiagnosticRow[], error: null }),
+  ]);
+
+  if (
+    creatorsResult.error ||
+    runtimeSettingsResult.error ||
+    accessResult.error ||
+    workflowsResult.error ||
+    endpointConfigsResult.error ||
+    securityReviewsResult.error ||
+    runsResult.error
+  ) {
+    return { diagnostics: [], error: "advanced-agents-related-data-failed", summary: { blocked: 0, ready: 0, total: 0 } };
+  }
+
+  const creatorsById = new Map((creatorsResult.data ?? []).map((creator) => [creator.id, creator]));
+  const settingsByRuntime = new Map((runtimeSettingsResult.data ?? []).map((setting) => [setting.runtime_type, setting]));
+  const accessByCreatorRuntime = new Map(
+    (accessResult.data ?? []).map((access) => [`${access.creator_id}:${access.runtime_type}`, access]),
+  );
+  const workflowByVersion = latestByVersion(workflowsResult.data);
+  const endpointConfigByVersion = latestByVersion(endpointConfigsResult.data);
+  const reviewByVersion = latestByVersion(securityReviewsResult.data);
+  const runByVersion = latestByVersion(runsResult.data);
+
+  const diagnostics = normalizedVersions.map((version) => {
+    const setting = settingsByRuntime.get(version.runtime_type);
+    const creator = creatorsById.get(version.agent.creator_id);
+    const creatorProfile = readSingle(creator?.profiles ?? null);
+    const access = accessByCreatorRuntime.get(`${version.agent.creator_id}:${version.runtime_type}`);
+    const workflow = workflowByVersion.get(version.id);
+    const workflowDefinition = normalizeWorkflowDefinition(workflow?.definition);
+    const endpointConfig = endpointConfigByVersion.get(version.id);
+    const endpoint = readSingle(endpointConfig?.creator_api_endpoints ?? null);
+    const securityReview = reviewByVersion.get(version.id);
+    const latestRun = runByVersion.get(version.id);
+    const assetLabel = version.runtime_type === "workflow_automation" ? "Workflow asset" : "Endpoint asset";
+    const assetApproved =
+      version.runtime_type === "workflow_automation"
+        ? Boolean(workflow && workflow.status === "approved" && workflowDefinition)
+        : Boolean(endpointConfig && endpointConfig.status === "approved" && endpoint?.status === "approved");
+
+    const checks = [
+      diagnosticCheck({
+        key: "active-version",
+        label: "Version active",
+        ok: version.agent.active_version_id === version.id,
+        detail: version.agent.active_version_id === version.id ? null : "cette version n’est pas la version active de l’agent",
+      }),
+      diagnosticCheck({
+        key: "runtime-setting",
+        label: "Runtime enabled/run_enabled",
+        ok: Boolean(setting?.enabled && setting.run_enabled),
+        detail: setting ? `enabled=${setting.enabled}, run_enabled=${setting.run_enabled}` : "runtime setting introuvable",
+      }),
+      diagnosticCheck({
+        key: "creator-allowlist",
+        label: "Creator allowlist",
+        ok: Boolean(access?.enabled),
+        detail: access ? `enabled=${access.enabled}` : "creator non allowlisté pour ce runtime",
+      }),
+      diagnosticCheck({
+        key: "asset-approved",
+        label: assetLabel,
+        ok: assetApproved,
+        detail:
+          version.runtime_type === "workflow_automation"
+            ? workflow
+              ? `status=${workflow.status}, steps=${workflowDefinition?.steps.length ?? 0}`
+              : "workflow manquant"
+            : endpointConfig
+              ? `config=${endpointConfig.status}, endpoint=${endpoint?.status ?? "missing"}`
+              : "endpoint config manquante",
+      }),
+      diagnosticCheck({
+        key: "security-review",
+        label: "Security review",
+        ok: Boolean(securityReview && ["passed", "waived"].includes(securityReview.status)),
+        detail: securityReview ? `status=${securityReview.status}` : "security review manquante",
+      }),
+      diagnosticCheck({
+        key: "agent-published",
+        label: "Publication marketplace",
+        ok: version.agent.status === "approved",
+        detail: `agent=${version.agent.status}`,
+      }),
+      diagnosticCheck({
+        key: "latest-run",
+        label: "Dernier run",
+        ok: !latestRun || latestRun.status === "succeeded",
+        detail: latestRun ? `${latestRun.status}${latestRun.error_code ? ` / ${latestRun.error_code}` : ""}` : "aucun run encore enregistré",
+      }),
+    ];
+    const blocker = firstBlocker(checks);
+
+    return {
+      agent: {
+        id: version.agent.id,
+        name: version.agent.name,
+        slug: version.agent.slug,
+        status: version.agent.status,
+      },
+      asset: {
+        endpointName: endpoint?.name ?? null,
+        endpointStatus: endpoint?.status ?? null,
+        endpointUrl: endpoint?.endpoint_url ?? null,
+        workflowStatus: workflow?.status ?? null,
+        workflowSteps: workflowDefinition?.steps.map((step) => ({ label: step.label, type: step.type })) ?? [],
+      },
+      checks,
+      creator: {
+        email: creatorProfile?.email ?? "Email introuvable",
+        id: version.agent.creator_id,
+        publicName: creator?.public_name ?? "Créateur inconnu",
+      },
+      firstBlocker: blocker,
+      latestRun: latestRun
+        ? {
+            createdAt: latestRun.created_at,
+            errorCode: latestRun.error_code,
+            id: latestRun.id,
+            provider: latestRun.provider,
+            status: latestRun.status,
+          }
+        : null,
+      ready: !blocker,
+      runtimeType: version.runtime_type,
+      securityReview: securityReview
+        ? {
+            id: securityReview.id,
+            status: securityReview.status,
+          }
+        : null,
+      versionId: version.id,
+    };
+  });
+
+  return {
+    diagnostics,
+    error: null,
+    summary: {
+      blocked: diagnostics.filter((item) => !item.ready).length,
+      ready: diagnostics.filter((item) => item.ready).length,
+      total: diagnostics.length,
+    },
   };
 }
 

@@ -305,6 +305,11 @@ Scope:
 - keep current runner components;
 - align FR/EN workspace detail behavior around the same contract.
 
+Status: first UI adapter implemented. FR/EN workspace detail pages pass
+`workspaceRecipe` into `WorkspaceAgentExperience`, which renders tab-scoped
+recipe blocks before the main content/runners. Deeper runner-level consumption
+remains a follow-up.
+
 ### Ticket 3: Advanced Agent Smoke Console
 
 Add an admin-only diagnostic page for advanced agent readiness:
@@ -323,6 +328,11 @@ It should answer:
 - what is the exact blocker before marketplace publication or workspace run?
 
 This avoids debugging advanced agents across five different screens.
+
+Status: v0 implemented as `/code/admin/ops/advanced-agents`. The page is
+read-only and shows, per workflow/API agent version, runtime settings,
+creator allowlist, asset approval, security review state, marketplace status,
+latest run state, and the first blocking reason.
 
 ### Ticket 4: Creator Infra Fallback Readiness
 
@@ -350,6 +360,11 @@ ledger that separates:
 
 This is a design/spec ticket first, not Stripe Connect implementation.
 
+Status: design spec created in `docs/revenue-ledger-v1.md`. The next
+implementation step should be an additive `creator_revenue_ledger` migration
+that records `payment_paid`, `access_created`, and `activation_blocked` only.
+Real payouts remain out of scope until the ledger is auditable.
+
 ### Ticket 6: Agent Quality Score Internal
 
 Compute internal quality, not public ranking:
@@ -365,6 +380,11 @@ manifest completeness
 
 Use it for admin prioritization and beta readiness, not for marketplace
 ranking until enough data exists.
+
+Status: first internal score wired into `AgentManifestV1` from the existing
+`evaluateAgentContractQuality()` helper. Admin review displays the score,
+blocker/warning counts, and failed quality checks. This score is not public and
+does not auto-publish or auto-reject agents.
 
 ### Ticket 7: Creator Submission Guardrails V2
 

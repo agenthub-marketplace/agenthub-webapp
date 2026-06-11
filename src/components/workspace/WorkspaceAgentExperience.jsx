@@ -31,6 +31,56 @@ function Panel({ children, eyebrow, title }) {
   );
 }
 
+const recipeStatusStyles = {
+  attention: {
+    dot: 'bg-[#F59E0B]',
+    panel: 'border-[#F59E0B]/35 bg-[#1A1208]',
+    text: 'text-[#F6C177]',
+  },
+  disabled: {
+    dot: 'bg-[#EF4444]',
+    panel: 'border-[#EF4444]/35 bg-[#1A0810]',
+    text: 'text-[#FCA5A5]',
+  },
+  ready: {
+    dot: 'bg-[#10B981]',
+    panel: 'border-[#10B981]/25 bg-[#071611]',
+    text: 'text-[#6EE7B7]',
+  },
+};
+
+function RecipeBlocks({ blocks = [], requiredText, title }) {
+  const visibleBlocks = blocks.filter((item) => item.status !== 'hidden');
+
+  if (!visibleBlocks.length) {
+    return null;
+  }
+
+  return (
+    <div className="mb-5 rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+      <p className="font-label mb-3 text-xs text-[#9B72CF]">{title}</p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {visibleBlocks.map((item) => {
+          const styles = recipeStatusStyles[item.status] ?? recipeStatusStyles.ready;
+
+          return (
+            <div key={item.id} className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <div className="flex items-start gap-3">
+                <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${styles.dot}`} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#F4EFFA]">{item.label}</p>
+                  {item.detail && <p className={`mt-1 text-xs leading-5 ${styles.text}`}>{item.detail}</p>}
+                  {item.required && <p className="font-label mt-2 text-[10px] text-[#9B72CF]">{requiredText}</p>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const tabIcons = {
   clipboard: ClipboardList,
   history: History,
@@ -50,6 +100,7 @@ export default function WorkspaceAgentExperience({
   runnerSlot,
   setupLabel,
   workspaceManifest,
+  workspaceRecipe,
 }) {
   const isEnglish = locale === 'en';
   const labels = isEnglish
@@ -87,6 +138,8 @@ export default function WorkspaceAgentExperience({
           use: 'Use',
         },
         useNow: 'Use now',
+        recipeRequired: 'Required check',
+        recipeTitle: 'Workspace checklist',
       }
     : {
         agentReady: 'Agent prêt',
@@ -122,6 +175,8 @@ export default function WorkspaceAgentExperience({
           use: 'Utiliser',
         },
         useNow: 'Utiliser maintenant',
+        recipeRequired: 'Point requis',
+        recipeTitle: 'Checklist workspace',
       };
   const description = isEnglish ? agent.description || agent.summary : polishFrenchCopy(agent.description || agent.summary);
   const summary = isEnglish ? agent.summary : polishFrenchCopy(agent.summary);
@@ -156,6 +211,7 @@ export default function WorkspaceAgentExperience({
   const trustTitle = workspaceManifest?.trust?.title || (isEnglish ? 'Execution boundary' : 'Périmètre d’exécution');
   const executionBoundary = workspaceManifest?.trust?.executionBoundary ?? [];
   const usesCreatorInfra = workspaceManifest?.infraMode === 'creator_hosted' || workspaceManifest?.infraMode === 'hybrid';
+  const recipeBlocksForTab = (tab) => workspaceRecipe?.blocks?.filter((item) => item.tab === tab) ?? [];
 
   return (
     <section className="space-y-6">
@@ -223,6 +279,7 @@ export default function WorkspaceAgentExperience({
         <div className="min-w-0">
           {activeTab === 'overview' && (
             <Panel eyebrow={labels.overviewEyebrow} title={labels.overviewTitle}>
+              <RecipeBlocks blocks={recipeBlocksForTab('overview')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.objective}</h3>
@@ -238,6 +295,7 @@ export default function WorkspaceAgentExperience({
 
           {activeTab === 'setup' && (
             <Panel eyebrow={labels.setupEyebrow} title={workspaceManifest?.setup?.title || labels.setupTitle}>
+              <RecipeBlocks blocks={recipeBlocksForTab('setup')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               {workspaceManifest?.setup?.description && (
                 <p className="mb-5 text-sm leading-6 text-[#C8B1E4]">{workspaceManifest.setup.description}</p>
               )}
@@ -279,6 +337,7 @@ export default function WorkspaceAgentExperience({
 
           {activeTab === 'use' && (
             <div className="space-y-5">
+              <RecipeBlocks blocks={recipeBlocksForTab('use')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               {(runnerTitle || runnerDescription || trustDisclosure) && (
                 <Panel eyebrow={isEnglish ? 'Runtime' : 'Runtime'} title={runnerTitle || labels.tabs.use}>
                   {runnerDescription && <p className="text-sm leading-6 text-[#C8B1E4]">{runnerDescription}</p>}
@@ -313,6 +372,7 @@ export default function WorkspaceAgentExperience({
 
           {activeTab === 'details' && (
             <Panel eyebrow={labels.detailsEyebrow} title={labels.detailsTitle}>
+              <RecipeBlocks blocks={recipeBlocksForTab('details')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.deliverables}</h3>
@@ -332,6 +392,7 @@ export default function WorkspaceAgentExperience({
 
           {activeTab === 'review' && (
             <Panel eyebrow={labels.reviewEyebrow} title={labels.reviewTitle}>
+              <RecipeBlocks blocks={recipeBlocksForTab('review')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               {reviewSlot}
             </Panel>
           )}

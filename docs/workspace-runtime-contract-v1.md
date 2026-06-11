@@ -187,14 +187,25 @@ Chaque bloc indique :
 - required
 ```
 
-## Prochaine Intégration UI
+## Intégration UI
+
+`workspaceRecipe` est branché dans les workspaces FR/EN via
+`WorkspaceAgentExperience`.
+
+La première intégration reste volontairement légère :
+
+- chaque onglet affiche les blocs pertinents pour son contexte ;
+- les statuts `ready`, `attention` et `disabled` sont visibles avant le bloc
+  runtime ou les empty states ;
+- `/agenthub/workspace/[rentalId]` et `/en/workspace/[rentalId]` utilisent le
+  même contrat ;
+- les runners existants restent inchangés ;
+- les détails sensibles de l’infra creator restent server-only.
 
 La prochaine étape n’est pas de réécrire tout le workspace. Elle consiste à
-utiliser `workspaceRecipe` pour :
+faire évoluer les runners pour consommer davantage de la recette :
 
-- ordonner les états bloqués avant les empty states ;
-- afficher des messages runtime plus spécifiques ;
-- rapprocher `/agenthub/workspace/[rentalId]` et `/en/workspace/[rentalId]` ;
-- rendre l’onglet "Utiliser" plus cohérent entre assistant, workflow et
-  endpoint creator ;
-- préparer le fallback infra creator sans exposer d’URL ou de payload privé.
+- masquer ou prioriser certains blocs selon le statut du run courant ;
+- afficher une progression plus fine pour `workflow_automation` ;
+- afficher un état d’indisponibilité plus actionnable pour `creator_endpoint` ;
+- préparer un mode diagnostic admin sans exposer d’URL ou de payload privé.

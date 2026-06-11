@@ -331,6 +331,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
             runnerSlot={runnerSlot}
             setupLabel={setupLabel}
             workspaceManifest={runtimeContract.workspaceManifest}
+            workspaceRecipe={runtimeContract.workspaceRecipe}
           />
         </div>
       </main>

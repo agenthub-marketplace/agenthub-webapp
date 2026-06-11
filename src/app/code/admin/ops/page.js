@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireAdminAccess } from '@/lib/auth/session';
 import { getAdminOpsSnapshot } from '@/server/admin/code-admin';
 import { CodeAlert, CodePageHeader, CodePanel, StatusBadge, formatDate } from '../../_components/code-console-ui';
@@ -18,6 +19,21 @@ export default async function AdminOpsPage() {
       />
 
       {result.error && <CodeAlert tone="error">Impossible de charger les checks ops.</CodeAlert>}
+
+      <Link href="/code/admin/ops/advanced-agents" className="mb-6 block">
+        <CodePanel tone="violet" className="transition hover:border-[#8B5CF6]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-label mb-1 text-xs text-[#6B3FA0]">DIAGNOSTIC AVANCÉ</p>
+              <h2 className="font-display text-xl font-bold text-[#111827]">Agents workflow/API</h2>
+              <p className="mt-1 text-sm text-[#4B5563]">
+                Voir runtime settings, allowlist creator, assets, security review et dernier run par agent avancé.
+              </p>
+            </div>
+            <span className="text-sm font-semibold text-[#5B21B6]">Ouvrir le diagnostic →</span>
+          </div>
+        </CodePanel>
+      </Link>
 
       <section className="mb-6 grid gap-4 md:grid-cols-4">
         {(result.checks ?? []).map((check) => (
