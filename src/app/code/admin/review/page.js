@@ -2,7 +2,13 @@ import { Check, Edit, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 import { requireAdminAccess } from '@/lib/auth/session';
 import { AGENT_RUNTIME_TYPE_LABELS, EXECUTION_MODE_OPTIONS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
-import { approveCreatorEndpointAssetsAction, approveWorkflowAutomationAssetsAction, createSecurityReviewAction, reviewAgentAction } from '@/server/admin/actions';
+import {
+  approveCreatorEndpointAssetsAction,
+  approveWorkflowAutomationAssetsAction,
+  createSecurityReviewAction,
+  generateSecurityPrecheckAction,
+  reviewAgentAction,
+} from '@/server/admin/actions';
 import { getAdminReviewQueue } from '@/server/admin/review-queue';
 import { Button } from '@/components/ui/button';
 import { CodeAlert, CodePageHeader, CodePanel, StatusBadge, cleanAdminNotes, formatDate } from '../../_components/code-console-ui';
@@ -18,6 +24,10 @@ const reviewErrors = {
   'changes-notes-required': 'Ajoutez au moins 10 caractères pour demander des modifications.',
   'security-review-create-failed': 'Impossible de créer la security review.',
   'security-review-not-required': 'Ce runtime ne nécessite pas de security review par défaut.',
+  'agent-not-reviewable': 'Ce précheck ne peut être généré que pour un agent soumis ou en review.',
+  'invalid-precheck': 'Impossible de générer le précheck pour cet agent.',
+  'manifest-load-failed': 'Impossible de charger le manifest pour générer le précheck.',
+  'precheck-insert-failed': 'Impossible d’enregistrer le précheck sécurité.',
 };
 
 function optionLabel(options, value) {
@@ -74,6 +84,17 @@ const precheckRiskTone = {
   high: 'rejected',
   low: 'approved',
   medium: 'in_review',
+};
+
+const precheckStatusTone = {
+  error: 'failed',
+  failed: 'failed',
+  not_started: 'in_review',
+  passed: 'approved',
+  pending: 'in_review',
+  running: 'in_review',
+  stale: 'rejected',
+  warning: 'in_review',
 };
 
 const precheckRiskOrder = {
@@ -175,6 +196,20 @@ function PrecheckNextAction({ agent }) {
   );
 }
 
+function GeneratePrecheckForm({ agent }) {
+  const status = agent.manifest?.securityProfile?.precheckStatus ?? 'not_started';
+  const label = status === 'not_started' ? 'Enregistrer le précheck' : 'Régénérer le précheck';
+
+  return (
+    <form action={generateSecurityPrecheckAction}>
+      <input type="hidden" name="agent_id" value={agent.id} />
+      <Button type="submit" variant="outline" className="h-9 border-[#8B5CF6] bg-white text-[#5B21B6] hover:bg-[#F5F3FF]">
+        {label}
+      </Button>
+    </form>
+  );
+}
+
 function FindingList({ emptyText, findings }) {
   if (!findings?.length) {
     return <p className="text-sm text-[#6B7280]">{emptyText}</p>;
@@ -256,6 +291,7 @@ export default async function AdminReviewPage({ searchParams }) {
   const reviewQueue = await getAdminReviewQueue();
   const error = typeof params?.error === 'string' ? params.error : null;
   const reviewed = typeof params?.reviewed === 'string' ? params.reviewed : null;
+  const prechecked = typeof params?.prechecked === 'string' ? params.prechecked : null;
   const triage = buildPrecheckTriage(reviewQueue.queue);
   const prioritizedQueue = sortByPrecheckPriority(reviewQueue.queue);
 
@@ -268,6 +304,7 @@ export default async function AdminReviewPage({ searchParams }) {
       />
 
       {reviewed && <CodeAlert tone="success">Décision admin enregistrée.</CodeAlert>}
+      {prechecked && <div className="mt-4"><CodeAlert tone="success">Précheck sécurité enregistré.</CodeAlert></div>}
       {error && <div className="mt-4"><CodeAlert tone="error">{reviewErrors[error] || 'Impossible d’enregistrer la décision admin.'}</CodeAlert></div>}
 
       {!reviewQueue.error && reviewQueue.queue.length > 0 && (
@@ -393,11 +430,19 @@ export default async function AdminReviewPage({ searchParams }) {
                           </div>
                           <div className="flex flex-wrap gap-2">
                             <StatusBadge
+                              status={precheckStatusTone[agent.manifest.securityProfile.precheckStatus] || 'in_review'}
+                              label={agent.manifest.securityProfile.precheckStatus}
+                            />
+                            <StatusBadge
                               status={precheckRiskTone[agent.manifest.securityPrecheck.riskLevel] || 'in_review'}
                               label={precheckRiskLabels[agent.manifest.securityPrecheck.riskLevel] || agent.manifest.securityPrecheck.riskLevel}
                             />
                             <StatusBadge status="in_review" label={agent.manifest.securityPrecheck.recommendation} />
                           </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                          <GeneratePrecheckForm agent={agent} />
                         </div>
 
                         <div className="mt-4 grid gap-4 xl:grid-cols-3">

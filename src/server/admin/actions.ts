@@ -8,6 +8,7 @@ import { isAgentRuntimeType, type AgentRuntimeType } from "@/lib/agent-contract"
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { generateSecurityPrecheckForAgent } from "@/server/agents/security-prechecks";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 type ReviewDecision = "approve" | "reject" | "changes" | "start_review";
@@ -656,6 +657,29 @@ export async function createSecurityReviewAction(formData: FormData) {
   revalidatePath("/code/admin/security");
   revalidatePath("/code/admin/security/reviews");
   redirect(`/code/admin/security/reviews/${review.id}`);
+}
+
+export async function generateSecurityPrecheckAction(formData: FormData) {
+  const profile = await requireAdminAccess("fr", "/code/admin/review");
+  const agentId = readText(formData, "agent_id");
+
+  if (!agentId) {
+    redirectToAdminCode("/code/admin/review", "invalid-precheck");
+  }
+
+  const result = await generateSecurityPrecheckForAgent({
+    actorId: profile.id,
+    agentId,
+    trigger: "admin_manual",
+  });
+
+  if (result.error) {
+    redirectToAdminCode("/code/admin/review", result.error);
+  }
+
+  revalidatePath("/code/admin/review");
+  revalidatePath("/code/admin/security");
+  redirect(`/code/admin/review?prechecked=${encodeURIComponent(agentId)}`);
 }
 
 export async function reviewAgentAction(formData: FormData) {

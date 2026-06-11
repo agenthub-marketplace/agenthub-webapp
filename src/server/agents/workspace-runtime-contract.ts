@@ -261,6 +261,7 @@ export async function buildWorkspaceRuntimeContract(
       documentInputMode,
       enabled,
       history: input.agentRuns,
+      locale: input.locale,
       limits,
       runner: runnerContract,
       workspaceManifest,

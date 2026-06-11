@@ -5,6 +5,7 @@ import type { AgentRunSummary } from "@/server/llm/runs";
 
 export type WorkspaceRecipeRuntimePanel = "assistant" | "document" | "endpoint" | "workflow";
 export type WorkspaceRecipeBlockStatus = "attention" | "disabled" | "hidden" | "ready";
+export type WorkspaceRecipeLocale = "en" | "fr";
 export type WorkspaceRecipeBlockId =
   | "access_status"
   | "agent_goal"
@@ -49,6 +50,7 @@ type WorkspaceRecipeInput = {
   documentInputMode: boolean;
   enabled: boolean;
   history: AgentRunSummary[];
+  locale: WorkspaceRecipeLocale;
   limits: {
     maxFileBytes: number;
     maxInputChars: number;
@@ -68,7 +70,54 @@ function block(input: WorkspaceRecipeBlock): WorkspaceRecipeBlock {
   return input;
 }
 
+function formatBytes(value: number) {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)} MB`;
+  }
+
+  if (value >= 1_000) {
+    return `${Math.round(value / 1_000)} KB`;
+  }
+
+  return `${value} bytes`;
+}
+
+function recipeLabels(locale: WorkspaceRecipeLocale) {
+  if (locale === "en") {
+    return {
+      accessState: "Access state",
+      creatorEndpointState: "Creator endpoint state",
+      documentUpload: "Document upload",
+      documentUploadDetail: "Max file size: {size}",
+      executionState: "Execution state",
+      extractionDetail: "Server-side text extraction",
+      extractionState: "Extraction state",
+      limitations: "Limitations",
+      resultViewer: "Result viewer",
+      verifiedReview: "Verified review",
+      workflowDetail: "queued/running/succeeded/failed",
+      workflowProgress: "Workflow progress",
+    };
+  }
+
+  return {
+    accessState: "État de l’accès",
+    creatorEndpointState: "État endpoint créateur",
+    documentUpload: "Ajout du document",
+    documentUploadDetail: "Taille max : {size}",
+    executionState: "État d’exécution",
+    extractionDetail: "Extraction texte côté serveur",
+    extractionState: "État extraction",
+    limitations: "Limites",
+    resultViewer: "Résultat",
+    verifiedReview: "Avis vérifié",
+    workflowDetail: "queued/running/succeeded/failed",
+    workflowProgress: "Progression workflow",
+  };
+}
+
 export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceRecipeV1 {
+  const labels = recipeLabels(input.locale);
   const panel = runtimePanel(input.runner.kind);
   const hasSetup = input.workspaceManifest.setup.requiredInputs.length > 0;
   const hasHistory = input.history.length > 0;
@@ -77,7 +126,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
     block({
       detail: null,
       id: "access_status",
-      label: "Access state",
+      label: labels.accessState,
       required: true,
       status: "ready",
       tab: "overview",
@@ -109,7 +158,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
     block({
       detail: input.runner.disabledMessage,
       id: "run_status",
-      label: "Execution state",
+      label: labels.executionState,
       required: true,
       status: runnerStatus,
       tab: "use",
@@ -125,7 +174,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
     block({
       detail: null,
       id: "result_viewer",
-      label: "Result viewer",
+      label: labels.resultViewer,
       required: false,
       status: hasHistory ? "ready" : "hidden",
       tab: "use",
@@ -141,7 +190,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
     block({
       detail: null,
       id: "limitations",
-      label: "Limitations",
+      label: labels.limitations,
       required: true,
       status: "ready",
       tab: "details",
@@ -149,7 +198,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
     block({
       detail: null,
       id: "review_prompt",
-      label: "Verified review",
+      label: labels.verifiedReview,
       required: false,
       status: "ready",
       tab: "review",
@@ -161,17 +210,17 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
       3,
       0,
       block({
-        detail: `${input.limits.maxFileBytes} bytes max`,
+        detail: labels.documentUploadDetail.replace("{size}", formatBytes(input.limits.maxFileBytes)),
         id: "document_upload",
-        label: "Document upload",
+        label: labels.documentUpload,
         required: true,
         status: input.enabled ? "ready" : "disabled",
         tab: "setup",
       }),
       block({
-        detail: "Server-side text extraction",
+        detail: labels.extractionDetail,
         id: "extraction_status",
-        label: "Extraction state",
+        label: labels.extractionState,
         required: true,
         status: input.enabled ? "ready" : "disabled",
         tab: "setup",
@@ -184,9 +233,9 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
       5,
       0,
       block({
-        detail: "queued/running/succeeded/failed",
+        detail: labels.workflowDetail,
         id: "workflow_progress",
-        label: "Workflow progress",
+        label: labels.workflowProgress,
         required: true,
         status: input.enabled ? "ready" : "disabled",
         tab: "use",
@@ -201,7 +250,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
       block({
         detail: input.workspaceManifest.trust.creatorInfraDisclosure,
         id: "endpoint_status",
-        label: "Creator endpoint state",
+        label: labels.creatorEndpointState,
         required: true,
         status: input.enabled ? "ready" : "disabled",
         tab: "use",

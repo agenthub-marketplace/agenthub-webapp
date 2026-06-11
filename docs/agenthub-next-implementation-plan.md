@@ -39,6 +39,30 @@ src/app/code/admin/review/page.js
 Do not start with a broad UI rewrite. Start with server-side derivation and
 read-only admin/workspace diagnostics.
 
+## Current Progress Snapshot
+
+The first foundation layer is now partially implemented:
+
+- `src/server/agents/manifest.ts` derives a server-side `AgentManifestV1`
+  from the current agent version, runtime assets, runtime settings, security
+  reviews, and creator allowlist state.
+- The manifest includes a deterministic `securityPrecheck` for admin triage.
+- `/code/admin/review` surfaces precheck risk, blockers, recommended action,
+  and prioritizes the queue by precheck severity.
+- Admins can persist the deterministic precheck into
+  `agent_security_prechecks`, making the triage report stable across review
+  sessions.
+- `src/server/agents/workspace-runtime-contract.ts` centralizes workspace
+  runtime eligibility and disabled-state copy for assistant, document,
+  workflow, and creator endpoint runners.
+- `src/server/workspace/recipe.ts` derives a first workspace recipe from the
+  runtime contract and manifest so future workspace UI can render by block
+  instead of branching per runtime.
+
+The goal of the next layer is not to add more runtime power immediately. The
+goal is to make the existing advanced runtimes easier to publish, review,
+launch, debug, and monetize without weakening the current gates.
+
 ## Phase 1: Agent Manifest Server Helper
 
 Add a server-only helper:
@@ -240,3 +264,114 @@ Acceptance:
 - unknown runtime fails closed with visible admin error;
 - lint/typecheck/build pass.
 
+Status: implemented as a first deterministic read-only helper.
+
+## Recommended Next Tickets
+
+### Ticket 1: Persist Security Precheck Results
+
+Move from computed-only precheck to stored precheck rows:
+
+```text
+agent_security_prechecks
+```
+
+Why:
+
+- admins need a stable review artifact;
+- resubmissions can mark old prechecks as stale;
+- future LLM summarization can attach to deterministic findings;
+- security review decisions can reference a concrete precheck id.
+
+Scope:
+
+- additive migration only;
+- server action to generate/retry precheck for the latest version;
+- admin review displays latest stored precheck, falling back to computed
+  precheck if missing;
+- no automatic approval/rejection.
+
+Status: implemented for deterministic prechecks on submission, resubmission,
+and admin manual regeneration. LLM summarization remains future work.
+
+### Ticket 2: Workspace Recipe UI Adapter
+
+Use `workspaceRecipe` in the workspace UI without a full rewrite.
+
+Scope:
+
+- show recipe-derived disabled reason and runtime panel state;
+- ensure blocked/disabled states appear before empty history;
+- keep current runner components;
+- align FR/EN workspace detail behavior around the same contract.
+
+### Ticket 3: Advanced Agent Smoke Console
+
+Add an admin-only diagnostic page for advanced agent readiness:
+
+```text
+/code/admin/ops/advanced-agents
+```
+
+It should answer:
+
+- is runtime setting enabled/run-enabled?
+- is creator allowlisted?
+- are workflow/API assets approved?
+- is security review passed/waived?
+- does the latest run succeed?
+- what is the exact blocker before marketplace publication or workspace run?
+
+This avoids debugging advanced agents across five different screens.
+
+### Ticket 4: Creator Infra Fallback Readiness
+
+Make creator-hosted execution visible and auditable:
+
+- show infra mode in admin review and agent detail;
+- show user-facing disclosure in workspace for `creator_endpoint`;
+- include endpoint availability errors in admin ops;
+- keep endpoint URL and raw payload server-only.
+
+Do not add iframe or redirect handoff yet.
+
+### Ticket 5: Revenue Ledger Design Before Payouts
+
+Keep current "Revenus beta" as GMV sandbox. Before Stripe Connect, define a
+ledger that separates:
+
+- checkout payment;
+- active access;
+- refund/blocked state;
+- creator gross;
+- platform fee;
+- payout hold;
+- payout-ready event.
+
+This is a design/spec ticket first, not Stripe Connect implementation.
+
+### Ticket 6: Agent Quality Score Internal
+
+Compute internal quality, not public ranking:
+
+```text
+manifest completeness
++ precheck state
++ security review state
++ smoke-run success
++ verified review health
++ payment/access incidents
+```
+
+Use it for admin prioritization and beta readiness, not for marketplace
+ranking until enough data exists.
+
+### Ticket 7: Creator Submission Guardrails V2
+
+Prevent low-quality advanced agents earlier in the creator flow:
+
+- inline warnings when output promise does not match runtime;
+- require decision-like step for workflow agents;
+- require creator-infra disclosure for endpoint agents;
+- preview blockers before submission;
+- no relaxation of server-side validation.

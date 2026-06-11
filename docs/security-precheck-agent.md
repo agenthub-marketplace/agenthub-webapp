@@ -316,17 +316,18 @@ If LLM precheck fails, deterministic findings still remain valuable.
 
 ## Current Deterministic V0
 
-The first implementation is intentionally smaller than the future stored
-precheck table:
+The first implementation is deterministic and admin-triggered:
 
-- no migration;
 - no LLM call;
 - no automatic approval or rejection;
 - no endpoint call;
-- no stored precheck row yet.
 
 The server derives `securityPrecheck` inside `AgentManifestV1` from current
 database state and displays it in `/code/admin/review`.
+
+Admins can now persist the computed result into `agent_security_prechecks` from
+the review queue. A persisted precheck gives the admin a stable review artifact
+and marks older rows for the same agent version as `stale`.
 
 Current output:
 
@@ -363,6 +364,60 @@ Current deterministic checks cover:
 
 This v0 is an admin triage aid. Existing admin approval gates remain the source
 of truth for publication.
+
+## Current Stored Artifact
+
+The stored table is:
+
+```text
+agent_security_prechecks
+```
+
+It stores:
+
+```text
+- agent_id
+- agent_version_id
+- creator_id
+- runtime_type
+- related_security_review_id
+- trigger
+- status
+- risk_score
+- risk_level_suggested
+- security_review_required
+- recommended_action
+- summary
+- manifest_snapshot
+- findings
+- admin_questions
+- model / prompt_version
+- error_code
+- created_by
+- created_at / completed_at
+```
+
+Access model:
+
+- admins can select/insert/update through RLS;
+- anon and normal authenticated users have no direct access;
+- service role can manage rows server-side;
+- creators do not read private admin triage output in v0.
+
+Current generation modes:
+
+```text
+submission
+resubmission
+admin_manual
+```
+
+Future generation triggers remain:
+
+```text
+admin_retry
+system_refresh
+```
 
 ## Prompting Rules
 

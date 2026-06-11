@@ -91,7 +91,7 @@ export type AgentManifestV1 = {
   securityProfile: {
     blockingFindings: string[];
     precheckRequired: boolean;
-    precheckStatus: "not_started";
+    precheckStatus: "not_started" | "pending" | "running" | "passed" | "warning" | "failed" | "error" | "stale";
     securityReviewRequired: boolean;
     securityReviewStatus: "not_required" | "pending" | "in_review" | "passed" | "failed" | "waived";
     warnings: string[];

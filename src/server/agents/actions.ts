@@ -20,6 +20,7 @@ import { PRICING_TYPES, RISK_LEVELS, type RiskLevel } from "@/lib/domain/status"
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
+import { generateSecurityPrecheckForAgent } from "@/server/agents/security-prechecks";
 import { isCreatorEndpointRuntimeEnabled } from "@/server/endpoints/runtime";
 import { isCreatorWorkflowRuntimeEnabled, isSafeResolvedWorkflowEndpointUrl, parseWorkflowStepsText } from "@/server/workflows/runtime";
 import type { PricingType } from "@/types/agent";
@@ -169,7 +170,7 @@ function isMissingAgentContractRpcError(error: unknown) {
 }
 
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
-  await requireCreatorAccess(locale, localizedPath("/creator/agents/new", locale));
+  const profile = await requireCreatorAccess(locale, localizedPath("/creator/agents/new", locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -516,6 +517,19 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     redirectWithError(locale, "agent-submit-failed");
   }
 
+  const precheckResult = await generateSecurityPrecheckForAgent({
+    actorId: profile.id,
+    agentId,
+    trigger: "submission",
+  });
+
+  if (precheckResult.error) {
+    console.warn("Security precheck generation failed after agent submission", {
+      agentId,
+      error: precheckResult.error,
+    });
+  }
+
   revalidatePath(localizedPath("/creator", locale));
   revalidatePath(localizedPath("/creator/dashboard", locale));
   revalidatePath("/code");
@@ -530,7 +544,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     redirectWithError(locale, "required");
   }
 
-  await requireCreatorAccess(locale, localizedPath(`/creator/agents/${agentId}/edit`, locale));
+  const profile = await requireCreatorAccess(locale, localizedPath(`/creator/agents/${agentId}/edit`, locale));
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -717,6 +731,19 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
 
   if (resubmitError) {
     redirectWithEditError(locale, agentId, "agent-update-failed");
+  }
+
+  const precheckResult = await generateSecurityPrecheckForAgent({
+    actorId: profile.id,
+    agentId,
+    trigger: "resubmission",
+  });
+
+  if (precheckResult.error) {
+    console.warn("Security precheck generation failed after agent resubmission", {
+      agentId,
+      error: precheckResult.error,
+    });
   }
 
   revalidatePath(localizedPath("/creator", locale));

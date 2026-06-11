@@ -15,6 +15,7 @@ accès actif
 → limites d’input/fichier
 → historique visible
 → manifest workspace
+→ recette de blocs workspace
 ```
 
 ## Fichier
@@ -59,6 +60,7 @@ Contient :
 - limits.maxInputChars
 - limits.maxFileBytes
 - workspaceManifest
+- workspaceRecipe
 ```
 
 ## Runtimes supportés
@@ -127,3 +129,72 @@ Ce contrat réduit la duplication et prépare les prochaines étapes :
 - métriques par runtime/run ;
 - futurs runtimes sans exploser les pages.
 ```
+
+## Workspace Recipe
+
+Le contrat expose maintenant aussi :
+
+```text
+workspaceRecipe
+```
+
+Cette recette est une couche plus proche de l’UI que `workspaceManifest`.
+
+```text
+workspaceManifest = ce que l’agent est et ce qu’il promet
+workspaceRecipe = quels blocs le workspace doit afficher et dans quel état
+```
+
+La recette contient :
+
+```text
+- runtimePanel: assistant | document | workflow | endpoint
+- blocks[]
+- disabledReason
+- primaryActionLabel
+- setupChecklist
+- trustWarnings
+- historyCount
+- limits
+```
+
+Les blocs sont volontairement génériques :
+
+```text
+access_status
+agent_goal
+setup_checklist
+primary_runner
+run_status
+run_history
+result_viewer
+trust_boundary
+limitations
+review_prompt
+document_upload
+extraction_status
+workflow_progress
+endpoint_status
+```
+
+Chaque bloc indique :
+
+```text
+- label
+- detail
+- tab
+- status: ready | attention | disabled | hidden
+- required
+```
+
+## Prochaine Intégration UI
+
+La prochaine étape n’est pas de réécrire tout le workspace. Elle consiste à
+utiliser `workspaceRecipe` pour :
+
+- ordonner les états bloqués avant les empty states ;
+- afficher des messages runtime plus spécifiques ;
+- rapprocher `/agenthub/workspace/[rentalId]` et `/en/workspace/[rentalId]` ;
+- rendre l’onglet "Utiliser" plus cohérent entre assistant, workflow et
+  endpoint creator ;
+- préparer le fallback infra creator sans exposer d’URL ou de payload privé.

@@ -3,6 +3,11 @@ import "server-only";
 import { normalizeAgentContract, type AgentContract, type AgentRuntimeType } from "@/lib/agent-contract";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildAgentManifest, type AgentManifestV1 } from "@/server/agents/manifest";
+import {
+  applyStoredSecurityPrecheck,
+  getLatestSecurityPrechecksByVersion,
+  type StoredSecurityPrecheck,
+} from "@/server/agents/security-prechecks";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 export type AdminReviewQueueItem = {
@@ -186,6 +191,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
   const securityReviewByVersion = new Map<string, AdminReviewQueueItem["securityReview"]>();
   const manifestByVersion = new Map<string, AgentManifestV1 | null>();
   const manifestErrorByVersion = new Map<string, string | null>();
+  let latestPrecheckByVersion = new Map<string, StoredSecurityPrecheck>();
 
   if (agentIds.length > 0) {
     const { data: versions } = await supabase
@@ -231,6 +237,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
       manifestErrorByVersion.set(versionId, result.error);
     }),
   );
+  latestPrecheckByVersion = await getLatestSecurityPrechecksByVersion(reviewVersionIds);
 
   const { data: runtimeSettings } = await supabase
     .from("agent_runtime_settings")
@@ -382,7 +389,7 @@ export async function getAdminReviewQueue(): Promise<AdminReviewQueueResult> {
         workflow: versionId ? workflowByVersion.get(versionId) ?? null : null,
         creatorEndpoint: versionId ? creatorEndpointByVersion.get(versionId) ?? null : null,
         securityReview: versionId ? securityReviewByVersion.get(versionId) ?? null : null,
-        manifest: versionId ? manifestByVersion.get(versionId) ?? null : null,
+        manifest: versionId ? applyStoredSecurityPrecheck(manifestByVersion.get(versionId) ?? null, latestPrecheckByVersion.get(versionId)) : null,
         manifestError: versionId ? manifestErrorByVersion.get(versionId) ?? null : null,
         latestAdminReview: latestReviewsByAgent.get(agent.id) ?? null,
       };
