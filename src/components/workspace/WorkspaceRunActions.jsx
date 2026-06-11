@@ -163,6 +163,12 @@ export default function WorkspaceRunActions({
         </div>
       </div>
 
+      {!enabled && (
+        <div className="mb-5 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#F6C177]">
+          {disabledMessage || t.disabled}
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-3">
         {actions.map((action, index) => (
           <button

@@ -225,6 +225,12 @@ export default function DocumentWorkspaceActions({
         </div>
       </div>
 
+      {!enabled && (
+        <div className="mb-5 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#F6C177]">
+          {disabledMessage || t.disabled}
+        </div>
+      )}
+
       <div className="mb-5 rounded-2xl border border-[#F59E0B]/25 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#FCD34D]">
         <p>{t.accepted}</p>
         <p className="mt-1">{t.noSensitive}</p>

@@ -19,6 +19,7 @@ It builds on:
 - `docs/security-precheck-agent.md`
 - `docs/workspace-dynamic-blocks.md`
 - `docs/agent-runtime-roadmap.md`
+- `docs/agenthub-strategic-execution-plan.md`
 
 ## Current Code Entry Points
 
@@ -62,6 +63,10 @@ The first foundation layer is now partially implemented:
 The goal of the next layer is not to add more runtime power immediately. The
 goal is to make the existing advanced runtimes easier to publish, review,
 launch, debug, and monetize without weakening the current gates.
+
+For the broader sequence toward a fully usable multi-runtime workspace,
+creator revenue readiness, creator-hosted fallback, and security-agent triage,
+see `docs/agenthub-strategic-execution-plan.md`.
 
 ## Phase 1: Agent Manifest Server Helper
 

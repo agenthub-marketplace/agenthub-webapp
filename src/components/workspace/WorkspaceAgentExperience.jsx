@@ -81,6 +81,88 @@ function RecipeBlocks({ blocks = [], requiredText, title }) {
   );
 }
 
+function RecipeSummary({ labels, workspaceRecipe }) {
+  if (!workspaceRecipe) {
+    return null;
+  }
+
+  const runtimeLabel = labels.runtimePanels[workspaceRecipe.runtimePanel] ?? workspaceRecipe.runtimePanel;
+  const stateStyle = workspaceRecipe.disabledReason ? recipeStatusStyles.disabled : recipeStatusStyles.ready;
+  const limitItems = [
+    workspaceRecipe.limits?.maxInputChars ? `${workspaceRecipe.limits.maxInputChars} ${labels.inputChars}` : null,
+    workspaceRecipe.runtimePanel === 'document' && workspaceRecipe.limits?.maxFileBytes
+      ? `${(workspaceRecipe.limits.maxFileBytes / 1_000_000).toFixed(1)} MB`
+      : null,
+  ].filter(Boolean);
+  const cards = [
+    {
+      detail: workspaceRecipe.disabledReason || labels.readyToRun,
+      label: labels.runtimeState,
+      status: workspaceRecipe.disabledReason ? 'disabled' : 'ready',
+      value: runtimeLabel,
+    },
+    {
+      detail: labels.primaryActionDetail,
+      label: labels.primaryAction,
+      status: 'ready',
+      value: workspaceRecipe.primaryActionLabel,
+    },
+    {
+      detail: labels.historyDetail,
+      label: labels.historyState,
+      status: workspaceRecipe.historyCount > 0 ? 'ready' : 'attention',
+      value: `${workspaceRecipe.historyCount}`,
+    },
+    {
+      detail: limitItems.length ? limitItems.join(' · ') : labels.noSpecificLimit,
+      label: labels.limits,
+      status: 'ready',
+      value: labels.runtimeLimits,
+    },
+  ];
+
+  return (
+    <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#9B72CF]">{labels.recipeSummaryEyebrow}</p>
+          <h2 className="font-display mt-1 text-xl font-bold text-[#F4EFFA]">{labels.recipeSummaryTitle}</h2>
+        </div>
+        <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stateStyle.panel} ${stateStyle.text}`}>
+          <span className={`h-2 w-2 rounded-full ${stateStyle.dot}`} aria-hidden="true" />
+          {workspaceRecipe.disabledReason ? labels.workspaceBlocked : labels.workspaceReady}
+        </span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const styles = recipeStatusStyles[card.status] ?? recipeStatusStyles.ready;
+
+          return (
+            <div key={card.label} className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <p className="font-label text-[10px] text-[#9B72CF]">{card.label}</p>
+              <p className="mt-2 text-base font-bold text-[#F4EFFA]">{card.value}</p>
+              <p className={`mt-1 text-xs leading-5 ${styles.text}`}>{card.detail}</p>
+            </div>
+          );
+        })}
+      </div>
+      {workspaceRecipe.trustWarnings?.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-4">
+          <p className="font-label mb-2 text-xs text-[#F6C177]">{labels.trustWarnings}</p>
+          <ul className="space-y-1 text-sm text-[#F6C177]">
+            {workspaceRecipe.trustWarnings.map((warning) => (
+              <li key={warning} className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{warning}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const tabIcons = {
   clipboard: ClipboardList,
   history: History,
@@ -126,6 +208,24 @@ export default function WorkspaceAgentExperience({
         review: 'Review',
         reviewEyebrow: 'Verified feedback',
         reviewTitle: 'Review after use',
+        historyDetail: 'Stored runs visible for this access.',
+        historyState: 'Run history',
+        inputChars: 'input characters',
+        limits: 'Limits',
+        noSpecificLimit: 'No specific runtime limit.',
+        primaryAction: 'Main action',
+        primaryActionDetail: 'What the workspace will launch first.',
+        readyToRun: 'The runtime gates allow execution.',
+        recipeSummaryEyebrow: 'Workspace recipe',
+        recipeSummaryTitle: 'Runtime readiness',
+        runtimeLimits: 'Runtime limits',
+        runtimePanels: {
+          assistant: 'Guided AI assistant',
+          document: 'Document agent',
+          endpoint: 'Creator API agent',
+          workflow: 'Workflow agent',
+        },
+        runtimeState: 'Runtime',
         setup: 'Setup',
         setupEmpty: 'No extra setup is required before use.',
         setupEyebrow: 'Preparation',
@@ -140,6 +240,9 @@ export default function WorkspaceAgentExperience({
         useNow: 'Use now',
         recipeRequired: 'Required check',
         recipeTitle: 'Workspace checklist',
+        trustWarnings: 'Trust warnings',
+        workspaceBlocked: 'Execution blocked',
+        workspaceReady: 'Ready to run',
       }
     : {
         agentReady: 'Agent prêt',
@@ -163,6 +266,24 @@ export default function WorkspaceAgentExperience({
         review: 'Avis',
         reviewEyebrow: 'Retour vérifié',
         reviewTitle: 'Avis après utilisation',
+        historyDetail: 'Runs stockés et visibles pour cet accès.',
+        historyState: 'Historique runs',
+        inputChars: 'caractères input',
+        limits: 'Limites',
+        noSpecificLimit: 'Aucune limite runtime spécifique.',
+        primaryAction: 'Action principale',
+        primaryActionDetail: 'Ce que le workspace lancera en premier.',
+        readyToRun: 'Les gates runtime autorisent l’exécution.',
+        recipeSummaryEyebrow: 'Recette workspace',
+        recipeSummaryTitle: 'Readiness runtime',
+        runtimeLimits: 'Limites runtime',
+        runtimePanels: {
+          assistant: 'Assistant IA guidé',
+          document: 'Agent document',
+          endpoint: 'Agent API creator',
+          workflow: 'Agent workflow',
+        },
+        runtimeState: 'Runtime',
         setup: 'Setup',
         setupEmpty: 'Aucun setup supplémentaire n’est requis avant utilisation.',
         setupEyebrow: 'Préparation',
@@ -177,6 +298,9 @@ export default function WorkspaceAgentExperience({
         useNow: 'Utiliser maintenant',
         recipeRequired: 'Point requis',
         recipeTitle: 'Checklist workspace',
+        trustWarnings: 'Avertissements confiance',
+        workspaceBlocked: 'Exécution bloquée',
+        workspaceReady: 'Prêt à exécuter',
       };
   const description = isEnglish ? agent.description || agent.summary : polishFrenchCopy(agent.description || agent.summary);
   const summary = isEnglish ? agent.summary : polishFrenchCopy(agent.summary);
@@ -250,6 +374,8 @@ export default function WorkspaceAgentExperience({
           </div>
         </div>
       </div>
+
+      <RecipeSummary labels={labels} workspaceRecipe={workspaceRecipe} />
 
       <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
         <nav className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-3 lg:sticky lg:top-24 lg:h-fit" aria-label="Sections workspace">

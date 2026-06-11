@@ -19,6 +19,7 @@ import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_OPTIONS } from '@/lib/agent-c
 import { AGENT_TEMPLATES, templateToCreatorFormValues } from '@/lib/agent-templates';
 import { submitAgentForReviewAction } from '@/server/agents/actions';
 import { CodeAlert, CodePanel } from './code-console-ui';
+import CreatorGuardrailPreview from './creator-guardrail-preview';
 
 const steps = [
   { id: 'template', label: 'Template', title: 'Choisir un template' },
@@ -546,15 +547,7 @@ export default function CodeNewAgentContent({
                 </Field>
               </div>
             </CodePanel>
-            <CodePanel>
-              <p className="font-label mb-3 text-xs text-[#6B3FA0]">CONTRÔLE QUALITÉ</p>
-              {['Promesse compréhensible', 'Inputs actionnables', 'Livrables précis', 'Limites visibles'].map((item) => (
-                <div key={item} className="mb-3 flex items-center gap-2 rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 text-sm text-[#4B5563]">
-                  <Check className="h-4 w-4 text-[#10B981]" />
-                  {item}
-                </div>
-              ))}
-            </CodePanel>
+            <CreatorGuardrailPreview values={values} />
           </section>
 
           <section className={currentStep === 3 ? 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]' : 'hidden'}>
@@ -707,6 +700,7 @@ export default function CodeNewAgentContent({
           <section className={currentStep === 4 ? 'grid gap-6 lg:grid-cols-2' : 'hidden'}>
             <PublicListingPreview values={values} />
             <WorkspacePreview values={values} />
+            <CreatorGuardrailPreview values={values} />
             <CodePanel className="lg:col-span-2">
               <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
                 <div>

@@ -209,3 +209,15 @@ faire évoluer les runners pour consommer davantage de la recette :
 - afficher une progression plus fine pour `workflow_automation` ;
 - afficher un état d’indisponibilité plus actionnable pour `creator_endpoint` ;
 - préparer un mode diagnostic admin sans exposer d’URL ou de payload privé.
+
+Premier incrément runner :
+
+- les messages `disabledMessage` du contrat expliquent maintenant l’action
+  attendue selon le runtime : config serveur, runtime settings, asset/security
+  review, endpoint creator ou clé manquante ;
+- les runners assistant, document, workflow et endpoint affichent un bloc
+  d’état visible lorsque l’exécution est fermée ;
+- `WorkspaceAgentExperience` affiche aussi un résumé global de la recette :
+  runtime, action principale, historique, limites et blocage éventuel ;
+- aucune route d’exécution n’est assouplie : les API restent source de vérité
+  pour les checks d’accès, runtime, assets et secrets.

@@ -69,33 +69,37 @@ function disabledCopy(locale: WorkspaceRuntimeLocale) {
   if (locale === "en") {
     return {
       agentNotApproved: "This agent is not currently approved. Execution is closed while AgentHub reviews it.",
-      assistantConfig: "This access is not configured as an executable text assistant.",
-      assistantDocument: "This agent expects a document: use the document block to run the analysis.",
-      documentRuntime: "The document_file capability is disabled in runtime settings.",
-      documentServer: "Document analysis is disabled for this beta.",
-      endpointRuntime: "The creator endpoint or runtime is not approved/enabled yet.",
-      endpointSecret: "The API agent is unavailable: missing server signing secret.",
-      endpointServer: "Creator API agents are disabled server-side for this beta.",
-      llmKey: "AI generation is unavailable: missing server OpenAI key.",
-      llmServer: "AI generation is disabled in the server configuration for this beta.",
-      workflowRuntime: "Workflow runtime settings are off or this workflow is not ready yet.",
-      workflowServer: "Workflow runtime is disabled server-side for this beta.",
+      assistantConfig: "This access is not configured as a guided AI assistant. Open the agent listing or contact AgentHub if this looks wrong.",
+      assistantDocument: "This agent expects a document. Use the document block to upload a PDF/DOCX, then run the analysis.",
+      documentRuntime: "Document execution is waiting for AgentHub runtime approval. The private file workspace stays closed until that beta gate is enabled.",
+      documentServer: "Document analysis is disabled in this environment. You can still review the setup, but uploads stay closed for now.",
+      endpointRuntime:
+        "This API agent is waiting for endpoint approval, security review, or runtime activation. AgentHub keeps the workspace closed until the creator infrastructure is trusted.",
+      endpointSecret: "This API agent is missing the server signing secret. AgentHub cannot call creator infrastructure without signed requests.",
+      endpointServer: "Creator API agents are disabled in this environment. The endpoint is not called and no user input is sent to creator infrastructure.",
+      llmKey: "AI generation is unavailable because the server OpenAI key is missing. The workspace is readable, but generation stays closed.",
+      llmServer: "AI generation is disabled in this environment. The actions remain setup guidance until AgentHub enables runs.",
+      workflowRuntime:
+        "This workflow is waiting for runtime activation, asset approval, or security review. AgentHub blocks execution until every workflow gate is ready.",
+      workflowServer: "Workflow execution is disabled in this environment. You can inspect the agent setup, but the worker will not run yet.",
     };
   }
 
   return {
     agentNotApproved: "Cet agent n’est pas approuvé actuellement. L’exécution est fermée pendant la vérification AgentHub.",
-    assistantConfig: "Cet accès n’est pas configuré comme assistant texte exécutable.",
-    assistantDocument: "Cet agent attend un document : utilisez le bloc document pour lancer l’analyse.",
-    documentRuntime: "La capacité document_file est désactivée côté runtime settings.",
-    documentServer: "L’analyse document est désactivée dans cette beta.",
-    endpointRuntime: "L’endpoint créateur ou son runtime n’est pas encore approuvé/activé.",
-    endpointSecret: "L’agent API est indisponible : secret de signature serveur manquant.",
-    endpointServer: "Les agents API créateur sont désactivés côté serveur pour cette beta.",
-    llmKey: "La génération IA est indisponible : clé OpenAI serveur manquante.",
-    llmServer: "La génération IA est désactivée dans la configuration serveur de cette beta.",
-    workflowRuntime: "Le runtime workflow n’est pas activé dans les settings ou le workflow n’est pas encore prêt.",
-    workflowServer: "Le runtime workflow est désactivé côté serveur pour cette beta.",
+    assistantConfig: "Cet accès n’est pas configuré comme assistant IA guidé. Ouvrez la fiche agent ou contactez AgentHub si cet état semble incohérent.",
+    assistantDocument: "Cet agent attend un document. Utilisez le bloc document pour ajouter un PDF/DOCX, puis lancer l’analyse.",
+    documentRuntime: "L’exécution document attend l’activation runtime AgentHub. Le workspace fichier privé reste fermé tant que ce gate beta n’est pas validé.",
+    documentServer: "L’analyse document est désactivée dans cet environnement. Vous pouvez lire la mise en place, mais l’upload reste fermé pour le moment.",
+    endpointRuntime:
+      "Cet agent API attend l’approbation endpoint, la security review ou l’activation runtime. AgentHub garde le workspace fermé tant que l’infra creator n’est pas validée.",
+    endpointSecret: "Cet agent API n’a pas de secret de signature serveur. AgentHub ne peut pas appeler l’infra creator sans requêtes signées.",
+    endpointServer: "Les agents API creator sont désactivés dans cet environnement. L’endpoint n’est pas appelé et aucun input user n’est transmis au creator.",
+    llmKey: "La génération IA est indisponible car la clé OpenAI serveur manque. Le workspace reste lisible, mais la génération est fermée.",
+    llmServer: "La génération IA est désactivée dans cet environnement. Les actions restent des repères de mise en place jusqu’à activation des runs.",
+    workflowRuntime:
+      "Ce workflow attend l’activation runtime, l’approbation des assets ou la security review. AgentHub bloque l’exécution tant que tous les gates workflow ne sont pas prêts.",
+    workflowServer: "L’exécution workflow est désactivée dans cet environnement. Vous pouvez inspecter la mise en place, mais le worker ne tournera pas encore.",
   };
 }
 

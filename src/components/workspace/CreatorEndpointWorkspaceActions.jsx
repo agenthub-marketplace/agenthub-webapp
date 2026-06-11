@@ -199,6 +199,12 @@ export default function CreatorEndpointWorkspaceActions({
         </div>
       </div>
 
+      {!enabled && (
+        <div className="mb-5 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#F6C177]">
+          {disabledMessage || t.disabled}
+        </div>
+      )}
+
       {enabled && (
         <form onSubmit={submitRun} className="mt-5 space-y-3">
           <label className="block">
