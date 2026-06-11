@@ -297,7 +297,12 @@ Scope:
 - no automatic approval/rejection.
 
 Status: implemented for deterministic prechecks on submission, resubmission,
-and admin manual regeneration. LLM summarization remains future work.
+and admin manual regeneration. The admin review queue now derives an explicit
+P0/P1/P2/P3 review priority from each precheck so admins can triage blockers,
+security-review-required agents, clarifications, and standard reviews faster.
+The "demander modifications" form is prefilled from deterministic blockers and
+warnings as an editable draft, so the precheck accelerates admin feedback
+without sending automatic decisions. LLM summarization remains future work.
 
 ### Ticket 2: Workspace Recipe UI Adapter
 
@@ -350,6 +355,13 @@ Make creator-hosted execution visible and auditable:
 
 Do not add iframe or redirect handoff yet.
 
+Status: v0 implemented without iframe/redirect handoff. The workspace manifest
+marks `creator_endpoint` as creator-hosted and `workflow_automation` as hybrid,
+the user workspace displays the creator-infra disclosure through the shared
+workspace recipe, admin review shows infra mode and endpoint asset status, and
+`/code/admin/ops/advanced-agents` reports endpoint/runtime blockers without
+exposing private payloads or secrets.
+
 ### Ticket 5: Revenue Ledger Design Before Payouts
 
 Keep current "Revenus beta" as GMV sandbox. Before Stripe Connect, define a
@@ -400,3 +412,13 @@ Prevent low-quality advanced agents earlier in the creator flow:
 - require creator-infra disclosure for endpoint agents;
 - preview blockers before submission;
 - no relaxation of server-side validation.
+
+Status: partially implemented. The AgentHub Code wizard now shows creator
+guardrail preview blockers/warnings, and the server submission action enforces
+critical beta requirements: a `workflow_automation` submission must contain a
+visible LLM decision step, cannot promise unsupported external actions without
+a webhook step, and a `creator_endpoint` submission must disclose that execution
+passes through an approved creator API/endpoint server-side. The same
+runtime/promise consistency checks also run on creator resubmission after
+admin-requested changes. Existing server guards still enforce runtime allowlist,
+HTTPS endpoint safety, workflow shape, and endpoint presence.

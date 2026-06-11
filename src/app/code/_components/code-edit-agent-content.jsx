@@ -20,6 +20,8 @@ const errorMessages = {
   'invalid-price': 'Le prix fixe doit être supérieur à 0.',
   'invalid-risk': 'Le niveau de risque est invalide.',
   'invalid-contract': 'L’expérience workspace ou la promesse de résultat est invalide.',
+  'workflow-external-promise-without-webhook': 'Ce workflow promet une action externe. Ajoutez une étape webhook approuvable ou retirez cette promesse.',
+  'missing-creator-endpoint-disclosure': 'La fiche de l’agent API doit annoncer clairement l’appel à une API/endpoint creator approuvé côté serveur.',
   'forbidden-risk': 'Les agents forbidden_beta ne peuvent pas être soumis directement.',
   'creator-profile-error': 'Impossible de lire votre profil créateur.',
   'creator-profile-missing': 'Aucun profil créateur n’est lié à ce compte.',

@@ -112,6 +112,62 @@ function getPrecheckRisk(agent) {
   return getPrecheck(agent)?.riskLevel ?? 'blocked';
 }
 
+function getPrecheckPriority(agent) {
+  const precheck = getPrecheck(agent);
+
+  if (!precheck) {
+    return {
+      detail: 'Manifest ou précheck indisponible. Ne pas décider avant régénération.',
+      label: 'P0',
+      title: 'Précheck manquant',
+      tone: 'failed',
+    };
+  }
+
+  if (precheck.recommendation === 'block_publication' || precheck.riskLevel === 'blocked') {
+    return {
+      detail: 'Blocage déterministe. Corriger ou demander modifications avant publication.',
+      label: 'P0',
+      title: 'Blocage publication',
+      tone: 'failed',
+    };
+  }
+
+  if (precheck.recommendation === 'security_review_required') {
+    return {
+      detail: 'Security review à créer ou finaliser avant toute approbation.',
+      label: 'P1',
+      title: 'Security review requise',
+      tone: 'rejected',
+    };
+  }
+
+  if (precheck.riskLevel === 'high') {
+    return {
+      detail: 'Pas de blocage déterministe, mais review approfondie nécessaire.',
+      label: 'P1',
+      title: 'Review approfondie',
+      tone: 'rejected',
+    };
+  }
+
+  if (precheck.recommendation === 'request_changes' || precheck.riskLevel === 'medium') {
+    return {
+      detail: 'Clarifier la fiche, les limites ou le runtime avant approbation.',
+      label: 'P2',
+      title: 'Clarifications creator',
+      tone: 'in_review',
+    };
+  }
+
+  return {
+    detail: 'Aucun blocage détecté. Procéder à la review standard.',
+    label: 'P3',
+    title: 'Review standard',
+    tone: 'approved',
+  };
+}
+
 function sortByPrecheckPriority(queue) {
   return [...queue].sort((left, right) => {
     const leftRisk = getPrecheckRisk(left);
@@ -158,6 +214,49 @@ function buildPrecheckTriage(queue) {
       total: 0,
     },
   );
+}
+
+function PrecheckPriorityPanel({ agent }) {
+  const priority = getPrecheckPriority(agent);
+
+  return (
+    <div className="rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#F5F3FF_100%)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-label text-[10px] text-[#6B3FA0]">Priorité review</p>
+          <h3 className="mt-1 text-base font-bold text-[#111827]">{priority.title}</h3>
+          <p className="mt-2 text-sm leading-5 text-[#4B5563]">{priority.detail}</p>
+        </div>
+        <StatusBadge status={priority.tone} label={priority.label} />
+      </div>
+    </div>
+  );
+}
+
+function buildPrecheckChangeRequest(agent) {
+  const precheck = getPrecheck(agent);
+
+  if (!precheck) {
+    return '';
+  }
+
+  const actionableFindings = [...(precheck.blockers || []), ...(precheck.warnings || [])].slice(0, 5);
+
+  if (actionableFindings.length === 0) {
+    return '';
+  }
+
+  const lines = actionableFindings.map((finding) => {
+    const action = finding.suggestedAdminAction ? ` Action attendue : ${finding.suggestedAdminAction}` : '';
+
+    return `- ${finding.title} : ${finding.detail}${action}`;
+  });
+
+  return [
+    'Merci de corriger ou clarifier les points suivants avant une nouvelle review :',
+    '',
+    ...lines,
+  ].join('\n');
 }
 
 function TriageStat({ label, tone = 'in_review', value }) {
@@ -256,6 +355,8 @@ function QualityCheckList({ checks = [] }) {
 }
 
 function ReviewActions({ agent }) {
+  const suggestedChanges = buildPrecheckChangeRequest(agent);
+
   if (agent.status === 'submitted') {
     return (
       <form action={reviewAgentAction}>
@@ -286,7 +387,17 @@ function ReviewActions({ agent }) {
         <input type="hidden" name="decision" value="changes" />
         <input type="hidden" name="locale" value="fr" />
         <label className="font-label text-[10px] text-[#92400E]">Modifications</label>
-        <textarea name="notes" defaultValue={hasChangesRequest(agent) ? cleanAdminNotes(agent.latestAdminReview.notes) : ''} rows={3} className="mt-2 w-full rounded-xl border border-[#FCD34D] bg-white p-3 text-sm text-[#111827] outline-none focus:border-[#8B5CF6]" />
+        <textarea
+          name="notes"
+          defaultValue={hasChangesRequest(agent) ? cleanAdminNotes(agent.latestAdminReview.notes) : suggestedChanges}
+          rows={suggestedChanges ? 7 : 3}
+          className="mt-2 w-full rounded-xl border border-[#FCD34D] bg-white p-3 text-sm text-[#111827] outline-none focus:border-[#8B5CF6]"
+        />
+        {suggestedChanges && !hasChangesRequest(agent) && (
+          <p className="mt-2 text-xs leading-5 text-[#92400E]">
+            Prérempli depuis le précheck. Relisez et adaptez avant envoi au créateur.
+          </p>
+        )}
         <Button type="submit" variant="outline" className="mt-2 h-9 w-full border-[#F59E0B] bg-white text-[#92400E] hover:bg-[#FEF3C7]">
           <Edit className="mr-2 h-4 w-4" />
           Envoyer
@@ -601,6 +712,7 @@ export default async function AdminReviewPage({ searchParams }) {
               </div>
 
               <aside className="space-y-4">
+                <PrecheckPriorityPanel agent={agent} />
                 <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
                   <p className="font-label mb-3 text-xs text-[#6B3FA0]">Runtime settings</p>
                   <RuntimeSettingSummary setting={agent.runtimeSetting ? {

@@ -14,6 +14,7 @@ import {
   isExecutionMode,
   isSetupRequirementType,
   isWorkspaceMode,
+  normalizeAgentContract,
   readLines,
 } from "@/lib/agent-contract";
 import { PRICING_TYPES, RISK_LEVELS, type RiskLevel } from "@/lib/domain/status";
@@ -117,6 +118,39 @@ function readPriceCents(value: string) {
   }
 
   return Math.round(price * 100);
+}
+
+function hasWorkflowDecisionStep(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .some((line) => {
+      const match = /^llm\s*:\s*(.+)$/i.exec(line);
+      const label = match?.[1] ?? "";
+
+      return /d[ée]cid|class|priorit|score|qualif|router|choisir|triage|cat[ée]gor/i.test(label);
+    });
+}
+
+function hasCreatorEndpointDisclosure(value: string) {
+  return /\b(api|endpoint|creator|infrastructure|serveur|https|proxy|sign[ée]?)\b/i.test(value);
+}
+
+function hasUnsupportedExternalActionPromise(value: string) {
+  return value
+    .split(/\r?\n|[.!?]/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .some((line) => {
+      if (/\b(sans|aucun|aucune|ne\s+\w+.*\bpas|n['’]\w+.*\bpas|ne\s+\w+.*\baucun|ne\s+\w+.*\baucune)\b/i.test(line)) {
+        return false;
+      }
+
+      return /\b(scrape|scraper|connecte|connexion|appelle une api|appel api|webhook|modifie le crm|cr[ée]e un ticket|envoie un email|publie|poste automatiquement)\b/i.test(
+        line,
+      );
+    });
 }
 
 async function cleanupDraftAgent(
@@ -243,9 +277,41 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
   const workflowEndpointName = readText(formData, "workflow_endpoint_name") || `${values.name} workflow endpoint`;
   const creatorEndpointUrl = readEndpointUrl(formData, "creator_endpoint_url");
   const creatorEndpointName = readText(formData, "creator_endpoint_name") || `${values.name} creator endpoint`;
-  const hasWebhookStep = readText(formData, "workflow_steps")
+  const workflowStepsText = readText(formData, "workflow_steps");
+  const hasWebhookStep = workflowStepsText
     .split(/\r?\n/)
     .some((line) => line.trim().toLowerCase().startsWith("webhook:"));
+
+  if (runtimeType === "workflow_automation" && !hasWorkflowDecisionStep(workflowStepsText)) {
+    redirectWithError(locale, "invalid-workflow-decision");
+  }
+
+  const publicRuntimeText = [
+    values.short_description,
+    values.long_description,
+    readText(formData, "output_promise_summary"),
+    readText(formData, "output_promise_examples"),
+    values.does,
+    values.does_not_do,
+    values.known_limits,
+  ].join("\n");
+  const activePromiseText = [
+    values.short_description,
+    values.long_description,
+    readText(formData, "output_promise_summary"),
+    readText(formData, "output_promise_examples"),
+    values.does,
+    values.deliverables,
+    values.sample_output,
+  ].join("\n");
+
+  if (runtimeType === "creator_endpoint" && !hasCreatorEndpointDisclosure(publicRuntimeText)) {
+    redirectWithError(locale, "missing-creator-endpoint-disclosure");
+  }
+
+  if (runtimeType === "workflow_automation" && !hasWebhookStep && hasUnsupportedExternalActionPromise(activePromiseText)) {
+    redirectWithError(locale, "workflow-external-promise-without-webhook");
+  }
 
   if (runtimeType === "workflow_automation" && workflowEndpointUrl && !(await isSafeResolvedWorkflowEndpointUrl(workflowEndpointUrl))) {
     redirectWithError(locale, "invalid-workflow-endpoint");
@@ -407,7 +473,7 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
       }
     }
 
-    const workflowDefinition = parseWorkflowStepsText(readText(formData, "workflow_steps"), endpointId);
+    const workflowDefinition = parseWorkflowStepsText(workflowStepsText, endpointId);
 
     if (!workflowDefinition) {
       await supabase
@@ -673,6 +739,40 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
 
   if (submittedRuntimeType !== runtimeType || executionMode !== persistedExecutionMode) {
     redirectWithEditError(locale, agentId, "invalid-contract");
+  }
+
+  const currentContract = normalizeAgentContract({
+    dataPolicy: currentVersion.data_policy,
+    executionMode: currentVersion.execution_mode,
+    runtimeType: currentVersion.runtime_type,
+    workspaceMode,
+    setupRequirements,
+    outputPromise,
+  });
+  const publicRuntimeText = [
+    values.short_description,
+    values.long_description,
+    readText(formData, "output_promise_summary"),
+    readText(formData, "output_promise_examples"),
+    values.does,
+    values.known_limits,
+  ].join("\n");
+  const activePromiseText = [
+    values.short_description,
+    values.long_description,
+    readText(formData, "output_promise_summary"),
+    readText(formData, "output_promise_examples"),
+    values.does,
+    values.deliverables,
+  ].join("\n");
+  const hasCreatorWebhook = currentContract.dataPolicy.external_tools.includes("creator_webhook");
+
+  if (runtimeType === "creator_endpoint" && !hasCreatorEndpointDisclosure(publicRuntimeText)) {
+    redirectWithEditError(locale, agentId, "missing-creator-endpoint-disclosure");
+  }
+
+  if (runtimeType === "workflow_automation" && !hasCreatorWebhook && hasUnsupportedExternalActionPromise(activePromiseText)) {
+    redirectWithEditError(locale, agentId, "workflow-external-promise-without-webhook");
   }
 
   const dataPolicy =

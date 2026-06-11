@@ -50,6 +50,26 @@ function looksLikePublicHttpsUrl(value) {
   }
 }
 
+function hasCreatorEndpointDisclosure(value) {
+  return /\b(api|endpoint|creator|infrastructure|serveur|https|proxy|sign[ée]?)\b/i.test(value);
+}
+
+function hasUnsupportedExternalActionPromise(value) {
+  return value
+    .split(/\r?\n|[.!?]/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .some((line) => {
+      if (/\b(sans|aucun|aucune|ne\s+\w+.*\bpas|n['’]\w+.*\bpas|ne\s+\w+.*\baucun|ne\s+\w+.*\baucune)\b/i.test(line)) {
+        return false;
+      }
+
+      return /\b(scrape|scraper|connecte|connexion|appelle une api|appel api|webhook|modifie le crm|cr[ée]e un ticket|envoie un email|publie|poste automatiquement)\b/i.test(
+        line,
+      );
+    });
+}
+
 function buildQualityReport(values) {
   return evaluateAgentContractQuality({
     name: values.name,
@@ -93,6 +113,15 @@ function runtimeGuardrails(values) {
   if (values.runtime_type === 'workflow_automation') {
     const workflowSteps = lines(values.workflow_steps);
     const usesWebhook = hasWebhookStep(values.workflow_steps);
+    const activePromiseText = [
+      values.short_description,
+      values.long_description,
+      values.output_promise_summary,
+      values.output_promise_examples,
+      values.does,
+      values.deliverables,
+      values.sample_output,
+    ].join('\n');
 
     checks.push(
       {
@@ -116,10 +145,27 @@ function runtimeGuardrails(values) {
         passes: !usesWebhook || looksLikePublicHttpsUrl(values.workflow_endpoint_url),
         severity: 'blocker',
       },
+      {
+        id: 'workflow_external_promise',
+        label: 'Promesse compatible avec le workflow',
+        detail: 'Sans étape webhook, le workflow ne doit pas promettre scraping, publication, email envoyé ou modification externe.',
+        passes: usesWebhook || !hasUnsupportedExternalActionPromise(activePromiseText),
+        severity: 'blocker',
+      },
     );
   }
 
   if (values.runtime_type === 'creator_endpoint') {
+    const publicRuntimeText = [
+      values.short_description,
+      values.long_description,
+      values.output_promise_summary,
+      values.output_promise_examples,
+      values.does,
+      values.does_not_do,
+      values.known_limits,
+    ].join('\n');
+
     checks.push(
       {
         id: 'endpoint_name_present',
@@ -133,6 +179,13 @@ function runtimeGuardrails(values) {
         label: 'Endpoint HTTPS public',
         detail: 'L’agent API nécessite une URL HTTPS publique, sans localhost ni IP privée.',
         passes: looksLikePublicHttpsUrl(values.creator_endpoint_url),
+        severity: 'blocker',
+      },
+      {
+        id: 'endpoint_disclosure_present',
+        label: 'Disclosure API creator',
+        detail: 'La fiche doit annoncer clairement que l’exécution passe par une API/endpoint creator approuvé côté serveur.',
+        passes: hasCreatorEndpointDisclosure(publicRuntimeText),
         severity: 'blocker',
       },
     );
