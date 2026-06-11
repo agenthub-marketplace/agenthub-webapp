@@ -2,8 +2,10 @@ import "server-only";
 
 import type { AgentRuntimeType } from "@/lib/agent-contract";
 import { AGENT_RUNTIME_TYPE_LABELS } from "@/lib/agent-contract";
+import { publicEnv } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
+import { createClient } from "@supabase/supabase-js";
 
 export type RevenuePeriod = "30d" | "all";
 
@@ -51,13 +53,13 @@ type PaymentRevenueRow = {
         id: string;
         name: string;
         slug: string | null;
-        agent_categories: { name: string | null; slug: string | null } | { name: string | null; slug: string | null }[] | null;
+        category_id: string | null;
       }
     | {
         id: string;
         name: string;
         slug: string | null;
-        agent_categories: { name: string | null; slug: string | null } | { name: string | null; slug: string | null }[] | null;
+        category_id: string | null;
       }[]
     | null;
   agent_versions:
@@ -72,6 +74,14 @@ type PaymentRevenueRow = {
 
 const SANDBOX_NOTICE = "Montants sandbox, aucun payout réel en beta.";
 const REVENUE_PAGE_SIZE = 1000;
+
+type CategoryRow = {
+  id: string;
+  name: string | null;
+  slug: string | null;
+};
+
+type CategoryMap = Map<string, { name: string; slug: string }>;
 
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -110,7 +120,7 @@ function runtimeLabel(runtimeType: string | null) {
   return "Runtime non défini";
 }
 
-function aggregateRevenue(rows: PaymentRevenueRow[], period: RevenuePeriod): RevenueAnalytics {
+function aggregateRevenue(rows: PaymentRevenueRow[], period: RevenuePeriod, categoryMap: CategoryMap): RevenueAnalytics {
   let activatedGmvCents = 0;
   let pendingCents = 0;
   let attentionCents = 0;
@@ -147,8 +157,8 @@ function aggregateRevenue(rows: PaymentRevenueRow[], period: RevenuePeriod): Rev
     }
 
     const agent = readSingle(row.agents);
-    const category = readSingle(agent?.agent_categories ?? null);
     const version = readSingle(row.agent_versions);
+    const category = agent?.category_id ? categoryMap.get(agent.category_id) ?? null : null;
     const sectorKey = category?.slug || "uncategorized";
     const sectorLabel = category?.name || "Non catégorisé";
     const runtimeKey = version?.runtime_type || "unknown";
@@ -199,6 +209,47 @@ function aggregateRevenue(rows: PaymentRevenueRow[], period: RevenuePeriod): Rev
   };
 }
 
+async function loadCategoryMap(rows: PaymentRevenueRow[]): Promise<CategoryMap> {
+  const categoryIds = Array.from(
+    new Set(
+      rows
+        .map((row) => readSingle(row.agents)?.category_id ?? null)
+        .filter((categoryId): categoryId is string => Boolean(categoryId)),
+    ),
+  );
+
+  if (categoryIds.length === 0 || !publicEnv.supabaseUrl || !publicEnv.supabaseAnonKey) {
+    return new Map();
+  }
+
+  const supabase = createClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { data, error } = await supabase
+    .from("agent_categories")
+    .select("id,name,slug")
+    .in("id", categoryIds)
+    .returns<CategoryRow[]>();
+
+  if (error) {
+    return new Map();
+  }
+
+  return new Map(
+    (data ?? []).map((category) => [
+      category.id,
+      {
+        name: category.name || "Non catégorisé",
+        slug: category.slug || category.id,
+      },
+    ]),
+  );
+}
+
 async function loadRevenueRows(period: RevenuePeriod, creatorId?: string | null): Promise<RevenueAnalyticsResult> {
   const supabase = createSupabaseServiceClient();
 
@@ -213,7 +264,7 @@ async function loadRevenueRows(period: RevenuePeriod, creatorId?: string | null)
     let query = supabase
       .from("payments")
       .select(
-        "status,amount_cents,currency,rental_request_id,agents!inner(id,name,slug,creator_id,agent_categories(name,slug)),agent_versions(runtime_type)",
+        "status,amount_cents,currency,rental_request_id,agents!inner(id,name,slug,creator_id,category_id),agent_versions(runtime_type)",
       )
       .in("status", ["pending", "paid", "paid_blocked"])
       .order("created_at", { ascending: false })
@@ -241,8 +292,10 @@ async function loadRevenueRows(period: RevenuePeriod, creatorId?: string | null)
     }
   }
 
+  const categoryMap = await loadCategoryMap(rows);
+
   return {
-    analytics: aggregateRevenue(rows, period),
+    analytics: aggregateRevenue(rows, period, categoryMap),
     error: null,
   };
 }
@@ -256,7 +309,7 @@ export async function getCreatorRevenueAnalyticsForUser(period: RevenuePeriod = 
 
   if (creatorProfile.creatorProfileMissing || !creatorProfile.id) {
     return {
-      analytics: aggregateRevenue([], period),
+      analytics: aggregateRevenue([], period, new Map()),
       error: null,
     };
   }

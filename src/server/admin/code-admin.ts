@@ -310,7 +310,7 @@ export async function getAdminSecurityReview(reviewId: string) {
 }
 
 export async function getAdminPayments() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
     return { payments: [], error: "missing-config" };
@@ -349,7 +349,7 @@ export async function getAdminPayments() {
 }
 
 export async function getAdminOpsSnapshot() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
     return { checks: [], recentRuns: [], auditLogs: [], error: "missing-config" };
