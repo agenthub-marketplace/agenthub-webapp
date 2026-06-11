@@ -62,12 +62,118 @@ const precheckRecommendationLabels = {
   security_review_required: 'Security review requise',
 };
 
+const precheckNextActions = {
+  block_publication: 'Ne pas publier. Traiter les blocages déterministes avant toute décision.',
+  request_changes: 'Demander au créateur de clarifier la promesse, les limites ou la décision LLM.',
+  review_standard: 'Procéder à la review standard puis approuver si la fiche est cohérente.',
+  security_review_required: 'Créer ou finaliser la security review avant publication.',
+};
+
 const precheckRiskTone = {
   blocked: 'failed',
   high: 'rejected',
   low: 'approved',
   medium: 'in_review',
 };
+
+const precheckRiskOrder = {
+  blocked: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function getPrecheck(agent) {
+  return agent.manifest?.securityPrecheck ?? null;
+}
+
+function getPrecheckRisk(agent) {
+  return getPrecheck(agent)?.riskLevel ?? 'blocked';
+}
+
+function sortByPrecheckPriority(queue) {
+  return [...queue].sort((left, right) => {
+    const leftRisk = getPrecheckRisk(left);
+    const rightRisk = getPrecheckRisk(right);
+    const riskDelta = (precheckRiskOrder[leftRisk] ?? 0) - (precheckRiskOrder[rightRisk] ?? 0);
+
+    if (riskDelta !== 0) {
+      return riskDelta;
+    }
+
+    const leftCreatedAt = new Date(left.createdAt).getTime();
+    const rightCreatedAt = new Date(right.createdAt).getTime();
+
+    return leftCreatedAt - rightCreatedAt;
+  });
+}
+
+function buildPrecheckTriage(queue) {
+  return queue.reduce(
+    (summary, agent) => {
+      const precheck = getPrecheck(agent);
+      const riskLevel = precheck?.riskLevel ?? 'blocked';
+
+      summary.total += 1;
+      summary[riskLevel] = (summary[riskLevel] ?? 0) + 1;
+
+      if (precheck?.recommendation === 'security_review_required') {
+        summary.securityReviewRequired += 1;
+      }
+
+      if (!precheck) {
+        summary.missingManifest += 1;
+      }
+
+      return summary;
+    },
+    {
+      blocked: 0,
+      high: 0,
+      low: 0,
+      medium: 0,
+      missingManifest: 0,
+      securityReviewRequired: 0,
+      total: 0,
+    },
+  );
+}
+
+function TriageStat({ label, tone = 'in_review', value }) {
+  return (
+    <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-label text-[10px] text-[#6B3FA0]">{label}</p>
+        <StatusBadge status={tone} label={tone === 'failed' ? 'priorité' : 'tri'} />
+      </div>
+      <p className="mt-3 text-3xl font-bold text-[#111827]">{value}</p>
+    </div>
+  );
+}
+
+function PrecheckNextAction({ agent }) {
+  const precheck = getPrecheck(agent);
+
+  if (!precheck) {
+    return (
+      <CodeAlert tone="error">
+        Précheck indisponible : vérifier le manifest serveur avant de décider.
+      </CodeAlert>
+    );
+  }
+
+  const tone = precheck.recommendation === 'block_publication'
+    ? 'error'
+    : precheck.recommendation === 'request_changes' || precheck.recommendation === 'security_review_required'
+      ? 'warning'
+      : 'success';
+
+  return (
+    <CodeAlert tone={tone}>
+      Action recommandée : {precheckNextActions[precheck.recommendation] || 'Continuer la review admin.'}
+    </CodeAlert>
+  );
+}
 
 function FindingList({ emptyText, findings }) {
   if (!findings?.length) {
@@ -150,6 +256,8 @@ export default async function AdminReviewPage({ searchParams }) {
   const reviewQueue = await getAdminReviewQueue();
   const error = typeof params?.error === 'string' ? params.error : null;
   const reviewed = typeof params?.reviewed === 'string' ? params.reviewed : null;
+  const triage = buildPrecheckTriage(reviewQueue.queue);
+  const prioritizedQueue = sortByPrecheckPriority(reviewQueue.queue);
 
   return (
     <main className="px-4 py-8 lg:px-8">
@@ -162,12 +270,22 @@ export default async function AdminReviewPage({ searchParams }) {
       {reviewed && <CodeAlert tone="success">Décision admin enregistrée.</CodeAlert>}
       {error && <div className="mt-4"><CodeAlert tone="error">{reviewErrors[error] || 'Impossible d’enregistrer la décision admin.'}</CodeAlert></div>}
 
+      {!reviewQueue.error && reviewQueue.queue.length > 0 && (
+        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <TriageStat label="À traiter" value={triage.total} />
+          <TriageStat label="Bloqués par précheck" value={triage.blocked} tone={triage.blocked > 0 ? 'failed' : 'approved'} />
+          <TriageStat label="Risque haut" value={triage.high} tone={triage.high > 0 ? 'rejected' : 'approved'} />
+          <TriageStat label="Risque moyen" value={triage.medium} tone={triage.medium > 0 ? 'in_review' : 'approved'} />
+          <TriageStat label="Security review requise" value={triage.securityReviewRequired} tone={triage.securityReviewRequired > 0 ? 'in_review' : 'approved'} />
+        </section>
+      )}
+
       <section className="mt-6 grid gap-5">
         {reviewQueue.error && <CodeAlert tone="error">Impossible de charger la file de validation.</CodeAlert>}
         {!reviewQueue.error && reviewQueue.queue.length === 0 && (
           <EmptyAdminState title="Aucun agent en attente" text="Les nouvelles soumissions creators apparaîtront ici." />
         )}
-        {reviewQueue.queue.map((agent) => (
+        {prioritizedQueue.map((agent) => (
           <CodePanel key={agent.id}>
             <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
               <div>
@@ -175,9 +293,17 @@ export default async function AdminReviewPage({ searchParams }) {
                   <h2 className="font-display text-2xl font-bold text-[#111827]">{agent.name}</h2>
                   <StatusBadge status={agent.status} label={hasChangesRequest(agent) ? 'Modifs demandées' : agent.status} />
                   <StatusBadge status={agent.riskLevel === 'forbidden_beta' ? 'failed' : 'in_review'} label={agent.riskLevel} />
+                  <StatusBadge
+                    status={precheckRiskTone[getPrecheckRisk(agent)] || 'failed'}
+                    label={`Précheck: ${precheckRiskLabels[getPrecheckRisk(agent)] || 'Indisponible'}`}
+                  />
                 </div>
                 <p className="text-sm text-[#4B5563]">Soumis par {agent.creatorName || 'Créateur inconnu'} · {formatDate(agent.createdAt)}</p>
                 <p className="mt-4 leading-7 text-[#374151]">{agent.description}</p>
+
+                <div className="mt-4">
+                  <PrecheckNextAction agent={agent} />
+                </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-2xl border border-[#DDD6FE] bg-[#F5F3FF] p-3">

@@ -6,6 +6,7 @@ import { buildWorkspaceManifest, type WorkspaceManifestV1 } from "@/server/agent
 import { isDocumentRuntimeRunEnabled } from "@/server/documents/runtime";
 import { isCreatorEndpointRuntimeRunEnabled } from "@/server/endpoints/runtime";
 import type { AgentRunSummary } from "@/server/llm/runs";
+import { buildWorkspaceRecipe, type WorkspaceRecipeV1 } from "@/server/workspace/recipe";
 import { isWorkflowRuntimeRunEnabled } from "@/server/workflows/runtime";
 
 type WorkspaceRuntimeLocale = "en" | "fr";
@@ -37,6 +38,7 @@ export type WorkspaceRuntimeContractV1 = {
     kind: WorkspaceRunnerKind;
   };
   version: 1;
+  workspaceRecipe: WorkspaceRecipeV1;
   workspaceManifest: WorkspaceManifestV1;
 };
 
@@ -228,30 +230,41 @@ export async function buildWorkspaceRuntimeContract(
         : runner === "document"
           ? documentRunnerEnabled
           : llmRunnerEnabled;
+  const limits = {
+    maxFileBytes: serverEnv.documentMaxFileBytes,
+    maxInputChars: serverEnv.llmRunMaxInputChars,
+  };
+  const disabledReason = enabled
+    ? null
+    : disabledMessage({
+        contract,
+        documentInputMode,
+        documentRuntimeRunEnabled,
+        locale: input.locale,
+        rental: input.rental,
+        runner,
+      });
+  const runnerContract = {
+    disabledMessage: disabledReason,
+    kind: runner,
+  };
 
   return {
     actions: input.actions,
     documentInputMode,
     enabled,
     history: input.agentRuns,
-    limits: {
-      maxFileBytes: serverEnv.documentMaxFileBytes,
-      maxInputChars: serverEnv.llmRunMaxInputChars,
-    },
-    runner: {
-      disabledMessage: enabled
-        ? null
-        : disabledMessage({
-            contract,
-            documentInputMode,
-            documentRuntimeRunEnabled,
-            locale: input.locale,
-            rental: input.rental,
-            runner,
-          }),
-      kind: runner,
-    },
+    limits,
+    runner: runnerContract,
     version: 1,
+    workspaceRecipe: buildWorkspaceRecipe({
+      documentInputMode,
+      enabled,
+      history: input.agentRuns,
+      limits,
+      runner: runnerContract,
+      workspaceManifest,
+    }),
     workspaceManifest,
   };
 }
