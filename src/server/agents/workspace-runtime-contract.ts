@@ -267,6 +267,7 @@ export async function buildWorkspaceRuntimeContract(
       history: input.agentRuns,
       locale: input.locale,
       limits,
+      outputPromise: contract.outputPromise,
       runner: runnerContract,
       workspaceManifest,
     }),

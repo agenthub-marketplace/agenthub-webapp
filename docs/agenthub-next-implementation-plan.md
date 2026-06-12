@@ -318,7 +318,11 @@ Scope:
 Status: first UI adapter implemented. FR/EN workspace detail pages pass
 `workspaceRecipe` into `WorkspaceAgentExperience`, which renders tab-scoped
 recipe blocks before the main content/runners. Deeper runner-level consumption
-remains a follow-up.
+remains a follow-up. Second adapter increment is now in progress: the recipe
+also exposes `nextActions`, a short localized sequence of runtime-specific user
+actions. The workspace summary renders those steps for assistant, document,
+workflow, and creator endpoint agents, or a concrete unblock action when the
+runtime is disabled.
 
 ### Ticket 3: Advanced Agent Smoke Console
 

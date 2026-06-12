@@ -7,6 +7,7 @@ import { requireAdminAccess } from "@/lib/auth/session";
 import { isAgentRuntimeType, type AgentRuntimeType } from "@/lib/agent-contract";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { testCreatorEndpointHealth } from "@/server/admin/endpoint-health";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { generateSecurityPrecheckForAgent } from "@/server/agents/security-prechecks";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
@@ -54,6 +55,19 @@ type CreatorEndpointApprovalRow = {
   endpoint_id: string;
   id: string;
   status: string;
+};
+
+type LatestSecurityPrecheckRow = {
+  id: string;
+  recommended_action: string;
+  risk_level_suggested: string;
+  status: string;
+};
+
+type EndpointHealthRow = {
+  endpoint_url: string;
+  id: string;
+  name: string;
 };
 
 function readText(formData: FormData, key: string) {
@@ -149,6 +163,33 @@ async function assertSecurityReviewPassed(input: {
     .limit(1);
 
   return !error && Boolean(data?.length);
+}
+
+async function assertSecurityPrecheckReady(input: {
+  agentVersionId: string;
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+}) {
+  const { data, error } = await input.supabase
+    .from("agent_security_prechecks")
+    .select("id,status,risk_level_suggested,recommended_action")
+    .eq("agent_version_id", input.agentVersionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<LatestSecurityPrecheckRow>();
+
+  if (error || !data) {
+    return false;
+  }
+
+  if (data.status !== "passed" && data.status !== "warning") {
+    return false;
+  }
+
+  if (data.risk_level_suggested === "blocked" || data.recommended_action === "block_publication") {
+    return false;
+  }
+
+  return data.recommended_action !== "request_changes";
 }
 
 export async function approveWorkflowAutomationAssetsAction(formData: FormData) {
@@ -468,6 +509,54 @@ export async function moderateEndpointAction(formData: FormData) {
   redirect("/code/admin/endpoints?updated=endpoint");
 }
 
+export async function testEndpointHealthAction(formData: FormData) {
+  const profile = await requireAdminAccess("fr", "/code/admin/endpoints");
+  const supabase = await createSupabaseServerClient();
+  const endpointId = readText(formData, "endpoint_id");
+  const endpointFamily = readText(formData, "endpoint_family");
+
+  if (!supabase) {
+    redirectToAdminCode("/code/admin/endpoints", "missing-config");
+  }
+
+  if (!endpointId || !isEndpointFamily(endpointFamily)) {
+    redirectToAdminCode("/code/admin/endpoints", "invalid-endpoint-action");
+  }
+
+  const table = endpointFamily === "workflow_webhook" ? "creator_webhook_endpoints" : "creator_api_endpoints";
+  const { data: endpoint, error } = await supabase
+    .from(table)
+    .select("id,name,endpoint_url")
+    .eq("id", endpointId)
+    .maybeSingle<EndpointHealthRow>();
+
+  if (error || !endpoint) {
+    redirectToAdminCode("/code/admin/endpoints", "endpoint-health-load-failed");
+  }
+
+  const result = await testCreatorEndpointHealth({
+    endpointUrl: endpoint.endpoint_url,
+    family: endpointFamily === "creator_api" ? "creator_api" : "workflow_webhook",
+  });
+
+  await supabase.from("audit_logs").insert({
+    actor_id: profile.id,
+    action: `endpoint.${endpointFamily}.health_check`,
+    entity_type: table,
+    entity_id: endpointId,
+    metadata: {
+      code: result.code,
+      ok: result.ok,
+      response_chars: result.responseChars ?? null,
+    },
+  });
+
+  revalidatePath("/code/admin/endpoints");
+  redirect(
+    `/code/admin/endpoints?tested=${result.ok ? "ok" : "failed"}&testCode=${encodeURIComponent(result.code)}&endpoint=${encodeURIComponent(endpointId)}`,
+  );
+}
+
 export async function decideSecurityReviewAction(formData: FormData) {
   const profile = await requireAdminAccess("fr", "/code/admin/security");
   const supabase = await createSupabaseServerClient();
@@ -746,6 +835,15 @@ export async function reviewAgentAction(formData: FormData) {
         : version.execution_mode === "llm_prompt"
           ? "llm_prompt"
           : "static_guided";
+
+    const precheckReady = await assertSecurityPrecheckReady({
+      agentVersionId: agent.active_version_id,
+      supabase,
+    });
+
+    if (!precheckReady) {
+      redirectWithError(locale, "precheck-required");
+    }
 
     const { data: runtimeSetting, error: runtimeSettingError } = await supabase
       .from("agent_runtime_settings")

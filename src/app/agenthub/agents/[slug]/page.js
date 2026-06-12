@@ -3,7 +3,7 @@ import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import { Button } from '@/components/ui/button';
-import { SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
+import { AGENT_RUNTIME_TYPE_LABELS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { getCurrentProfile } from '@/lib/auth/session';
 import { euroLabelToCredits, formatCredits, formatCreditsFromCents } from '@/lib/format-credits';
 import { polishFrenchCopy, polishFrenchList } from '@/lib/french-copy';
@@ -104,6 +104,105 @@ const orderMessages = {
   'activation-blocked': 'Le paiement est reçu, mais l’activation a été bloquée. Contactez l’équipe AgentHub.',
 };
 
+function runtimeDetail(contract) {
+  const runtimeType = contract?.runtimeType;
+  const label = AGENT_RUNTIME_TYPE_LABELS[runtimeType] || 'Agent AgentHub';
+
+  if (runtimeType === 'creator_endpoint') {
+    return {
+      label,
+      detail: 'Exécution orchestrée par AgentHub avec une API creator approuvée côté serveur.',
+    };
+  }
+
+  if (runtimeType === 'workflow_automation') {
+    return {
+      label,
+      detail: 'Suite d’étapes contrôlées avec progression et résultat stocké dans le workspace.',
+    };
+  }
+
+  if (runtimeType === 'document_file') {
+    return {
+      label,
+      detail: 'Prévoit un document PDF/DOCX privé avant analyse dans le workspace.',
+    };
+  }
+
+  if (runtimeType === 'llm_prompt') {
+    return {
+      label,
+      detail: 'Assistant texte guidé, adapté aux réponses structurées à partir de votre contexte.',
+    };
+  }
+
+  return {
+    label,
+    detail: 'Workspace guidé sans exécution IA avancée.',
+  };
+}
+
+function beforeRentChecklist({ agent, hasPrice, outputPromiseSummary, requiredInputs, runtimeInfo, setupLabel }) {
+  const items = [
+    {
+      detail: runtimeInfo.detail,
+      label: `Type : ${runtimeInfo.label}`,
+      tone: 'default',
+    },
+    {
+      detail: requiredInputs.length > 0
+        ? requiredInputs.slice(0, 2).join(' · ')
+        : 'Aucun input spécifique annoncé, mais vous devrez fournir un contexte clair dans le workspace.',
+      label: 'Préparez vos informations',
+      tone: requiredInputs.length > 0 ? 'default' : 'warning',
+    },
+    {
+      detail: outputPromiseSummary || 'Le workspace guidera l’usage, mais la promesse de résultat doit être relue avant location.',
+      label: 'Vérifiez la promesse',
+      tone: outputPromiseSummary ? 'default' : 'warning',
+    },
+    {
+      detail: setupLabel,
+      label: 'Mise en place',
+      tone: 'default',
+    },
+  ];
+
+  if (!hasPrice) {
+    items.push({
+      detail: 'Le nombre de crédits doit être configuré avant activation.',
+      label: 'Prix indisponible',
+      tone: 'warning',
+    });
+  }
+
+  if (agent.contract.runtimeType === 'creator_endpoint') {
+    items.push({
+      detail: 'AgentHub orchestre l’appel côté serveur vers une API créateur approuvée. N’envoyez pas de secrets.',
+      label: 'Infrastructure créateur',
+      tone: 'warning',
+    });
+  }
+
+  if (agent.contract.runtimeType === 'workflow_automation') {
+    items.push({
+      detail: 'Le résultat dépend d’une suite d’étapes validées. Prévoyez un contexte assez précis pour permettre les décisions.',
+      label: 'Workflow multi-étapes',
+      tone: 'default',
+    });
+  }
+
+  if (agent.contract.runtimeType === 'document_file') {
+    items.push({
+      detail: 'Préparez un PDF/DOCX avec texte sélectionnable. Les PDF scannés peuvent échouer en beta.',
+      label: 'Document requis',
+      tone: 'warning',
+    });
+  }
+
+  return items.slice(0, 6);
+}
+
 export default async function Page({ params, searchParams }) {
   const { slug } = await params;
   const [agentResult, profile] = await Promise.all([
@@ -146,6 +245,7 @@ export default async function Page({ params, searchParams }) {
   const hasPrice = typeof agent.fromPrice === 'number' && agent.fromPrice > 0;
   const displayedPrice = hasPrice ? formatCredits(agent.fromPrice) : euroLabelToCredits(agent.priceLabel);
   const setupLabel = WORKSPACE_MODE_LABELS[agent.contract.workspaceMode] || 'Accès immédiat';
+  const runtimeInfo = runtimeDetail(agent.contract);
   const description = polishFrenchCopy(agent.description);
   const capabilities = polishFrenchList(agent.capabilities);
   const limitations = polishFrenchList(agent.limitations);
@@ -154,6 +254,14 @@ export default async function Page({ params, searchParams }) {
   const outputPromiseSummary = polishFrenchCopy(agent.contract.outputPromise.summary);
   const outputPromiseExamples = polishFrenchList(agent.contract.outputPromise.examples);
   const setupItems = polishFrenchList(agent.contract.setupRequirements.items);
+  const rentChecklist = beforeRentChecklist({
+    agent,
+    hasPrice,
+    outputPromiseSummary,
+    requiredInputs,
+    runtimeInfo,
+    setupLabel,
+  });
   const { state: orderState } = profile ? await getUserAgentOrderState(profile.id, agent.id) : { state: null };
   const canStartOrder = hasPrice && (!orderState || orderState.kind === 'stopped_access');
 
@@ -184,6 +292,9 @@ export default async function Page({ params, searchParams }) {
                   </span>
                   <span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A1130] border border-[#532B88]/40 text-[#C8B1E4]">
                     {agent.category}
+                  </span>
+                  <span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A1130] border border-[#8B5CF6]/40 text-[#C4B5FD]">
+                    {runtimeInfo.label}
                   </span>
                   <span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A1130] border border-[#8B5CF6]/40 text-[#C4B5FD]">
                     {setupLabel}
@@ -224,6 +335,11 @@ export default async function Page({ params, searchParams }) {
 
             <div className="my-6 grid md:grid-cols-2 gap-5">
               <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
+                <h2 className="font-display font-bold text-lg mb-3">Type d’agent</h2>
+                <p className="text-sm font-semibold text-[#F4EFFA]">{runtimeInfo.label}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[#C8B1E4]">{runtimeInfo.detail}</p>
+              </div>
+              <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-5">
                 <h2 className="font-display font-bold text-lg mb-3">Ce que vous obtenez</h2>
                 <p className="text-sm leading-relaxed text-[#C8B1E4]">
                   {outputPromiseSummary || 'L’accès ouvre un workspace guidé pour utiliser cet agent avec les consignes fournies par le créateur.'}
@@ -261,6 +377,27 @@ export default async function Page({ params, searchParams }) {
           </section>
 
           <aside className="lg:sticky lg:top-20 lg:self-start space-y-4">
+            <div className="bg-[#0F0A1E] border border-[#6B3FA0]/45 rounded-2xl p-5">
+              <p className="font-label text-[10px] text-[#B794F4] mb-2">AVANT DE LOUER</p>
+              <h2 className="font-display font-bold text-lg mb-3">Est-ce le bon agent ?</h2>
+              <div className="space-y-3">
+                {rentChecklist.map((item) => {
+                  const Icon = item.tone === 'warning' ? AlertTriangle : Check;
+                  const color = item.tone === 'warning' ? 'text-[#F59E0B]' : 'text-[#10B981]';
+
+                  return (
+                    <div key={`${item.label}-${item.detail}`} className="flex gap-2 rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
+                      <div>
+                        <p className="text-sm font-semibold text-[#F4EFFA]">{item.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-[#C8B1E4]">{item.detail}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="bg-[#0F0A1E] border border-[#2F184B] rounded-2xl p-6 glow-soft">
               <p className="font-label text-xs text-[#9B72CF] mb-1">Crédits requis</p>
               {hasPrice ? (

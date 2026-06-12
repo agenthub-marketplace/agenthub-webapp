@@ -75,6 +75,40 @@ x-agenthub-timestamp: unix timestamp seconds
 x-agenthub-signature: hex hmac sha256 over `${timestamp}.${body}`
 ```
 
+Creator endpoints should reject requests when:
+
+- the timestamp is older than 5 minutes;
+- the HMAC signature does not match;
+- the JSON body is missing `run_id` or `input_text`;
+- the response cannot be produced within the beta timeout.
+
+Minimal Node.js verification example:
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+function verifyAgentHubSignature({ body, secret, signature, timestamp }) {
+  const now = Math.floor(Date.now() / 1000);
+  const requestTime = Number(timestamp);
+
+  if (!Number.isFinite(requestTime) || Math.abs(now - requestTime) > 300) {
+    return false;
+  }
+
+  const expected = createHmac("sha256", secret)
+    .update(`${timestamp}.${body}`)
+    .digest("hex");
+
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature || "");
+
+  return (
+    expectedBuffer.length === signatureBuffer.length &&
+    timingSafeEqual(expectedBuffer, signatureBuffer)
+  );
+}
+```
+
 The endpoint must return JSON:
 
 ```json
@@ -82,6 +116,8 @@ The endpoint must return JSON:
   "output_text": "Text result to show to the user"
 }
 ```
+
+`output_text` is the only field AgentHub displays to the user in v0. Keep it text-only, concise, and free of secrets.
 
 ## Security Rules
 
@@ -94,6 +130,7 @@ The endpoint must return JSON:
 - Timeout: max 15s in beta.
 - Response text capped at 12k characters.
 - Creator cannot read private user run rows through RLS.
+- Admin approval should confirm endpoint ownership, HMAC handling, timeout behavior, and safe failure responses before publication.
 
 ## Smoke Test
 

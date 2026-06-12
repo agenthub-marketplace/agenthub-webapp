@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { recordCreatorRevenueLedgerEvent } from "@/server/payments/revenue-ledger";
 import type { ActivationError, PaymentStatus } from "@/server/payments/state";
 
 type PaymentRow = {
@@ -73,6 +74,15 @@ export async function markPaymentBlocked(paymentId: string, activationError: Act
     })
     .eq("id", paymentId)
     .in("status", ["pending", "cancelled", "failed"]);
+
+  await recordCreatorRevenueLedgerEvent({
+    eventType: "activation_blocked",
+    metadata: {
+      activation_error: activationError,
+    },
+    paymentId,
+    supabase,
+  });
 }
 
 export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillment) {
@@ -97,10 +107,29 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
   }
 
   if (payment.status === "paid" && payment.rental_request_id) {
+    await recordCreatorRevenueLedgerEvent({
+      eventType: "payment_paid",
+      paymentId: payment.id,
+      supabase,
+    });
+    await recordCreatorRevenueLedgerEvent({
+      eventType: "access_created",
+      paymentId: payment.id,
+      rentalRequestId: payment.rental_request_id,
+      supabase,
+    });
     return;
   }
 
   if (payment.status === "paid_blocked") {
+    await recordCreatorRevenueLedgerEvent({
+      eventType: "activation_blocked",
+      metadata: {
+        activation_error: payment.activation_error,
+      },
+      paymentId: payment.id,
+      supabase,
+    });
     return;
   }
 
@@ -160,6 +189,18 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     if (updateExistingError) {
       throw new Error("payment-update-failed");
     }
+
+    await recordCreatorRevenueLedgerEvent({
+      eventType: "payment_paid",
+      paymentId: payment.id,
+      supabase,
+    });
+    await recordCreatorRevenueLedgerEvent({
+      eventType: "access_created",
+      paymentId: payment.id,
+      rentalRequestId: existingAccess.id,
+      supabase,
+    });
 
     return;
   }
@@ -237,4 +278,16 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
   if (updateError || !updatedPayment) {
     throw new Error("payment-update-failed");
   }
+
+  await recordCreatorRevenueLedgerEvent({
+    eventType: "payment_paid",
+    paymentId: payment.id,
+    supabase,
+  });
+  await recordCreatorRevenueLedgerEvent({
+    eventType: "access_created",
+    paymentId: payment.id,
+    rentalRequestId: access.id,
+    supabase,
+  });
 }

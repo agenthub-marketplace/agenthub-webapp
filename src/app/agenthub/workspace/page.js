@@ -215,43 +215,6 @@ export default async function WorkspacePage({ searchParams }) {
           </div>
         )}
 
-        {!error && uniqueHistoryRentals.length > 0 && (
-          <section className="mt-8">
-            <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
-              <History className="h-5 w-5 text-[#9B72CF]" />
-              <h2 className="font-display text-2xl font-bold">Historique des agents loués</h2>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {uniqueHistoryRentals.map((rental) => {
-                const state = unavailableRentalCopy(rental);
-
-                return (
-                  <article key={rental.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">
-                          {rental.agent?.name ?? 'AgentHub agent'}
-                        </h3>
-                        <p className="mt-1 text-sm text-[#C8B1E4]">{state.text}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1 text-xs font-label text-[#F6C177]">
-                        {state.label}
-                      </span>
-                    </div>
-                    {rental.agent?.slug && (
-                      <Link href={`/agenthub/agents/${rental.agent.slug}`}>
-                        <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
-                          Voir la fiche agent
-                        </Button>
-                      </Link>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
         {!error && (attentionRentals.length > 0 || paymentStateOrders.length > 0) && (
           <section className="mt-8">
             <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
@@ -321,6 +284,43 @@ export default async function WorkspacePage({ searchParams }) {
                         <AlertTriangle className="h-4 w-4" />
                         Support AgentHub requis
                       </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {!error && uniqueHistoryRentals.length > 0 && (
+          <section className="mt-8">
+            <div className="mb-4 flex items-center gap-2 text-[#F4EFFA]">
+              <History className="h-5 w-5 text-[#9B72CF]" />
+              <h2 className="font-display text-2xl font-bold">Historique des agents loués</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {uniqueHistoryRentals.map((rental) => {
+                const state = unavailableRentalCopy(rental);
+
+                return (
+                  <article key={rental.id} className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">
+                          {rental.agent?.name ?? 'AgentHub agent'}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#C8B1E4]">{state.text}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1 text-xs font-label text-[#F6C177]">
+                        {state.label}
+                      </span>
+                    </div>
+                    {rental.agent?.slug && (
+                      <Link href={`/agenthub/agents/${rental.agent.slug}`}>
+                        <Button variant="outline" className="w-full border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
+                          Voir la fiche agent
+                        </Button>
+                      </Link>
                     )}
                   </article>
                 );

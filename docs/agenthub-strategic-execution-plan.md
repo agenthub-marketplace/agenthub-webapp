@@ -377,6 +377,18 @@ Critère :
 admin voit HTTPS OK, HMAC attendu, JSON valide, timeout et taille réponse.
 ```
 
+Statut :
+
+```text
+V0 implémentée dans `/code/admin/endpoints` :
+- bouton admin-only "Tester endpoint" ;
+- POST serveur signé et borné ;
+- validation URL sûre, timeout, redirect, taille réponse et JSON ;
+- `creator_api` exige `output_text` ;
+- résultat court visible après retour page ;
+- audit log sans stocker la réponse brute.
+```
+
 ### Ticket D - Revenue Ledger MVP
 
 Créer la table ledger additive et écrire les premiers événements.
@@ -385,6 +397,17 @@ Critère :
 
 ```text
 payment paid + access created + activation blocked alimentent un ledger audit.
+```
+
+Statut :
+
+```text
+V0 locale implémentée :
+- table `creator_revenue_ledger` additive ;
+- RLS creator/admin ;
+- écritures service-role depuis le fulfillment Stripe ;
+- événements idempotents `payment_paid`, `access_created`, `activation_blocked` ;
+- aucun Stripe Connect ou payout réel.
 ```
 
 ### Ticket E - Advanced Agent Smoke Pack
@@ -398,18 +421,262 @@ un testeur peut valider Support Triage, Lead Qualification et CRM API sans
 chercher les étapes dans le code.
 ```
 
-## Priorité Immédiate
-
-La prochaine meilleure étape est :
+Statut :
 
 ```text
-Ticket A -> Creator Guardrails Preview
+Pack créé dans `docs/advanced-agent-smoke-pack.md` avec :
+- préconditions environnement ;
+- gates admin obligatoires ;
+- inputs de test ;
+- décisions attendues ;
+- preuves de succès ;
+- go/no-go beta avancée.
+```
+
+### Ticket F - Creator Infra Compatibility Matrix
+
+Transformer le fallback creator en décision produit/admin explicite.
+
+Critère :
+
+```text
+admin sait pourquoi un agent reste natif AgentHub ou bascule vers infra creator.
+```
+
+À faire :
+
+- afficher une matrice runtime/capacité dans la review admin ;
+- calculer un readiness score interne pour `creator_endpoint` ;
+- exposer les blockers :
+  - runtime disabled ;
+  - creator non allowlisté ;
+  - endpoint non approuvé ;
+  - health check absent/échoué ;
+  - security review manquante ;
+  - disclosure user manquante ;
+- garder le workspace user limité à une explication claire, sans URL privée ni
+  payload.
+
+Preuve attendue :
+
+```text
+un agent API creator ne peut être publié que si l'admin voit les gates et sait
+quel gate bloque la mise en vente.
+```
+
+## Priorité Immédiate
+
+La prochaine meilleure étape n'est plus le Ticket A, déjà en première version.
+La priorité devient :
+
+```text
+Ticket B -> Workspace Runner Recipe Consumption
+Ticket C -> Endpoint Health Check Admin
+Ticket D -> Revenue Ledger MVP
+Ticket E -> Advanced Agent Smoke Pack
+Ticket F -> Creator Infra Compatibility Matrix
 ```
 
 Raison :
 
-- réduit le bruit admin ;
-- améliore la qualité des agents soumis ;
-- exploite le score qualité et le manifest déjà présents ;
-- n'augmente pas le risque runtime ;
-- prépare les vrais agents workflow/API avant d'ouvrir plus largement.
+- le creator voit déjà les premiers garde-fous avant submit ;
+- le prochain risque principal est côté user workspace : comprendre, lancer,
+  reprendre et debugger chaque runtime sans friction ;
+- l'endpoint creator doit devenir vérifiable avant approval, pas seulement
+  déclaratif ;
+- les revenus creator doivent passer d'un GMV sandbox à un ledger auditable
+  avant Stripe Connect ;
+- les agents avancés ont besoin d'un smoke pack partagé pour éviter les tests
+  improvisés.
+- le fallback infra creator doit devenir une décision inspectable, pas seulement
+  une option runtime.
+
+## Prochaine Release - Plan D'Exécution
+
+Objectif : rendre les agents avancés testables de bout en bout sans ajouter de
+risque inutile.
+
+### 1. Workspace Multi-Runtime Plus Fluide
+
+But :
+
+```text
+Un user loue n'importe quel type d'agent et sait immédiatement quoi faire.
+```
+
+À faire :
+
+- faire consommer `workspaceRecipe.nextActions` directement par les runners ;
+- ajouter un état "voir plus" ou vue complète d'historique quand les runs
+  dépassent le résumé ;
+- harmoniser les messages runtime désactivé entre assistant, document,
+  workflow et endpoint ;
+- afficher la progression workflow comme une vraie timeline d'étapes ;
+- afficher les erreurs endpoint avec causes lisibles :
+  - endpoint non approuvé ;
+  - endpoint suspendu ;
+  - timeout ;
+  - JSON invalide ;
+  - runtime désactivé.
+
+Preuve attendue :
+
+```text
+assistant, document, workflow et endpoint ont chacun :
+- setup clair ;
+- action principale claire ;
+- état d'exécution clair ;
+- historique lisible ;
+- message d'erreur contextualisé.
+```
+
+### 2. Endpoint Health Check Admin
+
+But :
+
+```text
+Un admin peut vérifier un endpoint creator avant de le rendre vendable.
+```
+
+À faire :
+
+- action admin read-only "Tester endpoint" ;
+- POST serveur avec payload de test borné ;
+- validation :
+  - HTTPS ;
+  - pas localhost/IP privée ;
+  - réponse JSON ;
+  - `output_text` ou schéma attendu ;
+  - timeout ;
+  - taille réponse ;
+  - HMAC attendu côté documentation ;
+- stocker ou afficher le dernier résultat sans payload sensible.
+
+Preuve attendue :
+
+```text
+admin voit endpoint OK / timeout / invalid_json / schema_invalid avant approval.
+```
+
+### 3. Revenue Ledger MVP
+
+But :
+
+```text
+Préparer le vrai revenu creator sans brancher Stripe Connect trop tôt.
+```
+
+À faire :
+
+- créer un ledger interne additif ;
+- écrire les événements non payants d'abord :
+  - `payment_paid` ;
+  - `access_created` ;
+  - `activation_blocked` ;
+- afficher creator :
+  - GMV sandbox ;
+  - montant non payable ;
+  - état payout non configuré ;
+- afficher admin :
+  - incohérences payment/access ;
+  - ledger manquant ;
+  - futurs montants payout théoriques.
+
+Preuve attendue :
+
+```text
+chaque vente sandbox peut être reliée à un agent, un creator, un accès et un
+état ledger sans créer de payout réel.
+```
+
+Incrément cockpit creator :
+
+- le dashboard AgentHub Code expose maintenant une action recommandée par agent
+  récent : corriger, finaliser, suivre, ou piloter ;
+- le tri priorise les retours admin et les brouillons avant les agents déjà
+  publiés ;
+- le même bloc rappelle l'état `revenueReadiness` quand l'audit revenue n'est
+  pas prêt pour la future phase payout ;
+- aucune donnée privée user n'est exposée : la guidance est dérivée des états
+  agent, review admin et agrégats revenue.
+
+Incrément fit avant location :
+
+- la fiche agent affiche une checklist `Avant de louer` avant le bloc crédits ;
+- les cards marketplace affichent maintenant un résumé compact `À préparer` et
+  `Résultat attendu` quand ces données existent ;
+- la recherche marketplace indexe aussi capacités, inputs, livrables, limites,
+  promesse de sortie, exemples et runtime, pas seulement le nom ou la catégorie ;
+- elle résume runtime, inputs à préparer, promesse de résultat, setup et
+  contraintes spécifiques comme document, workflow ou infra creator ;
+- l'objectif est de réduire les locations mauvais-fit avant checkout sans
+  changer Stripe, marketplace, RLS ou règles d'accès ;
+- le user sait mieux si l'agent répond à son besoin avant de payer/activer.
+
+### 4. Advanced Agent Smoke Pack
+
+But :
+
+```text
+Tester les vrais agents beta sans chercher les étapes dans les écrans admin.
+```
+
+Pack minimal :
+
+- `Support Triage Agent` ;
+- `Lead Qualification Agent` ;
+- `CRM Enrichment API Agent`.
+
+Chaque fiche smoke doit contenir :
+
+- creator requis et allowlist ;
+- agent template à choisir ;
+- champs à remplir ;
+- approvals admin nécessaires ;
+- security review attendue ;
+- input user de test ;
+- résultat attendu ;
+- erreurs connues ;
+- preuve de succès :
+  - run réussi ;
+  - output stocké ;
+  - historique visible après reload ;
+  - avis vérifié possible.
+
+### 5. Idées À Préparer Ensuite
+
+Ces idées ne doivent pas devancer les quatre tickets ci-dessus, mais elles
+servent la vision "tout type d'agent" :
+
+- Workspace readiness score : indique si le workspace est prêt à lancer l'agent
+  avant que le user clique.
+- Agent compatibility matrix : montre quels runtimes/features sont supportés
+  par AgentHub infra, par creator infra, ou non supportés.
+- Creator infra SLA beta : dernier test endpoint, taux d'échec, latence
+  médiane, erreurs récentes.
+- Admin review assistant LLM : résumé narratif du precheck déterministe, sans
+  décision automatique.
+- Run quality signal : un run réussi + avis vérifié + faible support incident
+  améliore la priorité interne de l'agent.
+- Payout readiness checklist creator : KYC/Connect plus tard, mais checklist
+  visible avant argent réel.
+
+## Ordre Recommandé Des Boucles Codex
+
+Continuer à utiliser les conversations spécialisées, une seule à la fois :
+
+```text
+1. workspace-fluidity
+2. activation-flow-audit
+3. admin-review-state-map
+4. creator-submission-guardrails
+5. verified-reviews-audit
+```
+
+Pourquoi cet ordre :
+
+- le workspace est le coeur de la valeur user ;
+- l'activation doit rester stable avant les payouts ;
+- l'admin review porte les nouveaux gates endpoint/security ;
+- les guardrails réduisent le bruit avant soumission ;
+- les reviews vérifiées valident la boucle après usage.

@@ -43,6 +43,10 @@ For this task, use a loop. For future workspace execution lifecycle changes, mod
 ## Acceptance Criteria
 
 - [ ] Identify any workspace developer-friction observations without modifying product behavior.
+- [ ] Check that workspace recipe blocks appear before empty/history states for each relevant tab.
+- [ ] Check that `workspaceRecipe.nextActions` gives concrete guidance for assistant, document, workflow, and creator endpoint runtimes.
+- [ ] Check that disabled runtimes show an actionable unblock reason instead of a generic dead end.
+- [ ] Check that creator-hosted or hybrid execution is visible to the user without exposing endpoint URLs, payloads, or secrets.
 - [ ] If editing, limit changes to `docs/agent-loops/`.
 - [ ] Run the configured validation command.
 - [ ] Show `git status --short` at the end.

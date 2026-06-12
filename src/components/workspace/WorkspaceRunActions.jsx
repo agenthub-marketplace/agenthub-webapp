@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import WorkspaceNextActions from './WorkspaceNextActions';
+import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
 
 const copy = {
   fr: {
@@ -16,12 +18,14 @@ const copy = {
     inputPlaceholder: 'Décrivez ce que vous voulez obtenir avec cet assistant...',
     launch: 'Générer la réponse',
     loading: 'Génération en cours...',
+    nextActions: 'Prochaines actions',
     remaining: 'caractères restants',
     result: 'Résultat généré',
     selectAction: 'Choisissez une action, ajoutez votre contexte, puis générez une réponse.',
     showLess: 'Réduire',
+    showLessHistory: 'Afficher moins d’historique',
     showMore: 'Voir le résultat complet',
-    showMoreRuns: 'Voir plus d’exécutions',
+    showMoreHistory: 'Voir plus d’exécutions',
     title: 'Démarrer avec cet assistant',
   },
   en: {
@@ -34,12 +38,14 @@ const copy = {
     inputPlaceholder: 'Describe what you want to get from this assistant...',
     launch: 'Generate response',
     loading: 'Generating...',
+    nextActions: 'Next actions',
     remaining: 'characters remaining',
     result: 'Generated result',
     selectAction: 'Choose an action, add context, then generate a response.',
     showLess: 'Collapse',
+    showLessHistory: 'Show less history',
     showMore: 'View full result',
-    showMoreRuns: 'Show more executions',
+    showMoreHistory: 'Show more runs',
     title: 'Start with this assistant',
   },
 };
@@ -58,11 +64,13 @@ function formatDate(value, locale) {
 function statusLabel(status, locale) {
   const labels = {
     en: {
+      queued: 'Queued',
       failed: 'Failed',
       running: 'Running',
       succeeded: 'Done',
     },
     fr: {
+      queued: 'En file d’attente',
       failed: 'Échec',
       running: 'En cours',
       succeeded: 'Terminé',
@@ -79,6 +87,8 @@ export default function WorkspaceRunActions({
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
+  nextActions = [],
+  readiness = null,
   rentalId,
 }) {
   const t = copy[locale] ?? copy.fr;
@@ -93,7 +103,7 @@ export default function WorkspaceRunActions({
   const selectedAction = actions[selectedIndex] ?? actions[0] ?? null;
   const canSubmit = enabled && selectedAction && inputText.trim().length >= 3 && !isSubmitting;
   const remainingChars = maxInputChars - inputText.length;
-  const latestRuns = useMemo(() => runs.slice(0, visibleRunCount), [runs, visibleRunCount]);
+  const visibleRuns = runs.slice(0, visibleRunCount);
 
   async function submitRun(event) {
     event.preventDefault();
@@ -163,11 +173,14 @@ export default function WorkspaceRunActions({
         </div>
       </div>
 
-      {!enabled && (
-        <div className="mb-5 rounded-2xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#F6C177]">
-          {disabledMessage || t.disabled}
-        </div>
-      )}
+      <WorkspaceReadinessNotice
+        disabledMessage={disabledMessage || t.disabled}
+        locale={locale}
+        readiness={readiness}
+        showDisabledMessage={!enabled}
+      />
+
+      <WorkspaceNextActions items={nextActions} title={t.nextActions} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         {actions.map((action, index) => (
@@ -237,11 +250,11 @@ export default function WorkspaceRunActions({
 
       <div className="mt-6 border-t border-[#2F184B] pt-5">
         <p className="font-label mb-3 text-xs text-[#9B72CF]">{t.history}</p>
-        {latestRuns.length === 0 ? (
+        {runs.length === 0 ? (
           <p className="text-sm text-[#7F6B9C]">{t.emptyHistory}</p>
         ) : (
           <div className="space-y-3">
-            {latestRuns.map((run) => {
+            {visibleRuns.map((run) => {
               const expanded = expandedRunIds.includes(run.id);
               const canExpand = run.status === 'succeeded' && run.outputText;
 
@@ -278,16 +291,16 @@ export default function WorkspaceRunActions({
               </article>
               );
             })}
+            {runs.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setVisibleRunCount((current) => (current >= runs.length ? 5 : Math.min(runs.length, current + 5)))}
+                className="inline-flex rounded-xl border border-[#2F184B] px-3 py-2 text-xs font-label text-[#9B72CF] transition-colors hover:border-[#6B3FA0] hover:text-[#F4EFFA]"
+              >
+                {visibleRunCount >= runs.length ? t.showLessHistory : t.showMoreHistory}
+              </button>
+            )}
           </div>
-        )}
-        {runs.length > visibleRunCount && (
-          <button
-            type="button"
-            onClick={() => setVisibleRunCount((count) => count + 5)}
-            className="mt-4 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
-          >
-            {t.showMoreRuns}
-          </button>
         )}
       </div>
     </div>

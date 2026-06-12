@@ -171,6 +171,49 @@ Flag missing or confusing setup:
 - workflow/API agent has no clear user input;
 - document-capable agent does not disclose no OCR / file limits.
 
+The precheck must also produce an explicit workspace strategy finding so the
+admin can triage runtime fit before publication:
+
+```text
+workspace_strategy_agenthub_native
+workspace_strategy_agenthub_workflow
+workspace_strategy_document
+workspace_strategy_hybrid
+workspace_strategy_creator_infra
+```
+
+This finding answers:
+
+```text
+Can AgentHub execute the workspace natively, does it need document handling,
+does it depend on approved creator webhooks, or does it require creator infra
+fallback?
+```
+
+It is advisory and does not bypass runtime/API checks. It helps the reviewer
+decide whether to:
+
+- continue with native AgentHub execution;
+- verify document extraction limits;
+- validate hybrid webhook dependencies;
+- move to creator infra fallback;
+- request changes when the promised agent cannot fit any supported workspace.
+
+Admin review should also summarize the current queue by workspace strategy.
+This gives the reviewer an operational split before opening each card:
+
+```text
+Natif
+Document
+Workflow AgentHub
+Hybride
+Infra creator
+À dériver
+```
+
+This summary is a triage cockpit only. It must not approve an agent, waive a
+security review, or replace server-side runtime/API checks.
+
 ### Pricing And Trust Checks
 
 Flag but do not block by default:
@@ -199,6 +242,11 @@ failed
   Deterministic blocker exists in the report. Admin should request changes,
   reject, or fix asset approval/security review, but the precheck does not
   decide final publication.
+
+  This status is finalized but not approval-ready. Server-side approval must
+  reject `failed`, `risk_level_suggested = blocked`,
+  `recommended_action = block_publication`, and
+  `recommended_action = request_changes`.
 
 error
   Precheck generation failed. Admin can still review manually, but the failure
@@ -265,6 +313,26 @@ Admin review page should show:
 - warnings;
 - suggested admin questions;
 - link/create security review when required.
+- decision checklist derived from precheck status, runtime settings, workflow
+  assets, creator endpoint approval, and security review state.
+
+Admin triage priority must treat precheck freshness as a gate before normal
+risk interpretation:
+
+```text
+P0: missing manifest/precheck, stale precheck, precheck generation error,
+    deterministic publication blocker
+P1: precheck pending/running, security review required, high-risk finding
+P2: request changes or medium-risk finding
+P3: standard review / low-risk finding
+```
+
+An admin should not approve from a `stale`, `error`, `pending`, or `running`
+precheck without regenerating it or explicitly documenting a manual review path.
+The server approval action now requires a latest persisted precheck in a final
+state: `passed`, `warning`, or `failed`. `failed` still blocks through the
+existing deterministic risk/review gates; this rule only proves the admin is
+deciding from a stable artifact.
 
 ## Suggested Data Model
 
@@ -313,6 +381,26 @@ V0 should be synchronous or short background server-side generation:
 6. Admin review page displays the latest row.
 
 If LLM precheck fails, deterministic findings still remain valuable.
+
+If the server manifest cannot be built, the system should still leave a stable
+admin artifact instead of only logging a warning. Current behavior:
+
+- insert an `agent_security_prechecks` row with `status = error`;
+- store a minimal manifest snapshot containing agent/version/runtime/error
+  identifiers only;
+- add a blocking `manifest_unavailable` finding;
+- set `recommended_action = manual_review`;
+- mark older prechecks for the same version as `stale`;
+- write `security_precheck.failed` to `audit_logs`.
+
+This keeps the admin queue explicit: a submitted agent with a broken manifest
+is not invisible, and approval remains blocked until the precheck is regenerated
+or a manual review path is documented.
+
+When this fallback row is successfully persisted, the generation function
+returns the new `precheckId` with no transport error. The admin UI can then show
+the stored `error` precheck in the review queue. Only an insertion failure should
+return `precheck-insert-failed`.
 
 ## Current Deterministic V0
 
@@ -364,6 +452,55 @@ Current deterministic checks cover:
 
 This v0 is an admin triage aid. Existing admin approval gates remain the source
 of truth for publication.
+
+Current admin UX:
+
+- the review queue is sorted by precheck priority before creation date;
+- stale/error/pending/running prechecks surface a direct regeneration warning;
+- triage counters include missing, stale, error, and pending precheck states;
+- each agent card exposes a compact intervention sheet with the workspace
+  strategy, evidence to control, and ordered admin actions;
+- the admin sidebar exposes a short decision checklist so reviewers know
+  whether to regenerate the precheck, approve assets, finish security review,
+  request changes, reject, or continue standard review.
+- change-request notes can be prefilled from blocker/warning findings.
+- approval returns `precheck-required` when no final persisted precheck exists.
+- the approve button is disabled in the review UI when the latest precheck is
+  missing, stale, errored, pending, running, or when the runtime is disabled.
+
+## Intervention Sheet
+
+The intervention sheet turns the precheck into an operational admin path.
+
+It is derived from already loaded review data:
+
+```text
+- precheck recommendation;
+- workspace strategy;
+- runtime type;
+- runtime setting;
+- workflow asset status;
+- creator endpoint status;
+- security review status.
+```
+
+It shows:
+
+```text
+- scope: what execution/workspace strategy the admin is reviewing;
+- evidence: which runtime/asset/security proofs to control;
+- ordered actions: what to check before approving, requesting changes, or
+  rejecting.
+```
+
+It remains advisory:
+
+```text
+The intervention sheet never approves, waives, rejects, calls endpoints,
+executes code, or modifies publication state.
+```
+
+Server-side approval gates remain the source of truth.
 
 ## Current Stored Artifact
 

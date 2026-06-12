@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { isAgentRuntimeType } from "@/lib/agent-contract";
 import { buildAgentManifest, type AgentManifestV1, type SecurityPrecheckFinding, type SecurityPrecheckV0 } from "@/server/agents/manifest";
 
 type PrecheckStatus = "pending" | "running" | "passed" | "warning" | "failed" | "error" | "stale";
@@ -21,6 +22,10 @@ type AgentSecurityPrecheckRow = {
 
 type SecurityReviewLinkRow = {
   id: string;
+};
+
+type AgentVersionRuntimeRow = {
+  runtime_type: string | null;
 };
 
 export type StoredSecurityPrecheck = {
@@ -115,6 +120,10 @@ function readQuestions(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function safeRuntimeType(value: string | null | undefined) {
+  return value && isAgentRuntimeType(value) ? value : "llm_prompt";
+}
+
 function rowToStoredPrecheck(row: AgentSecurityPrecheckRow): StoredSecurityPrecheck {
   const findings = readFindings(row.findings);
 
@@ -202,7 +211,81 @@ export async function generateSecurityPrecheckForAgent(input: {
   const { manifest, error } = await buildAgentManifest(agent.active_version_id);
 
   if (error || !manifest) {
-    return { error: error ?? "manifest-load-failed", precheckId: null };
+    const { data: version } = await supabase
+      .from("agent_versions")
+      .select("runtime_type")
+      .eq("id", agent.active_version_id)
+      .maybeSingle<AgentVersionRuntimeRow>();
+    const runtimeType = safeRuntimeType(version?.runtime_type);
+    const errorCode = error ?? "manifest-load-failed";
+    const manifestSnapshot = {
+      agent_id: agent.id,
+      agent_version_id: agent.active_version_id,
+      error_code: errorCode,
+      generated_from: "security-precheck-error-fallback",
+      runtime_type: runtimeType,
+    };
+    const findings = [
+      {
+        code: "manifest_unavailable",
+        detail: "Le manifest serveur n’a pas pu être construit pour cette version. La review doit relancer le précheck ou basculer en analyse manuelle documentée.",
+        severity: "blocker",
+        suggestedAdminAction: "Relancer le précheck après correction des données agent/version ou demander une vérification technique.",
+        title: "Manifest indisponible",
+      },
+    ];
+    const { data: errorPrecheck, error: errorPrecheckInsertError } = await supabase
+      .from("agent_security_prechecks")
+      .insert({
+        agent_id: agent.id,
+        agent_version_id: agent.active_version_id,
+        admin_questions: ["Pourquoi le manifest serveur est-il indisponible pour cette version ?"],
+        completed_at: new Date().toISOString(),
+        created_by: input.actorId,
+        creator_id: agent.creator_id,
+        error_code: errorCode,
+        findings,
+        manifest_snapshot: manifestSnapshot,
+        prompt_version: "deterministic-v0",
+        recommended_action: "manual_review",
+        risk_level_suggested: "blocked",
+        risk_score: 95,
+        runtime_type: runtimeType,
+        security_review_required: true,
+        status: "error",
+        summary: "Précheck sécurité non généré : manifest indisponible. Review manuelle ou relance requise.",
+        trigger: input.trigger,
+      })
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    if (errorPrecheckInsertError || !errorPrecheck?.id) {
+      return { error: "precheck-insert-failed", precheckId: null };
+    }
+
+    await supabase
+      .from("agent_security_prechecks")
+      .update({ status: "stale" })
+      .eq("agent_version_id", agent.active_version_id)
+      .not("id", "eq", errorPrecheck.id)
+      .not("status", "eq", "stale");
+
+    await supabase.from("audit_logs").insert({
+      actor_id: input.actorId,
+      action: "security_precheck.failed",
+      entity_type: "agent_security_precheck",
+      entity_id: errorPrecheck.id,
+      metadata: {
+        agent_id: agent.id,
+        agent_version_id: agent.active_version_id,
+        error_code: errorCode,
+        runtime_type: runtimeType,
+        status: "error",
+        trigger: input.trigger,
+      },
+    });
+
+    return { error: null, precheckId: errorPrecheck.id };
   }
 
   const precheck = manifest.securityPrecheck;

@@ -144,6 +144,156 @@ Règle importante :
 Ne jamais afficher "revenu disponible" tant qu'il n'existe pas de payout_ready.
 ```
 
+Implémentation MVP actuelle :
+
+```text
+creator_gross_cents = montant brut attribuable ou 0 si activation bloquée
+creator_net_cents = null pour payment_paid, access_created et activation_blocked
+```
+
+Le brut permet d'auditer le GMV créateur en beta. Le net reste volontairement
+vide tant que Stripe Connect, commission AgentHub, refund window et règles de
+payout ne sont pas verrouillés.
+
+## Rapprochement Dashboard Créateur
+
+AgentHub Code affiche un signal de rapprochement ledger, agrégé côté serveur,
+pour éviter de confondre :
+
+```text
+GMV activé
+ledger earned
+paiements pending_access
+activations blocked
+payout-ready futur
+```
+
+Le signal actuel expose uniquement des compteurs agrégés :
+
+```text
+- achats activés couverts par un événement earned ;
+- achats activés sans événement earned ;
+- paiements en attente d'accès ;
+- activations bloquées.
+```
+
+Il n'expose pas :
+
+```text
+- email user ;
+- payment_id ;
+- rental_request_id ;
+- session Stripe ;
+- input workspace ;
+- détail support privé.
+```
+
+États affichés :
+
+```text
+Ledger cohérent
+  Chaque achat activé de la période possède un événement earned.
+
+Rapprochement à surveiller
+  Au moins un achat activé n'a pas d'événement earned, ou un paiement reste en
+  pending_access/blocked.
+
+Aucun rapprochement requis
+  Aucun achat activé ni événement ledger sur la période.
+```
+
+Ce signal ne rend aucun montant payable. Il sert à préparer la future étape
+Stripe Connect/payouts et à détecter les trous d'audit avant d'ouvrir les
+revenus réels.
+
+## Go / No-Go Revenus
+
+AgentHub Code expose aussi un signal synthétique `revenueReadiness`, dérivé
+côté serveur des paiements, du ledger et du rapprochement.
+
+Objectif :
+
+```text
+dire clairement si la beta revenue est prête pour l'étape payout future
+ou si l'audit doit d'abord être corrigé.
+```
+
+États :
+
+```text
+empty
+  Aucun achat sandbox activé. Rien à rapprocher.
+
+blocked
+  Il existe un écart avant payout futur :
+  - achat activé sans événement earned ;
+  - paiement paid sans accès ;
+  - paid_blocked ;
+  - pending_access ou activation bloquée dans le ledger.
+
+attention
+  Le ledger des accès activés est cohérent, mais des paiements pending ou holds
+  restent à surveiller.
+
+ready
+  Les achats activés de la période sont rapprochés avec le ledger beta.
+  Cela reste du sandbox, pas un payout réel.
+```
+
+Règle produit :
+
+```text
+Tant que revenueReadiness.status != ready, Stripe Connect/payouts restent hors
+scope. Même en ready, les montants restent sandbox jusqu'à une phase payout
+dédiée avec commission, refund window et règles de support.
+```
+
+## Chemin Vers Payouts
+
+AgentHub Code expose maintenant aussi un signal `payoutPath`, toujours agrégé
+et non payable.
+
+Objectif :
+
+```text
+montrer au créateur et à l’admin où se situe la beta entre usage payé sandbox
+et futurs revenus réellement distribuables.
+```
+
+Étapes affichées :
+
+```text
+1. GMV sandbox
+2. Ledger auditable
+3. Règles payout
+4. Stripe Connect
+```
+
+Statuts possibles par étape :
+
+```text
+done
+current
+blocked
+future
+```
+
+Règles :
+
+- `GMV sandbox` devient `done` dès qu’un achat activé existe.
+- `Ledger auditable` devient `done` quand les achats activés sont rapprochés
+  avec des événements `earned`.
+- `Ledger auditable` devient `blocked` si un paiement paid sans accès,
+  paid_blocked, pending_access ou earned manquant est détecté.
+- `Règles payout` ne devient `current` que lorsque `revenueReadiness` est
+  cohérent.
+- `Stripe Connect` reste `future` tant que commission, refunds, support,
+  hold window et seuils payout ne sont pas verrouillés.
+
+Ce chemin ne déclenche aucun payout et ne rend aucun montant disponible. Il
+sert uniquement à guider l’ordre de stabilisation avant une future phase Stripe
+Connect.
+
 ## Données Minimales Futures
 
 Table future recommandée : `creator_revenue_ledger`.
@@ -338,6 +488,40 @@ scopée, puis écrire uniquement les événements :
 payment_paid
 access_created
 activation_blocked
+```
+
+## Statut MVP
+
+Première implémentation locale :
+
+```text
+- migration additive `creator_revenue_ledger` créée ;
+- RLS activée ;
+- creator lit uniquement ses lignes via `owns_creator_profile` ;
+- admin lit toutes les lignes via `is_admin` ;
+- service_role peut écrire ;
+- fulfillment Stripe écrit des événements idempotents :
+  - payment_paid ;
+  - access_created ;
+  - activation_blocked.
+```
+
+Ce MVP ne fait toujours pas :
+
+```text
+- payout réel ;
+- Stripe Connect ;
+- calcul de commission finale ;
+- payout_ready automatique ;
+- refund/dispute automation ;
+- exposition user final.
+```
+
+Exception d'implémentation :
+
+```text
+La CLI Supabase n'était pas disponible localement (`supabase` introuvable).
+La migration a donc été créée manuellement avec un timestamp cohérent.
 ```
 
 Les payouts réels resteront désactivés.

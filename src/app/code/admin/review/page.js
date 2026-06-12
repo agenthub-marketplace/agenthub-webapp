@@ -28,6 +28,7 @@ const reviewErrors = {
   'invalid-precheck': 'Impossible de générer le précheck pour cet agent.',
   'manifest-load-failed': 'Impossible de charger le manifest pour générer le précheck.',
   'precheck-insert-failed': 'Impossible d’enregistrer le précheck sécurité.',
+  'precheck-required': 'Un précheck sécurité non bloquant est requis avant approbation.',
 };
 
 function optionLabel(options, value) {
@@ -57,6 +58,62 @@ function infraLabel(value) {
 
   return 'Infra AgentHub';
 }
+
+function workspaceStrategy(manifest) {
+  if (manifest.runtimeType === 'creator_endpoint') {
+    return {
+      detail: 'AgentHub garde accès, paiement, historique et avis. L’exécution dépend d’un endpoint creator HTTPS approuvé.',
+      key: 'creator_infra',
+      label: 'Infra creator requise',
+      tone: 'rejected',
+    };
+  }
+
+  if (manifest.runtimeType === 'workflow_automation') {
+    const webhookStepCount = manifest.workflow?.webhookStepCount ?? 0;
+
+    if (webhookStepCount > 0) {
+      return {
+        detail: `AgentHub orchestre le workflow avec ${webhookStepCount} étape(s) webhook creator à valider.`,
+        key: 'hybrid',
+        label: 'Workspace hybride',
+        tone: 'in_review',
+      };
+    }
+
+    return {
+      detail: 'AgentHub peut exécuter le workflow dans son workspace sans endpoint creator obligatoire.',
+      key: 'agenthub_workflow',
+      label: 'Workspace AgentHub',
+      tone: 'approved',
+    };
+  }
+
+  if (manifest.runtimeType === 'document_file' || manifest.runtimeRequirements.requiresDocumentExtraction) {
+    return {
+      detail: 'Le workspace doit gérer upload privé, extraction texte et limites PDF/DOCX beta.',
+      key: 'document',
+      label: 'Workspace document',
+      tone: 'in_review',
+    };
+  }
+
+  return {
+    detail: 'Le workspace AgentHub natif suffit pour ce runtime.',
+    key: 'native',
+    label: 'Workspace natif',
+    tone: 'approved',
+  };
+}
+
+const workspaceStrategySummary = [
+  { key: 'native', label: 'Natif', tone: 'approved' },
+  { key: 'document', label: 'Document', tone: 'in_review' },
+  { key: 'agenthub_workflow', label: 'Workflow AgentHub', tone: 'approved' },
+  { key: 'hybrid', label: 'Hybride', tone: 'in_review' },
+  { key: 'creator_infra', label: 'Infra creator', tone: 'rejected' },
+  { key: 'unknown', label: 'À dériver', tone: 'failed' },
+];
 
 const precheckRiskLabels = {
   blocked: 'Bloqué',
@@ -104,6 +161,13 @@ const precheckRiskOrder = {
   low: 3,
 };
 
+const precheckPriorityOrder = {
+  P0: 0,
+  P1: 1,
+  P2: 2,
+  P3: 3,
+};
+
 function getPrecheck(agent) {
   return agent.manifest?.securityPrecheck ?? null;
 }
@@ -112,8 +176,13 @@ function getPrecheckRisk(agent) {
   return getPrecheck(agent)?.riskLevel ?? 'blocked';
 }
 
+function getPrecheckStatus(agent) {
+  return agent.manifest?.securityProfile?.precheckStatus ?? 'not_started';
+}
+
 function getPrecheckPriority(agent) {
   const precheck = getPrecheck(agent);
+  const status = getPrecheckStatus(agent);
 
   if (!precheck) {
     return {
@@ -121,6 +190,33 @@ function getPrecheckPriority(agent) {
       label: 'P0',
       title: 'Précheck manquant',
       tone: 'failed',
+    };
+  }
+
+  if (status === 'stale') {
+    return {
+      detail: 'La soumission a changé après ce précheck. Régénérer avant de prendre une décision.',
+      label: 'P0',
+      title: 'Précheck obsolète',
+      tone: 'failed',
+    };
+  }
+
+  if (status === 'error') {
+    return {
+      detail: 'La génération du précheck a échoué. Régénérer ou basculer en review manuelle documentée.',
+      label: 'P0',
+      title: 'Erreur précheck',
+      tone: 'failed',
+    };
+  }
+
+  if (status === 'pending' || status === 'running') {
+    return {
+      detail: 'Le précheck n’est pas finalisé. Attendre la fin ou relancer avant décision.',
+      label: 'P1',
+      title: 'Précheck en cours',
+      tone: 'in_review',
     };
   }
 
@@ -170,6 +266,14 @@ function getPrecheckPriority(agent) {
 
 function sortByPrecheckPriority(queue) {
   return [...queue].sort((left, right) => {
+    const leftPriority = getPrecheckPriority(left).label;
+    const rightPriority = getPrecheckPriority(right).label;
+    const priorityDelta = (precheckPriorityOrder[leftPriority] ?? 9) - (precheckPriorityOrder[rightPriority] ?? 9);
+
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
     const leftRisk = getPrecheckRisk(left);
     const rightRisk = getPrecheckRisk(right);
     const riskDelta = (precheckRiskOrder[leftRisk] ?? 0) - (precheckRiskOrder[rightRisk] ?? 0);
@@ -190,6 +294,7 @@ function buildPrecheckTriage(queue) {
     (summary, agent) => {
       const precheck = getPrecheck(agent);
       const riskLevel = precheck?.riskLevel ?? 'blocked';
+      const status = getPrecheckStatus(agent);
 
       summary.total += 1;
       summary[riskLevel] = (summary[riskLevel] ?? 0) + 1;
@@ -202,16 +307,42 @@ function buildPrecheckTriage(queue) {
         summary.missingManifest += 1;
       }
 
+      if (status === 'stale') {
+        summary.stale += 1;
+      }
+
+      if (status === 'error') {
+        summary.error += 1;
+      }
+
+      if (status === 'pending' || status === 'running') {
+        summary.pending += 1;
+      }
+
+      const strategyKey = agent.manifest ? workspaceStrategy(agent.manifest).key : 'unknown';
+      summary.workspaceStrategies[strategyKey] = (summary.workspaceStrategies[strategyKey] ?? 0) + 1;
+
       return summary;
     },
     {
       blocked: 0,
+      error: 0,
       high: 0,
       low: 0,
       medium: 0,
       missingManifest: 0,
+      pending: 0,
       securityReviewRequired: 0,
+      stale: 0,
       total: 0,
+      workspaceStrategies: {
+        agenthub_workflow: 0,
+        creator_infra: 0,
+        document: 0,
+        hybrid: 0,
+        native: 0,
+        unknown: 0,
+      },
     },
   );
 }
@@ -259,6 +390,131 @@ function buildPrecheckChangeRequest(agent) {
   ].join('\n');
 }
 
+function buildAdminDecisionChecklist(agent) {
+  const items = [];
+  const precheck = getPrecheck(agent);
+  const status = getPrecheckStatus(agent);
+  const runtimeType = agent.contract?.runtimeType;
+
+  if (!precheck) {
+    items.push('Générer et enregistrer un précheck sécurité avant toute décision.');
+    items.push('Vérifier que le manifest serveur est disponible pour cette version.');
+    return items;
+  }
+
+  if (status === 'stale') {
+    items.push('Régénérer le précheck : la soumission a changé depuis le dernier rapport.');
+  } else if (status === 'error') {
+    items.push('Relancer le précheck ou documenter une review manuelle avant décision.');
+  } else if (status === 'pending' || status === 'running') {
+    items.push('Attendre la fin du précheck avant de démarrer l’analyse humaine.');
+  }
+
+  if (!agent.runtimeSetting?.enabled) {
+    items.push('Vérifier le runtime global : il est désactivé pour ce type d’agent.');
+  }
+
+  if (agent.workflow && agent.workflow.status !== 'approved') {
+    items.push('Approuver ou refuser les assets workflow avant publication.');
+  }
+
+  if (agent.creatorEndpoint && (agent.creatorEndpoint.status !== 'approved' || agent.creatorEndpoint.endpointStatus !== 'approved')) {
+    items.push('Approuver ou refuser l’endpoint creator avant publication.');
+  }
+
+  if (!['llm_prompt', 'static_guided'].includes(runtimeType) && !['passed', 'waived'].includes(agent.securityReview?.status)) {
+    items.push('Créer ou finaliser une security review passée/waived pour ce runtime sensible.');
+  }
+
+  if (precheck.blockers?.length > 0 || precheck.recommendation === 'block_publication') {
+    items.push('Traiter les blocages déterministes : demander modifications ou rejeter.');
+  }
+
+  if (precheck.warnings?.length > 0 || precheck.recommendation === 'request_changes') {
+    items.push('Transformer les warnings en demande creator claire avant approbation.');
+  }
+
+  if (precheck.riskLevel === 'low' && precheck.recommendation === 'review_standard') {
+    items.push('Faire la review standard : promesse, limites, prix, workspace et copy publique.');
+  }
+
+  items.push('Ne jamais approuver si la promesse, les limites ou le workspace ne sont pas compréhensibles côté user.');
+
+  return [...new Set(items)].slice(0, 7);
+}
+
+function buildPrecheckInterventionPlan(agent) {
+  const precheck = getPrecheck(agent);
+  const strategy = agent.manifest ? workspaceStrategy(agent.manifest) : null;
+  const runtimeType = agent.contract?.runtimeType;
+  const steps = [];
+
+  if (!precheck) {
+    return {
+      evidence: [
+        'Manifest serveur disponible',
+        'Précheck sécurité enregistré',
+        'Runtime et assets identifiables',
+      ],
+      label: 'Précheck à générer',
+      scope: 'Aucune fiche exploitable tant que le précheck n’est pas disponible.',
+      steps: ['Générer le précheck', 'Relancer la page review', 'Décider depuis un artifact stable'],
+      tone: 'failed',
+    };
+  }
+
+  if (precheck.recommendation === 'block_publication') {
+    steps.push('Traiter les blocages déterministes avant toute approbation.');
+  } else if (precheck.recommendation === 'security_review_required') {
+    steps.push('Créer ou finaliser la security review avant publication.');
+  } else if (precheck.recommendation === 'request_changes') {
+    steps.push('Transformer les warnings en demande creator claire.');
+  } else {
+    steps.push('Effectuer la review standard puis décider manuellement.');
+  }
+
+  if (agent.workflow) {
+    steps.push('Vérifier les étapes workflow, la décision LLM et les éventuels webhooks.');
+  }
+
+  if (agent.creatorEndpoint) {
+    steps.push('Vérifier endpoint HTTPS, statut approuvé, disclosure user et comportement d’erreur.');
+  }
+
+  if (!['llm_prompt', 'static_guided'].includes(runtimeType)) {
+    steps.push('Confirmer que la security review est passée ou waived.');
+  }
+
+  const evidence = [
+    `Stratégie workspace : ${strategy?.label ?? 'À dériver'}`,
+    `Runtime : ${AGENT_RUNTIME_TYPE_LABELS[runtimeType] || runtimeType || 'Non défini'}`,
+    agent.runtimeSetting?.enabled ? 'Runtime global activé' : 'Runtime global à vérifier',
+    agent.workflow ? `Workflow ${agent.workflow.status}` : null,
+    agent.creatorEndpoint ? `Endpoint config ${agent.creatorEndpoint.status}` : null,
+    agent.securityReview ? `Security review ${agent.securityReview.status}` : 'Security review absente ou non requise',
+  ].filter(Boolean);
+
+  return {
+    evidence,
+    label:
+      precheck.recommendation === 'block_publication'
+        ? 'Intervention bloquante'
+        : precheck.recommendation === 'security_review_required'
+          ? 'Intervention sécurité'
+          : precheck.recommendation === 'request_changes'
+            ? 'Intervention creator'
+            : 'Review standard guidée',
+    scope: strategy?.detail ?? 'Le périmètre workspace doit être confirmé avant décision.',
+    steps: [...new Set(steps)].slice(0, 5),
+    tone:
+      precheck.recommendation === 'block_publication'
+        ? 'failed'
+        : precheck.recommendation === 'review_standard'
+          ? 'approved'
+          : 'in_review',
+  };
+}
+
 function TriageStat({ label, tone = 'in_review', value }) {
   return (
     <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4 shadow-sm">
@@ -271,8 +527,65 @@ function TriageStat({ label, tone = 'in_review', value }) {
   );
 }
 
+function AdminDecisionChecklist({ agent }) {
+  const items = buildAdminDecisionChecklist(agent);
+
+  return (
+    <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+      <p className="font-label mb-3 text-xs text-[#6B3FA0]">Checklist décision admin</p>
+      <ol className="space-y-2 text-sm text-[#374151]">
+        {items.map((item, index) => (
+          <li key={item} className="flex gap-3">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F3FF] text-xs font-bold text-[#6B3FA0]">
+              {index + 1}
+            </span>
+            <span className="leading-6">{item}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function PrecheckInterventionPlan({ agent }) {
+  const plan = buildPrecheckInterventionPlan(agent);
+
+  return (
+    <div className="rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="font-label text-xs text-[#6B3FA0]">Fiche d’intervention</p>
+          <h3 className="mt-1 text-base font-bold text-[#111827]">{plan.label}</h3>
+          <p className="mt-2 text-sm leading-5 text-[#4B5563]">{plan.scope}</p>
+        </div>
+        <StatusBadge status={plan.tone} label="précheck" />
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-xl border border-[#E3E7F2] bg-white p-3">
+          <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Preuves à contrôler</p>
+          <ul className="space-y-1 text-xs leading-5 text-[#4B5563]">
+            {plan.evidence.map((item) => (
+              <li key={item}>• {item}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="rounded-xl border border-[#E3E7F2] bg-white p-3">
+          <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Ordre d’action</p>
+          <ol className="space-y-1 text-xs leading-5 text-[#4B5563]">
+            {plan.steps.map((item, index) => (
+              <li key={item}>{index + 1}. {item}</li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PrecheckNextAction({ agent }) {
   const precheck = getPrecheck(agent);
+  const status = getPrecheckStatus(agent);
 
   if (!precheck) {
     return (
@@ -280,6 +593,17 @@ function PrecheckNextAction({ agent }) {
         Précheck indisponible : vérifier le manifest serveur avant de décider.
       </CodeAlert>
     );
+  }
+
+  if (status === 'stale' || status === 'error' || status === 'pending' || status === 'running') {
+    const copy =
+      status === 'stale'
+        ? 'Précheck obsolète : régénérer avant de décider.'
+        : status === 'error'
+          ? 'Erreur précheck : relancer ou documenter une review manuelle.'
+          : 'Précheck non finalisé : attendre ou relancer avant décision.';
+
+    return <CodeAlert tone="error">{copy}</CodeAlert>;
   }
 
   const tone = precheck.recommendation === 'block_publication'
@@ -293,6 +617,41 @@ function PrecheckNextAction({ agent }) {
       Action recommandée : {precheckNextActions[precheck.recommendation] || 'Continuer la review admin.'}
     </CodeAlert>
   );
+}
+
+function getApprovalBlocker(agent) {
+  const status = getPrecheckStatus(agent);
+  const precheck = getPrecheck(agent);
+
+  if (!precheck) {
+    return 'Enregistrez un précheck sécurité finalisé avant approbation.';
+  }
+
+  if (status === 'stale') {
+    return 'Précheck obsolète : régénérez le précheck avant approbation.';
+  }
+
+  if (status === 'error') {
+    return 'Erreur précheck : relancez le précheck ou documentez la review manuelle.';
+  }
+
+  if (status === 'pending' || status === 'running') {
+    return 'Précheck en cours : attendez la finalisation avant approbation.';
+  }
+
+  if (status === 'failed' || precheck.riskLevel === 'blocked' || precheck.recommendation === 'block_publication') {
+    return 'Précheck bloquant : demandez des modifications ou rejetez avant approbation.';
+  }
+
+  if (precheck.recommendation === 'request_changes') {
+    return 'Précheck à corriger : envoyez les modifications demandées avant approbation.';
+  }
+
+  if (!agent.runtimeSetting?.enabled) {
+    return 'Runtime désactivé : activez-le côté admin avant approbation.';
+  }
+
+  return null;
 }
 
 function GeneratePrecheckForm({ agent }) {
@@ -356,6 +715,7 @@ function QualityCheckList({ checks = [] }) {
 
 function ReviewActions({ agent }) {
   const suggestedChanges = buildPrecheckChangeRequest(agent);
+  const approvalBlocker = getApprovalBlocker(agent);
 
   if (agent.status === 'submitted') {
     return (
@@ -377,10 +737,15 @@ function ReviewActions({ agent }) {
         <input type="hidden" name="agent_id" value={agent.id} />
         <input type="hidden" name="decision" value="approve" />
         <input type="hidden" name="locale" value="fr" />
-        <Button type="submit" disabled={!agent.runtimeSetting?.enabled} className="h-10 w-full border-0 bg-[#16A34A] text-white hover:bg-[#15803D] disabled:opacity-50">
+        <Button type="submit" disabled={Boolean(approvalBlocker)} className="h-10 w-full border-0 bg-[#16A34A] text-white hover:bg-[#15803D] disabled:cursor-not-allowed disabled:opacity-50">
           <Check className="mr-2 h-4 w-4" />
           Approuver
         </Button>
+        {approvalBlocker && (
+          <p className="mt-2 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-2 text-xs leading-5 text-[#991B1B]">
+            {approvalBlocker}
+          </p>
+        )}
       </form>
       <form action={reviewAgentAction} className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-3">
         <input type="hidden" name="agent_id" value={agent.id} />
@@ -441,13 +806,48 @@ export default async function AdminReviewPage({ searchParams }) {
       {error && <div className="mt-4"><CodeAlert tone="error">{reviewErrors[error] || 'Impossible d’enregistrer la décision admin.'}</CodeAlert></div>}
 
       {!reviewQueue.error && reviewQueue.queue.length > 0 && (
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <TriageStat label="À traiter" value={triage.total} />
-          <TriageStat label="Bloqués par précheck" value={triage.blocked} tone={triage.blocked > 0 ? 'failed' : 'approved'} />
-          <TriageStat label="Risque haut" value={triage.high} tone={triage.high > 0 ? 'rejected' : 'approved'} />
-          <TriageStat label="Risque moyen" value={triage.medium} tone={triage.medium > 0 ? 'in_review' : 'approved'} />
-          <TriageStat label="Security review requise" value={triage.securityReviewRequired} tone={triage.securityReviewRequired > 0 ? 'in_review' : 'approved'} />
-        </section>
+        <>
+          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+            <TriageStat label="À traiter" value={triage.total} />
+            <TriageStat label="Bloqués par précheck" value={triage.blocked} tone={triage.blocked > 0 ? 'failed' : 'approved'} />
+            <TriageStat label="Risque haut" value={triage.high} tone={triage.high > 0 ? 'rejected' : 'approved'} />
+            <TriageStat label="Risque moyen" value={triage.medium} tone={triage.medium > 0 ? 'in_review' : 'approved'} />
+            <TriageStat label="Security review requise" value={triage.securityReviewRequired} tone={triage.securityReviewRequired > 0 ? 'in_review' : 'approved'} />
+            <TriageStat label="Précheck manquant" value={triage.missingManifest} tone={triage.missingManifest > 0 ? 'failed' : 'approved'} />
+            <TriageStat label="Précheck à régénérer" value={triage.stale + triage.error + triage.pending} tone={triage.stale + triage.error + triage.pending > 0 ? 'failed' : 'approved'} />
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-4">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-label text-[10px] text-[#6B3FA0]">Stratégies workspace</p>
+                <h2 className="font-display text-lg font-bold text-[#111827]">Répartition des agents à reviewer</h2>
+              </div>
+              <p className="text-xs text-[#64748B]">Aide à séparer AgentHub natif, document, hybride et infra creator.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+              {workspaceStrategySummary.map((item) => (
+                <div key={item.key} className="rounded-xl border border-[#E3E7F2] bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-[#111827]">{item.label}</p>
+                    <StatusBadge status={item.tone} label={`${triage.workspaceStrategies[item.key] ?? 0}`} />
+                  </div>
+                  <p className="text-xs text-[#64748B]">
+                    {item.key === 'creator_infra'
+                      ? 'Endpoint creator requis'
+                      : item.key === 'hybrid'
+                        ? 'Webhook creator à vérifier'
+                        : item.key === 'document'
+                          ? 'Fichier/extraction à cadrer'
+                          : item.key === 'unknown'
+                            ? 'Manifest à régénérer'
+                            : 'Exécution AgentHub'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
       )}
 
       <section className="mt-6 grid gap-5">
@@ -461,6 +861,7 @@ export default async function AdminReviewPage({ searchParams }) {
               <div>
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <h2 className="font-display text-2xl font-bold text-[#111827]">{agent.name}</h2>
+                  <StatusBadge status={getPrecheckPriority(agent).tone} label={getPrecheckPriority(agent).label} />
                   <StatusBadge status={agent.status} label={hasChangesRequest(agent) ? 'Modifs demandées' : agent.status} />
                   <StatusBadge status={agent.riskLevel === 'forbidden_beta' ? 'failed' : 'in_review'} label={agent.riskLevel} />
                   <StatusBadge
@@ -511,6 +912,16 @@ export default async function AdminReviewPage({ searchParams }) {
                   </div>
                   {agent.manifest ? (
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-xl border border-[#C4B5FD] bg-[linear-gradient(135deg,#FFFFFF_0%,#F5F3FF_100%)] p-3 md:col-span-2 xl:col-span-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-label text-[10px] text-[#6B3FA0]">Stratégie workspace</p>
+                            <p className="mt-1 text-sm font-semibold text-[#111827]">{workspaceStrategy(agent.manifest).label}</p>
+                            <p className="mt-2 text-sm leading-5 text-[#4B5563]">{workspaceStrategy(agent.manifest).detail}</p>
+                          </div>
+                          <StatusBadge status={workspaceStrategy(agent.manifest).tone} label={infraLabel(agent.manifest.infraMode)} />
+                        </div>
+                      </div>
                       <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
                         <p className="font-label text-[10px] text-[#6B3FA0]">Publication</p>
                         <p className="mt-1 text-sm font-semibold text-[#111827]">{publicationLabel(agent.manifest.publicationType)}</p>
@@ -713,6 +1124,8 @@ export default async function AdminReviewPage({ searchParams }) {
 
               <aside className="space-y-4">
                 <PrecheckPriorityPanel agent={agent} />
+                <PrecheckInterventionPlan agent={agent} />
+                <AdminDecisionChecklist agent={agent} />
                 <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
                   <p className="font-label mb-3 text-xs text-[#6B3FA0]">Runtime settings</p>
                   <RuntimeSettingSummary setting={agent.runtimeSetting ? {

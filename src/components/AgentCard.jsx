@@ -2,9 +2,23 @@
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Star } from 'lucide-react';
 import AgentAvatar from '@/components/AgentAvatar';
-import { WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
+import { AGENT_RUNTIME_TYPE_LABELS, WORKSPACE_MODE_LABELS } from '@/lib/agent-contract';
 import { euroLabelToCredits, formatCredits } from '@/lib/format-credits';
 import { useT } from '@/lib/i18n';
+
+function compactText(value, maxLength = 74) {
+  if (!value) {
+    return '';
+  }
+
+  const text = String(value).trim();
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
 
 export default function AgentCard({ agent, variant = 'dark' }) {
   const { t, lang } = useT();
@@ -15,6 +29,9 @@ export default function AgentCard({ agent, variant = 'dark' }) {
     ? (lang === 'en' ? 'Agent purchase' : "Agent à l'achat")
     : (lang === 'en' ? 'Agent rental' : 'Agent à la location');
   const workspaceLabel = WORKSPACE_MODE_LABELS[agent.contract?.workspaceMode] || null;
+  const runtimeLabel = AGENT_RUNTIME_TYPE_LABELS[agent.contract?.runtimeType] || null;
+  const primaryInput = agent.requiredInputs?.find((item) => item?.trim()) || '';
+  const primaryDeliverable = agent.deliverables?.find((item) => item?.trim()) || agent.contract?.outputPromise?.summary || '';
   const isLight = variant === 'light';
   const card = isLight
     ? 'bg-white border border-[#E8DFCB] shadow-[0_4px_24px_rgba(107,63,160,0.08)]'
@@ -24,6 +41,8 @@ export default function AgentCard({ agent, variant = 'dark' }) {
   const muted = isLight ? 'text-[#8A7CA0]' : 'text-[#A78BCF]';
   const chip = isLight ? 'bg-[#F4EFE0] text-[#5B4880]' : 'bg-[#1A152F] text-[#D6C5E8]';
   const divider = isLight ? 'border-[#E8DFCB]' : 'border-[#251A40]';
+  const fitBox = isLight ? 'border-[#E8DFCB] bg-[#FAF7FF]' : 'border-[#251A40] bg-[#080612]';
+  const fitLabel = isLight ? 'text-[#6B3FA0]' : 'text-[#B794F4]';
   return (
     <Link href={`/agenthub/agents/${agent.slug}`} className="block group">
       <div className={`card-hover ${card} flex h-full flex-col rounded-2xl p-5`}>
@@ -42,10 +61,30 @@ export default function AgentCard({ agent, variant = 'dark' }) {
         <p className={`mb-4 line-clamp-2 text-sm leading-6 ${pitch}`}>{agent.pitch}</p>
         <div className="mb-4 flex flex-wrap gap-2">
           <span className={`inline-block self-start rounded-full px-2.5 py-1 text-[10px] font-semibold ${chip}`}>{agent.category}</span>
+          {runtimeLabel && (
+            <span className={`inline-block self-start rounded-full px-2.5 py-1 text-[10px] font-semibold ${isLight ? 'bg-[#F5F3FF] text-[#5B21B6]' : 'bg-[#251A40] text-[#C4B5FD]'}`}>{runtimeLabel}</span>
+          )}
           {workspaceLabel && (
             <span className={`inline-block self-start rounded-full px-2.5 py-1 text-[10px] font-semibold ${chip}`}>{workspaceLabel}</span>
           )}
         </div>
+
+        {(primaryInput || primaryDeliverable) && (
+          <div className={`mb-4 grid gap-2 rounded-2xl border p-3 text-xs ${fitBox}`}>
+            <div>
+              <p className={`font-label mb-1 text-[10px] ${fitLabel}`}>{lang === 'en' ? 'Prepare' : 'À préparer'}</p>
+              <p className={`line-clamp-1 ${pitch}`}>
+                {primaryInput ? compactText(primaryInput) : (lang === 'en' ? 'Clear context for the workspace.' : 'Un contexte clair pour le workspace.')}
+              </p>
+            </div>
+            <div>
+              <p className={`font-label mb-1 text-[10px] ${fitLabel}`}>{lang === 'en' ? 'Expected result' : 'Résultat attendu'}</p>
+              <p className={`line-clamp-1 ${pitch}`}>
+                {primaryDeliverable ? compactText(primaryDeliverable) : (lang === 'en' ? 'Guided workspace output.' : 'Un résultat guidé dans le workspace.')}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className={`mt-auto border-t pt-4 ${divider}`}>
           <div className="mb-4 flex items-center justify-between gap-3">

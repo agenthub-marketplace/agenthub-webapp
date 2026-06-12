@@ -2,11 +2,18 @@
 
 Date: 2026-06-10
 
+Updated: 2026-06-11
+
 ## Scope
 
 This pass inspected the workspace flow without changing product behavior. It read the current state doc, the workspace loop task, the loop runner docs, workspace routes, workspace action components, run endpoints, rental access loading, and verified review submission.
 
 No P0/P1 runtime defect was fixed in this pass.
+
+The 2026-06-11 update inspected the shared workspace recipe layer after the
+second adapter increment. It documents the current state of recipe blocks,
+runtime-specific next actions, disabled runtime guidance, and creator-hosted
+disclosure.
 
 ## Flow Map
 
@@ -35,31 +42,70 @@ No P0/P1 runtime defect was fixed in this pass.
 
 ## Developer-Friction Observations
 
-1. Workspace detail behavior is split between FR and EN implementations.
+1. Workspace detail behavior now shares the main recipe UI, but the route files
+   still duplicate loading and gate plumbing.
 
-   The French route now delegates the main experience to `WorkspaceAgentExperience` and supports URL tabs (`overview`, `setup`, `use`, `details`, `review`). The English route still renders an older one-page layout inline. The runner gate logic is mostly duplicated across both routes. This makes future workspace changes harder to audit because a fix can land in one locale and silently miss the other.
+   FR and EN detail pages both pass `workspaceRecipe` into
+   `WorkspaceAgentExperience`, so recipe blocks and next actions are rendered by
+   the same component. The remaining friction is upstream: each locale route
+   still wires rental loading, runner enablement, and history props. Future
+   runtime changes should keep using the shared contract rather than adding new
+   locale-specific UI decisions.
 
 2. Runtime eligibility logic is repeated across page and endpoint boundaries.
 
    The detail pages compute runner enablement from env flags, runtime settings, contract fields, agent status, and data policy. Each API endpoint then revalidates its own variant of the same eligibility. The duplication is defensible for server-side security, but developers need a single diagnostic checklist before changing workspace behavior.
 
-3. User-facing disabled states intentionally hide exact backend failure reasons.
+3. Disabled runtime states are more actionable, but still need smoke coverage.
 
-   The runner components show broad messages such as runtime disabled or generation unavailable, while endpoints emit precise codes like `agent-runtime-disabled`, `agent-requires-unsupported-inputs`, `run-already-in-progress`, and quota errors. This is acceptable for beta UX, but debugging requires checking endpoint logs or reproducing the request rather than relying on the workspace UI.
+   The workspace contract now exposes `disabledReason` and
+   `workspaceRecipe.nextActions`. When execution is disabled, the readiness
+   summary shows a concrete unblock action instead of only an empty runner or
+   generic dead end. This still needs visual smoke on a real
+   `/agenthub/workspace/[rentalId]` for assistant, workflow, and creator endpoint
+   agents.
 
-4. Review success navigation may surprise workspace testers.
+4. Runtime-specific next actions are present at the recipe level.
+
+   `src/server/workspace/recipe.ts` now produces short localized next actions
+   for assistant, document, workflow, and creator endpoint runtimes. The shared
+   `WorkspaceAgentExperience` renders those actions in the global readiness
+   summary. This gives users a clearer "what do I do next?" path before the
+   runtime-specific runner controls.
+
+5. Creator-hosted and hybrid execution is visible without exposing sensitive
+   internals.
+
+   Creator endpoint and workflow runtimes continue to rely on the manifest trust
+   boundary. The workspace recipe surfaces trust warnings and disclosure copy,
+   while endpoint URLs, raw payloads, and secrets remain server-only.
+
+6. Review success navigation may surprise workspace testers.
 
    `submitRentalReviewAction()` accepts workspace return paths for errors, but after a successful review it redirects to the public agent page when the agent slug is available. That preserves current behavior, yet testers running the workspace flow may expect to remain on the workspace review tab. Do not change this without an explicit product decision, because reviews also affect public listing visibility.
 
-5. The local loop runner is present and bounded, but it is recursive for this environment.
+7. The local loop runner is present and bounded, but it is recursive for this environment.
 
    `npm run agent:workspace` shells into `codex exec` with the task file and then runs `npm run agent:validate`. That is useful for local human-driven loops. From an already-running Codex delegation, a manual report pass is lower risk than spawning another Codex agent that may edit the same dirty worktree.
 
 ## Safe Next Step
 
-If product work resumes later, first consolidate the FR/EN workspace-detail structure behind shared components or document a deliberate divergence. That should remain a separate task because it touches runtime workspace features and locale UX.
+Run a visual smoke test with a user that owns active accesses for:
 
-For now, keep this pass as documentation-only output and validate with:
+- one assistant/runtime `llm_prompt`;
+- one `workflow_automation` agent;
+- one `creator_endpoint` agent;
+- one disabled runtime case if available.
+
+For each rental detail page, confirm:
+
+- recipe blocks render before history/empty states;
+- "Prochaines actions" or "Next actions" appears in the readiness summary;
+- disabled runtimes show an actionable unblock reason;
+- creator-hosted disclosure appears without endpoint URL or payload details;
+- runner history remains scoped to the access.
+
+For now, keep this pass as documentation output and validate with:
 
 ```bash
 npm run agent:validate

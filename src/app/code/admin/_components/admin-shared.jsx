@@ -114,6 +114,24 @@ export function AdminRevenueOverview({ result }) {
           <AdminStatCard label="Paiements à surveiller" value={formatMoney(analytics?.attentionCents ?? 0, currency)} tone={(analytics?.attentionCents ?? 0) > 0 ? 'warning' : 'success'} />
           <AdminStatCard label="Paiements pending" value={formatMoney(analytics?.pendingCents ?? 0, currency)} tone={(analytics?.pendingCents ?? 0) > 0 ? 'warning' : 'success'} />
           <AdminStatCard label="Panier moyen" value={formatMoney(analytics?.averageOrderCents ?? 0, currency)} />
+          <div className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-5">
+            <p className="font-label text-xs text-[#92400E]">PAYOUTS</p>
+            <p className="mt-2 font-display text-lg font-bold text-[#111827]">
+              {analytics?.payoutReadiness?.label ?? 'Payouts non configurés'}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#92400E]">
+              {analytics?.payoutReadiness?.detail ?? 'GMV sandbox uniquement. Stripe Connect et les payouts creator ne sont pas activés en beta.'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#DDD6FE] bg-white p-5">
+            <p className="font-label text-xs text-[#6B3FA0]">LEDGER</p>
+            <p className="mt-2 font-display text-lg font-bold text-[#111827]">
+              {analytics?.ledger?.eventCount ?? 0} événement(s)
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+              {formatMoney(analytics?.ledger?.earnedCents ?? 0, currency)} attribué beta · {formatMoney(analytics?.ledger?.blockedCents ?? 0, currency)} bloqué
+            </p>
+          </div>
         </div>
 
         <CodePanel className="bg-white">

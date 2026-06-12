@@ -81,12 +81,61 @@ function RecipeBlocks({ blocks = [], requiredText, title }) {
   );
 }
 
-function RecipeSummary({ labels, workspaceRecipe }) {
+function formatWorkspaceDate(value, locale) {
+  if (!value) {
+    return '';
+  }
+
+  return new Date(value).toLocaleString(locale === 'en' ? 'en-US' : 'fr-FR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
+function StartupPlan({ labels, steps = [] }) {
+  if (!steps.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-4">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#B794F4]">{labels.startupPlanEyebrow}</p>
+          <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{labels.startupPlanTitle}</h3>
+        </div>
+        <span className="font-label text-[10px] text-[#9B72CF]">{labels.startupPlanHint}</span>
+      </div>
+      <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step, index) => {
+          const styles = recipeStatusStyles[step.status] ?? recipeStatusStyles.ready;
+
+          return (
+            <li key={`${step.key}-${index}`} className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <div className="flex items-start gap-3">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${styles.dot} text-[#080612]`}>
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#F4EFFA]">{step.label}</p>
+                  <p className={`mt-1 text-xs leading-5 ${styles.text}`}>{step.detail}</p>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function RecipeSummary({ baseHref, labels, workspaceRecipe }) {
   if (!workspaceRecipe) {
     return null;
   }
 
   const runtimeLabel = labels.runtimePanels[workspaceRecipe.runtimePanel] ?? workspaceRecipe.runtimePanel;
+  const infraLabel = labels.infraModes[workspaceRecipe.readiness?.infraMode] ?? workspaceRecipe.readiness?.infraMode ?? labels.unknownInfra;
   const stateStyle = workspaceRecipe.disabledReason ? recipeStatusStyles.disabled : recipeStatusStyles.ready;
   const limitItems = [
     workspaceRecipe.limits?.maxInputChars ? `${workspaceRecipe.limits.maxInputChars} ${labels.inputChars}` : null,
@@ -94,12 +143,37 @@ function RecipeSummary({ labels, workspaceRecipe }) {
       ? `${(workspaceRecipe.limits.maxFileBytes / 1_000_000).toFixed(1)} MB`
       : null,
   ].filter(Boolean);
+  const lastRun = workspaceRecipe.lastRun;
+  const lastRunStatus = lastRun ? labels.lastRunStatuses[lastRun.status] ?? lastRun.status : labels.noLastRun;
+  const lastRunDetail = lastRun
+    ? `${lastRun.actionLabel} · ${formatWorkspaceDate(lastRun.completedAt || lastRun.createdAt, labels.locale)}. ${lastRun.hint}`
+    : labels.noLastRunDetail;
+  const readinessStatus = workspaceRecipe.readiness?.status ?? (workspaceRecipe.disabledReason ? 'blocked' : 'ready');
+  const readinessStyle =
+    readinessStatus === 'blocked'
+      ? recipeStatusStyles.disabled
+      : readinessStatus === 'attention'
+        ? recipeStatusStyles.attention
+        : recipeStatusStyles.ready;
+  const readinessScore = Number.isFinite(workspaceRecipe.readiness?.score) ? workspaceRecipe.readiness.score : 0;
+  const nextStep = workspaceRecipe.nextStep;
+  const nextStepHref = nextStep
+    ? nextStep.tab === 'overview'
+      ? baseHref
+      : `${baseHref}?tab=${nextStep.tab}`
+    : null;
   const cards = [
     {
       detail: workspaceRecipe.disabledReason || labels.readyToRun,
       label: labels.runtimeState,
       status: workspaceRecipe.disabledReason ? 'disabled' : 'ready',
       value: runtimeLabel,
+    },
+    {
+      detail: workspaceRecipe.readiness?.disclosureRequired ? labels.creatorInfraDetail : labels.agenthubInfraDetail,
+      label: labels.infrastructure,
+      status: workspaceRecipe.readiness?.status === 'blocked' ? 'disabled' : 'ready',
+      value: infraLabel,
     },
     {
       detail: labels.primaryActionDetail,
@@ -114,6 +188,12 @@ function RecipeSummary({ labels, workspaceRecipe }) {
       value: `${workspaceRecipe.historyCount}`,
     },
     {
+      detail: lastRunDetail,
+      label: labels.lastRunState,
+      status: lastRun?.status === 'failed' ? 'disabled' : lastRun?.status === 'running' ? 'attention' : lastRun ? 'ready' : 'attention',
+      value: lastRunStatus,
+    },
+    {
       detail: limitItems.length ? limitItems.join(' · ') : labels.noSpecificLimit,
       label: labels.limits,
       status: 'ready',
@@ -123,17 +203,29 @@ function RecipeSummary({ labels, workspaceRecipe }) {
 
   return (
     <div className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-5">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="font-label text-xs text-[#9B72CF]">{labels.recipeSummaryEyebrow}</p>
           <h2 className="font-display mt-1 text-xl font-bold text-[#F4EFFA]">{labels.recipeSummaryTitle}</h2>
+          {nextStep && <p className="mt-2 max-w-2xl text-sm leading-6 text-[#C8B1E4]">{nextStep.detail}</p>}
         </div>
-        <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stateStyle.panel} ${stateStyle.text}`}>
-          <span className={`h-2 w-2 rounded-full ${stateStyle.dot}`} aria-hidden="true" />
-          {workspaceRecipe.disabledReason ? labels.workspaceBlocked : labels.workspaceReady}
-        </span>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
+          <span className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stateStyle.panel} ${stateStyle.text}`}>
+            <span className={`h-2 w-2 rounded-full ${stateStyle.dot}`} aria-hidden="true" />
+            {workspaceRecipe.disabledReason ? labels.workspaceBlocked : labels.workspaceReady}
+          </span>
+          {nextStepHref && (
+            <Link
+              href={nextStepHref}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#6B3FA0] bg-[#251A40] px-4 text-sm font-semibold text-[#F4EFFA] transition-colors hover:bg-[#33205A]"
+            >
+              {nextStep.label}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         {cards.map((card) => {
           const styles = recipeStatusStyles[card.status] ?? recipeStatusStyles.ready;
 
@@ -146,6 +238,43 @@ function RecipeSummary({ labels, workspaceRecipe }) {
           );
         })}
       </div>
+      <div className={`mt-4 rounded-2xl border p-4 ${readinessStyle.panel}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-label text-[10px] text-[#9B72CF]">{labels.readinessScoreTitle}</p>
+            <p className="mt-1 text-base font-bold text-[#F4EFFA]">
+              {workspaceRecipe.readiness?.scoreLabel ?? labels.workspaceReady} · {readinessScore}/100
+            </p>
+            <p className={`mt-1 text-xs leading-5 ${readinessStyle.text}`}>
+              {workspaceRecipe.readiness?.scoreDetail ?? labels.readyToRun}
+            </p>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[#080612] sm:w-44" aria-hidden="true">
+            <div className={`h-full rounded-full ${readinessStyle.dot}`} style={{ width: `${readinessScore}%` }} />
+          </div>
+        </div>
+      </div>
+      {workspaceRecipe.historyPreview && (
+        <div className="mt-4 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-4">
+          <p className="font-label text-[10px] text-[#B794F4]">{workspaceRecipe.historyPreview.title}</p>
+          <p className="mt-1 text-xs leading-5 text-[#C8B1E4]">{workspaceRecipe.historyPreview.detail}</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {workspaceRecipe.historyPreview.inputPreview && (
+              <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                <p className="font-label text-[10px] text-[#9B72CF]">{labels.latestInput}</p>
+                <p className="mt-1 text-xs leading-5 text-[#D6C5E8]">{workspaceRecipe.historyPreview.inputPreview}</p>
+              </div>
+            )}
+            {workspaceRecipe.historyPreview.outputPreview && (
+              <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                <p className="font-label text-[10px] text-[#9B72CF]">{labels.latestOutput}</p>
+                <p className="mt-1 text-xs leading-5 text-[#D6C5E8]">{workspaceRecipe.historyPreview.outputPreview}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <StartupPlan labels={labels} steps={workspaceRecipe.startupPlan ?? []} />
       {workspaceRecipe.trustWarnings?.length > 0 && (
         <div className="mt-4 rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-4">
           <p className="font-label mb-2 text-xs text-[#F6C177]">{labels.trustWarnings}</p>
@@ -157,6 +286,34 @@ function RecipeSummary({ labels, workspaceRecipe }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {workspaceRecipe.readiness?.blockers?.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-[#EF4444]/35 bg-[#1A0810] p-4">
+          <p className="font-label mb-2 text-xs text-[#FCA5A5]">{labels.readinessBlockers}</p>
+          <ul className="space-y-1 text-sm text-[#FCA5A5]">
+            {workspaceRecipe.readiness.blockers.map((blocker) => (
+              <li key={blocker} className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{blocker}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {workspaceRecipe.nextActions?.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-4">
+          <p className="font-label mb-2 text-xs text-[#B794F4]">{labels.nextActions}</p>
+          <ol className="space-y-2 text-sm text-[#D6C5E8]">
+            {workspaceRecipe.nextActions.map((action, index) => (
+              <li key={action} className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#251A40] text-xs font-bold text-[#C4B5FD]">
+                  {index + 1}
+                </span>
+                <span className="leading-6">{action}</span>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </div>
@@ -195,11 +352,15 @@ export default function WorkspaceAgentExperience({
         deliverablesEmpty: 'No deliverables listed.',
         examples: 'Usage examples',
         examplesEmpty: 'No example yet.',
+        fallbackPathEmpty: 'No fallback path is required for this workspace.',
+        fallbackPathTitle: 'Fallback path',
         limitations: 'Important limitations',
         limitationsEmpty: 'No published limitation.',
         mainCapabilities: 'Main capabilities',
         mainCapabilitiesEmpty: 'No detailed capability was provided.',
         objective: 'Objective',
+        outcomeChecklistEmpty: 'Run this agent once before judging the result.',
+        outcomeChecklistTitle: 'Before leaving feedback',
         overviewEyebrow: 'At a glance',
         overviewTitle: 'What this agent provides',
         prepare: 'Set up',
@@ -211,14 +372,39 @@ export default function WorkspaceAgentExperience({
         historyDetail: 'Stored runs visible for this access.',
         historyState: 'Run history',
         inputChars: 'input characters',
+        lastRunState: 'Latest run',
+        latestInput: 'Latest input',
+        latestOutput: 'Latest output',
+        lastRunStatuses: {
+          failed: 'Failed',
+          running: 'Running',
+          succeeded: 'Completed',
+        },
+        locale: 'en',
+        agenthubInfraDetail: 'Execution stays inside AgentHub runtime gates.',
+        creatorInfraDetail: 'Execution may use approved creator infrastructure through AgentHub servers.',
+        infraModes: {
+          agenthub_hosted: 'AgentHub-hosted',
+          creator_hosted: 'Creator-hosted',
+          hybrid: 'Hybrid execution',
+        },
+        infrastructure: 'Infrastructure',
         limits: 'Limits',
         noSpecificLimit: 'No specific runtime limit.',
+        noLastRun: 'No run yet',
+        noLastRunDetail: 'Run this workspace once to create history.',
+        nextActions: 'Next actions',
         primaryAction: 'Main action',
         primaryActionDetail: 'What the workspace will launch first.',
         readyToRun: 'The runtime gates allow execution.',
         recipeSummaryEyebrow: 'Workspace recipe',
         recipeSummaryTitle: 'Runtime readiness',
+        readinessBlockers: 'Readiness blockers',
+        readinessScoreTitle: 'Readiness score',
         runtimeLimits: 'Runtime limits',
+        startupPlanEyebrow: 'Start path',
+        startupPlanHint: 'Runtime-specific',
+        startupPlanTitle: 'How to use this workspace',
         runtimePanels: {
           assistant: 'Guided AI assistant',
           document: 'Document agent',
@@ -227,9 +413,13 @@ export default function WorkspaceAgentExperience({
         },
         runtimeState: 'Runtime',
         setup: 'Setup',
+        setupChecklistEmpty: 'No launch checklist is required.',
+        setupChecklistTitle: 'Launch checklist',
         setupEmpty: 'No extra setup is required before use.',
         setupEyebrow: 'Preparation',
         setupTitle: 'Set up',
+        successCriteria: 'Success criteria',
+        successCriteriaEmpty: 'No success criteria are available yet.',
         tabs: {
           details: 'Details',
           overview: 'Overview',
@@ -241,6 +431,7 @@ export default function WorkspaceAgentExperience({
         recipeRequired: 'Required check',
         recipeTitle: 'Workspace checklist',
         trustWarnings: 'Trust warnings',
+        unknownInfra: 'Unknown infrastructure',
         workspaceBlocked: 'Execution blocked',
         workspaceReady: 'Ready to run',
       }
@@ -253,11 +444,15 @@ export default function WorkspaceAgentExperience({
         deliverablesEmpty: 'Livrables non renseignés.',
         examples: 'Exemples d’usage',
         examplesEmpty: 'Aucun exemple fourni pour le moment.',
+        fallbackPathEmpty: 'Aucun parcours de fallback requis pour ce workspace.',
+        fallbackPathTitle: 'Parcours de fallback',
         limitations: 'Limites importantes',
         limitationsEmpty: 'Aucune limite publiée.',
         mainCapabilities: 'Capacités principales',
         mainCapabilitiesEmpty: 'Aucune capacité détaillée n’a été renseignée.',
         objective: 'Objectif',
+        outcomeChecklistEmpty: 'Lancez cet agent au moins une fois avant de juger le résultat.',
+        outcomeChecklistTitle: 'Avant de laisser un avis',
         overviewEyebrow: 'En bref',
         overviewTitle: 'Ce que cet agent apporte',
         prepare: 'Mettre en place',
@@ -269,14 +464,39 @@ export default function WorkspaceAgentExperience({
         historyDetail: 'Exécutions stockées et visibles pour cet accès.',
         historyState: 'Historique d’exécution',
         inputChars: 'caractères input',
+        lastRunState: 'Dernière exécution',
+        latestInput: 'Dernier input',
+        latestOutput: 'Dernière sortie',
+        lastRunStatuses: {
+          failed: 'Échec',
+          running: 'En cours',
+          succeeded: 'Terminée',
+        },
+        locale: 'fr',
+        agenthubInfraDetail: 'L’exécution reste dans les gates runtime AgentHub.',
+        creatorInfraDetail: 'L’exécution peut utiliser une infrastructure créateur approuvée via les serveurs AgentHub.',
+        infraModes: {
+          agenthub_hosted: 'Hébergé AgentHub',
+          creator_hosted: 'Infra créateur',
+          hybrid: 'Exécution hybride',
+        },
+        infrastructure: 'Infrastructure',
         limits: 'Limites',
         noSpecificLimit: 'Aucune limite runtime spécifique.',
+        noLastRun: 'Aucune exécution',
+        noLastRunDetail: 'Lancez une première exécution pour créer l’historique.',
+        nextActions: 'Prochaines actions',
         primaryAction: 'Action principale',
         primaryActionDetail: 'Ce que le workspace lancera en premier.',
         readyToRun: 'Les gates runtime autorisent l’exécution.',
         recipeSummaryEyebrow: 'Recette workspace',
         recipeSummaryTitle: 'Disponibilité runtime',
+        readinessBlockers: 'Blocages readiness',
+        readinessScoreTitle: 'Score readiness',
         runtimeLimits: 'Limites runtime',
+        startupPlanEyebrow: 'Parcours de démarrage',
+        startupPlanHint: 'Adapté au runtime',
+        startupPlanTitle: 'Comment utiliser ce workspace',
         runtimePanels: {
           assistant: 'Assistant IA guidé',
           document: 'Agent document',
@@ -285,9 +505,13 @@ export default function WorkspaceAgentExperience({
         },
         runtimeState: 'Runtime',
         setup: 'Setup',
+        setupChecklistEmpty: 'Aucune checklist de lancement requise.',
+        setupChecklistTitle: 'Checklist de lancement',
         setupEmpty: 'Aucun setup supplémentaire n’est requis avant utilisation.',
         setupEyebrow: 'Préparation',
         setupTitle: 'Mise en place',
+        successCriteria: 'Critères de réussite',
+        successCriteriaEmpty: 'Aucun critère de réussite disponible pour le moment.',
         tabs: {
           details: 'Détails',
           overview: 'Présentation',
@@ -299,6 +523,7 @@ export default function WorkspaceAgentExperience({
         recipeRequired: 'Point requis',
         recipeTitle: 'Checklist workspace',
         trustWarnings: 'Avertissements confiance',
+        unknownInfra: 'Infrastructure inconnue',
         workspaceBlocked: 'Exécution bloquée',
         workspaceReady: 'Prêt à exécuter',
       };
@@ -335,6 +560,7 @@ export default function WorkspaceAgentExperience({
   const trustTitle = workspaceManifest?.trust?.title || (isEnglish ? 'Execution boundary' : 'Périmètre d’exécution');
   const executionBoundary = workspaceManifest?.trust?.executionBoundary ?? [];
   const usesCreatorInfra = workspaceManifest?.infraMode === 'creator_hosted' || workspaceManifest?.infraMode === 'hybrid';
+  const infraLabel = labels.infraModes[workspaceManifest?.infraMode] ?? null;
   const recipeBlocksForTab = (tab) => workspaceRecipe?.blocks?.filter((item) => item.tab === tab) ?? [];
 
   return (
@@ -350,8 +576,15 @@ export default function WorkspaceAgentExperience({
               {description}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {[accessLabel, setupLabel].filter(Boolean).map((label) => (
-                <span key={label} className="rounded-full border border-[#2F184B] bg-[#080612] px-3 py-1.5 text-xs font-semibold text-[#D6C5E8]">
+              {[accessLabel, setupLabel, infraLabel].filter(Boolean).map((label) => (
+                <span
+                  key={label}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    label === infraLabel && usesCreatorInfra
+                      ? 'border-[#F59E0B]/45 bg-[#1A1208] text-[#F6C177]'
+                      : 'border-[#2F184B] bg-[#080612] text-[#D6C5E8]'
+                  }`}
+                >
                   {label}
                 </span>
               ))}
@@ -375,7 +608,7 @@ export default function WorkspaceAgentExperience({
         </div>
       </div>
 
-      <RecipeSummary labels={labels} workspaceRecipe={workspaceRecipe} />
+      <RecipeSummary baseHref={baseHref} labels={labels} workspaceRecipe={workspaceRecipe} />
 
       <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
         <nav className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-3 lg:sticky lg:top-24 lg:h-fit" aria-label="Sections workspace">
@@ -426,6 +659,10 @@ export default function WorkspaceAgentExperience({
                 <p className="mb-5 text-sm leading-6 text-[#C8B1E4]">{workspaceManifest.setup.description}</p>
               )}
               <div className="grid gap-5 md:grid-cols-2">
+                <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5 md:col-span-2">
+                  <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.setupChecklistTitle}</h3>
+                  <DetailList items={workspaceRecipe?.setupChecklist ?? []} emptyText={labels.setupChecklistEmpty} />
+                </div>
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.requiredInputs}</h3>
                   <DetailList items={requiredInputs} emptyText={labels.requiredInputsEmpty} />
@@ -447,6 +684,20 @@ export default function WorkspaceAgentExperience({
                     icon={AlertTriangle}
                     items={[trustDisclosure, ...executionBoundary, ...setupWarnings].filter(Boolean)}
                     emptyText=""
+                    tone="warning"
+                  />
+                </div>
+              )}
+              {workspaceRecipe?.fallbackPath?.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[#F59E0B]" />
+                    <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{labels.fallbackPathTitle}</h3>
+                  </div>
+                  <DetailList
+                    icon={AlertTriangle}
+                    items={workspaceRecipe.fallbackPath}
+                    emptyText={labels.fallbackPathEmpty}
                     tone="warning"
                   />
                 </div>
@@ -508,6 +759,10 @@ export default function WorkspaceAgentExperience({
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.examples}</h3>
                   <DetailList items={outputExamples} emptyText={labels.examplesEmpty} />
                 </div>
+                <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5 md:col-span-2">
+                  <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.successCriteria}</h3>
+                  <DetailList items={workspaceRecipe?.successCriteria ?? []} emptyText={labels.successCriteriaEmpty} />
+                </div>
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5 md:col-span-2">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.limitations}</h3>
                   <DetailList icon={AlertTriangle} items={limitations} emptyText={labels.limitationsEmpty} tone="warning" />
@@ -519,6 +774,10 @@ export default function WorkspaceAgentExperience({
           {activeTab === 'review' && (
             <Panel eyebrow={labels.reviewEyebrow} title={labels.reviewTitle}>
               <RecipeBlocks blocks={recipeBlocksForTab('review')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
+              <div className="mb-5 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+                <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.outcomeChecklistTitle}</h3>
+                <DetailList items={workspaceRecipe?.outcomeChecklist ?? []} emptyText={labels.outcomeChecklistEmpty} />
+              </div>
               {reviewSlot}
             </Panel>
           )}

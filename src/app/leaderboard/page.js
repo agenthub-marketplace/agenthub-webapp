@@ -1,175 +1,330 @@
-'use client';
-import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentCard from '@/components/AgentCard';
 import AgentAvatar from '@/components/AgentAvatar';
-import { ShieldCheck, ArrowRight, Trophy, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { agentsList, categories } from '@/lib/mock-data';
-import { useT } from '@/lib/i18n';
+import { getCurrentProfile } from '@/lib/auth/session';
+import { getLeaderboardAgents } from '@/server/marketplace/leaderboard';
+import { ArrowRight, BarChart3, Grid2X2, List, RotateCcw, ShieldCheck, Star, Trophy } from 'lucide-react';
 
-const LB = [
-  { rank: 1, name: 'LegalDraft Pro', slug: 'legaldraft-pro', creator: 'Thomas R.', catId: 'legal', rentals: 847, rating: 4.9, verified: true, gradient: 0 },
-  { rank: 2, name: 'ContentFlow', slug: 'contentflow', creator: 'Emma L.', catId: 'writing', rentals: 724, rating: 4.9, verified: true, gradient: 3 },
-  { rank: 3, name: 'MailMaster', slug: 'mailmaster', creator: 'Marc D.', catId: 'comm', rentals: 651, rating: 4.7, verified: true, gradient: 2 },
-  { rank: 4, name: 'MarketingPulse', slug: 'marketingpulse', creator: 'Laura S.', catId: 'marketing', rentals: 589, rating: 4.9, verified: false, gradient: 1 },
-  { rank: 5, name: 'DataInsight', slug: 'datainsight', creator: 'Sophia K.', catId: 'analysis', rentals: 512, rating: 4.8, verified: false, gradient: 1 },
-  { rank: 6, name: 'CodeHelper', slug: 'codehelper', creator: 'Alex C.', catId: 'dev', rentals: 478, rating: 4.8, verified: false, gradient: 5 },
-  { rank: 7, name: 'FinanceAdvisor', slug: 'financeadvisor', creator: 'Nicolas B.', catId: 'finance', rentals: 445, rating: 4.8, verified: true, gradient: 0 },
-  { rank: 8, name: 'TranslatePro', slug: 'translatepro', creator: 'Marie P.', catId: 'translation', rentals: 398, rating: 4.7, verified: false, gradient: 6 },
-  { rank: 9, name: 'StrategyBot', slug: 'strategybot', creator: 'Paul M.', catId: 'strategy', rentals: 367, rating: 4.6, verified: false, gradient: 4 },
-  { rank: 10, name: 'HRAssist', slug: 'hrassist', creator: 'Julie F.', catId: 'hr', rentals: 312, rating: 4.5, verified: false, gradient: 7 },
+export const dynamic = 'force-dynamic';
+
+const periodOptions = [
+  { value: 'week', label: '7 jours' },
+  { value: 'month', label: '30 jours' },
+  { value: 'all', label: 'Depuis le lancement' },
 ];
 
-function LeaderboardContent() {
-  const { t } = useT();
-  const params = useSearchParams();
-  const initialCat = params?.get('cat') || 'all';
-  const [period, setPeriod] = useState('month');
-  const [cat, setCat] = useState(initialCat);
-  const [view, setView] = useState('table');
+const sortOptions = [
+  { value: 'score', label: 'Score AgentHub' },
+  { value: 'access', label: 'Accès activés' },
+  { value: 'rating', label: 'Mieux notés' },
+  { value: 'reviews', label: 'Avis vérifiés' },
+  { value: 'newest', label: 'Plus récents' },
+];
 
-  const filtered = cat === 'all' ? LB : LB.filter(r => r.catId === cat);
-  const top3 = filtered.slice(0, 3);
-  const catName = (id) => categories.find(c => c.id === id)?.name || id;
+function readParam(searchParams, key, fallback) {
+  const value = searchParams?.[key];
 
+  if (Array.isArray(value)) {
+    return value[0] ?? fallback;
+  }
+
+  return typeof value === 'string' && value ? value : fallback;
+}
+
+function leaderboardHref(current, updates) {
+  const params = new URLSearchParams();
+  const next = { ...current, ...updates };
+
+  for (const [key, value] of Object.entries(next)) {
+    if (!value || (key === 'cat' && value === 'all') || (key === 'period' && value === 'month') || (key === 'sort' && value === 'score') || (key === 'view' && value === 'table')) {
+      continue;
+    }
+
+    params.set(key, value);
+  }
+
+  const query = params.toString();
+  return query ? `/leaderboard?${query}` : '/leaderboard';
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatRating(agent) {
+  return agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'Nouveau';
+}
+
+function formatScore(score) {
+  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(score);
+}
+
+function StatBlock({ label, value, sub }) {
   return (
-    <div className="min-h-screen ">
-      <AgentHubNavbar />
-      <div className="container py-10">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A152F] border border-[#532B88]/40 mb-5">
-            <Trophy className="w-3.5 h-3.5 text-[#8B5CF6]"/>
-            <span className="text-xs text-[#8B5CF6] font-label">{t('lb.updated')}</span>
-          </div>
-          <h1 className="font-display text-4xl md:text-6xl font-bold text-[#F5F1FA] mb-3">{t('lb.title')}</h1>
-          <p className="text-lg text-[#D6C5E8] max-w-2xl mx-auto">{t('lb.sub')}</p>
-        </div>
-
-        {/* Filters - pills only */}
-        <div className="flex flex-wrap items-center gap-3 mb-10 justify-center">
-          <div className="flex gap-1 p-1 bg-[#110D24] border border-[#251A40] rounded-xl">
-            {[{v:'week',l:t('lb.week')},{v:'month',l:t('lb.month')}].map(p => (
-              <button key={p.v} onClick={()=>setPeriod(p.v)} className={`px-5 py-2 rounded-lg text-sm font-display font-medium transition-all ${period===p.v ? 'bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white' : 'text-[#A78BCF] hover:text-[#F5F1FA]'}`}>{p.l}</button>
-            ))}
-          </div>
-          <select value={cat} onChange={e=>setCat(e.target.value)} className="bg-[#110D24] border border-[#251A40] rounded-xl px-4 py-2 text-sm text-[#F5F1FA] focus:border-[#8B5CF6] focus:outline-none">
-            <option value="all">{t('lb.allcat')}</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <div className="flex gap-1 p-1 bg-[#110D24] border border-[#251A40] rounded-xl">
-            <button onClick={()=>setView('table')} className={`p-2 rounded-lg ${view==='table' ? 'bg-[#251A40] text-[#F5F1FA]' : 'text-[#A78BCF]'}`}><List className="w-4 h-4"/></button>
-            <button onClick={()=>setView('cards')} className={`p-2 rounded-lg ${view==='cards' ? 'bg-[#251A40] text-[#F5F1FA]' : 'text-[#A78BCF]'}`}><LayoutGrid className="w-4 h-4"/></button>
-          </div>
-        </div>
-
-        {/* Podium top 3 - numbers only */}
-        {top3.length >= 3 && (
-          <div className="relative mb-12 overflow-hidden rounded-3xl bg-gradient-to-br from-[#1A152F] via-[#15112A] to-[#0F0B22] border border-[#251A40] p-8 md:p-12">
-            <div className="absolute inset-0 grid-pattern opacity-10 pointer-events-none"/>
-            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-80 h-80 bg-[#8B5CF6]/8 rounded-full blur-3xl"/>
-            <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-4 items-end max-w-3xl mx-auto">
-              {/* 2nd */}
-              <Link href={`/agenthub/agents/${top3[1].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-2 sm:order-1">
-                <p className="font-display font-bold text-[#C8B1E4]" style={{ fontSize: '36px', lineHeight: 1 }}>2</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[1].gradient} size="md" shape="circle"/></div>
-                <p className="font-display font-bold text-[#F4EFFA] mb-1 break-words">{top3[1].name}</p>
-                <p className="text-xs text-[#A78BCF]">{top3[1].rentals} {t('lb.col.rentals').toLowerCase()}</p>
-                <p className="font-stat text-sm text-[#F59E0B] mt-1">★ {top3[1].rating}</p>
-              </Link>
-              {/* 1st */}
-              <Link href={`/agenthub/agents/${top3[0].slug}`} className="card-hover bg-[#1A1130] border border-[#532B88] rounded-2xl p-6 text-center glow-soft sm:-mt-4 order-1 sm:order-2" style={{ boxShadow: '0 0 32px rgba(139,92,246,0.25)' }}>
-                <p className="font-display font-bold text-[#F4EFFA]" style={{ fontSize: '48px', lineHeight: 1 }}>1</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[0].gradient} size="lg" shape="circle"/></div>
-                <div className="flex items-center justify-center gap-1.5 mb-1 flex-wrap">
-                  <p className="font-display font-bold text-lg text-[#F5F1FA] break-words">{top3[0].name}</p>
-                  {top3[0].verified && <ShieldCheck className="w-4 h-4 text-[#10B981]"/>}
-                </div>
-                <p className="text-xs text-[#A78BCF] mb-2">{lang_par(t)} {top3[0].creator}</p>
-                <p className="font-stat text-2xl text-[#F59E0B] mb-1">★ {top3[0].rating}</p>
-                <p className="text-sm text-[#D6C5E8]"><span className="font-stat text-[#F5F1FA]">{top3[0].rentals}</span> {t('lb.col.rentals').toLowerCase()}</p>
-              </Link>
-              {/* 3rd */}
-              <Link href={`/agenthub/agents/${top3[2].slug}`} className="card-hover bg-[#0F0B22] border border-[#2F184B] rounded-2xl p-5 text-center group order-3">
-                <p className="font-display font-bold text-[#C8B1E4]" style={{ fontSize: '36px', lineHeight: 1 }}>3</p>
-                <div className="flex justify-center my-3"><AgentAvatar index={top3[2].gradient} size="md" shape="circle"/></div>
-                <p className="font-display font-bold text-[#F4EFFA] mb-1 break-words">{top3[2].name}</p>
-                <p className="text-xs text-[#A78BCF]">{top3[2].rentals} {t('lb.col.rentals').toLowerCase()}</p>
-                <p className="font-stat text-sm text-[#F59E0B] mt-1">★ {top3[2].rating}</p>
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Table or Cards - simplified columns */}
-        {view === 'table' ? (
-          <div className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead>
-                <tr className="text-[10px] font-label text-[#A78BCF] border-b border-[#251A40]">
-                  <th className="text-left p-4">{t('lb.col.rank')}</th>
-                  <th className="text-left">{t('lb.col.agent')}</th>
-                  <th className="text-left">{t('lb.col.creator')}</th>
-                  <th className="text-left">{t('lb.col.cat')}</th>
-                  <th className="text-right">{t('lb.col.rentals')}</th>
-                  <th className="text-right pr-4">{t('lb.col.rating')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(row => (
-                  <tr key={row.rank} className={`border-b border-[#251A40] hover:bg-[#1A152F] ${row.rank===1 ? 'bg-[#1A1130] border-l-2 border-l-[#532B88]' : ''}`}>
-                    <td className="p-4 font-stat text-[#F5F1FA]">{row.rank}</td>
-                    <td>
-                      <Link href={`/agenthub/agents/${row.slug}`} className="flex items-center gap-2 hover:text-[#8B5CF6]">
-                        <AgentAvatar index={row.gradient} size="xs"/>
-                        <span className="font-display font-semibold text-[#F5F1FA]">{row.name}</span>
-                        {row.verified && <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]"/>}
-                      </Link>
-                    </td>
-                    <td className="text-[#A78BCF]">{row.creator}</td>
-                    <td><span className="text-[10px] font-label px-2 py-1 rounded-full bg-[#1A152F] text-[#D6C5E8]">{catName(row.catId)}</span></td>
-                    <td className="text-right font-stat text-[#F5F1FA]">{row.rentals}</td>
-                    <td className="text-right pr-4 font-stat text-[#F5F1FA]">★ {row.rating}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map(row => {
-              const a = agentsList.find(x => x.slug === row.slug) || agentsList[0];
-              return (
-                <div key={row.rank} className="relative">
-                  <div className={`absolute -top-2 -left-2 z-10 w-10 h-10 rounded-full flex items-center justify-center font-stat text-base font-bold ${row.rank===1?'bg-[#1A1130] text-[#F4EFFA] border border-[#532B88] glow-soft':'bg-[#0F0B22] text-[#C8B1E4] border border-[#2F184B]'}`}>{row.rank}</div>
-                  <AgentCard agent={a}/>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* CTA Bottom */}
-        <div className="mt-12 text-center bg-gradient-to-br from-[#1A152F] to-[#110D24] border border-[#251A40] rounded-2xl p-8">
-          <h3 className="font-display text-2xl md:text-3xl font-bold text-[#F5F1FA] mb-2">{t('lb.join')}</h3>
-          <p className="text-[#A78BCF] mb-5">{t('lb.joinsub')}</p>
-          <Link href="/code/agents/new"><Button className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 h-11 px-6">{t('lb.createmine')} <ArrowRight className="w-4 h-4 ml-2"/></Button></Link>
-        </div>
-      </div>
-      <Footer/>
+    <div className="rounded-2xl border border-[#251A40] bg-[#0F0A1E] p-4">
+      <p className="font-label text-[10px] text-[#9B72CF]">{label}</p>
+      <p className="font-stat mt-2 text-2xl text-[#F5F1FA]">{value}</p>
+      {sub && <p className="mt-1 text-xs text-[#A78BCF]">{sub}</p>}
     </div>
   );
 }
 
-function lang_par(t) { return t('lang') === 'en' ? 'by' : 'par'; }
+function PodiumCard({ agent }) {
+  const isFirst = agent.rank === 1;
 
-export default function LeaderboardPage() {
   return (
-    <Suspense fallback={null}>
-      <LeaderboardContent />
-    </Suspense>
+    <Link
+      href={`/agenthub/agents/${agent.slug}`}
+      className={`card-hover rounded-2xl border p-5 text-center ${isFirst ? 'border-[#532B88] bg-[#1A1130] shadow-[0_0_32px_rgba(139,92,246,0.22)]' : 'border-[#2F184B] bg-[#0F0B22]'}`}
+    >
+      <p className={`font-display font-bold ${isFirst ? 'text-5xl text-[#F4EFFA]' : 'text-4xl text-[#C8B1E4]'}`}>{agent.rank}</p>
+      <div className="my-4 flex justify-center">
+        <AgentAvatar index={agent.gradient} size={isFirst ? 'lg' : 'md'} shape="circle" />
+      </div>
+      <div className="flex items-center justify-center gap-1.5">
+        <h2 className="font-display text-lg font-bold text-[#F5F1FA]">{agent.name}</h2>
+        {agent.certified && <ShieldCheck className="h-4 w-4 text-[#10B981]" />}
+      </div>
+      <p className="mt-1 text-xs text-[#A78BCF]">par {agent.creator.name}</p>
+      <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+        <span className="rounded-xl bg-[#15112A] px-2 py-2 text-[#D6C5E8]">
+          <strong className="font-stat block text-[#F5F1FA]">{agent.periodAccesses}</strong>
+          accès
+        </span>
+        <span className="rounded-xl bg-[#15112A] px-2 py-2 text-[#D6C5E8]">
+          <strong className="font-stat block text-[#F5F1FA]">{formatRating(agent)}</strong>
+          note
+        </span>
+        <span className="rounded-xl bg-[#15112A] px-2 py-2 text-[#D6C5E8]">
+          <strong className="font-stat block text-[#F5F1FA]">{formatScore(agent.score)}</strong>
+          score
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+export default async function LeaderboardPage({ searchParams }) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const current = {
+    cat: readParam(resolvedSearchParams, 'cat', 'all'),
+    period: readParam(resolvedSearchParams, 'period', 'month'),
+    sort: readParam(resolvedSearchParams, 'sort', 'score'),
+    view: readParam(resolvedSearchParams, 'view', 'table'),
+  };
+  const [profile, leaderboard] = await Promise.all([
+    getCurrentProfile(),
+    getLeaderboardAgents({
+      category: current.cat,
+      period: current.period,
+      sort: current.sort,
+    }),
+  ]);
+  const { agents, categories, error, period, sort, updatedAt } = leaderboard;
+  const view = current.view === 'cards' ? 'cards' : 'table';
+  const totalPeriodAccesses = agents.reduce((sum, agent) => sum + agent.periodAccesses, 0);
+  const reviewedAgents = agents.filter((agent) => agent.reviews > 0);
+  const averageRating = reviewedAgents.length
+    ? reviewedAgents.reduce((sum, agent) => sum + agent.rating, 0) / reviewedAgents.length
+    : 0;
+  const topAgents = agents.slice(0, 3);
+
+  return (
+    <div className="min-h-screen">
+      <AgentHubNavbar profile={profile} />
+      <main className="container px-4 py-10">
+        <section className="mb-8 text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#532B88]/40 bg-[#1A152F] px-3 py-1">
+            <Trophy className="h-3.5 w-3.5 text-[#8B5CF6]" />
+            <span className="font-label text-xs text-[#8B5CF6]">Mis à jour le {formatDate(updatedAt)}</span>
+          </div>
+          <h1 className="font-display mb-3 text-4xl font-bold text-[#F5F1FA] md:text-6xl">Classement des agents</h1>
+          <p className="mx-auto max-w-2xl text-lg text-[#D6C5E8]">
+            Agents approuvés de la marketplace, classés par accès backend, avis vérifiés et qualité de publication.
+          </p>
+        </section>
+
+        {error && (
+          <div className="mb-6 rounded-2xl border border-[#F59E0B]/40 bg-[#1A1130] px-4 py-3 text-sm text-[#F6C177]">
+            Certaines métriques backend sont temporairement indisponibles. Le classement reste limité aux données marketplace disponibles.
+          </div>
+        )}
+
+        <section className="mb-6 grid gap-3 md:grid-cols-3">
+          <StatBlock label="Agents marketplace" value={agents.length} sub="agents approuvés dans ce classement" />
+          <StatBlock label="Accès sur la période" value={totalPeriodAccesses} sub={period === 'all' ? 'tous les accès comptabilisés' : 'issus de rental_requests'} />
+          <StatBlock label="Note moyenne" value={averageRating ? averageRating.toFixed(1) : 'Nouveau'} sub="basée sur les avis vérifiés" />
+        </section>
+
+        <section className="mb-8 rounded-2xl border border-[#251A40] bg-[#110D24] p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {periodOptions.map((option) => (
+                <Link
+                  key={option.value}
+                  href={leaderboardHref(current, { period: option.value })}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${period === option.value ? 'bg-[#532B88] text-white' : 'border border-[#251A40] text-[#A78BCF] hover:border-[#8B5CF6] hover:text-white'}`}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+
+            <form action="/leaderboard" className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input type="hidden" name="period" value={period} />
+              <input type="hidden" name="view" value={view} />
+              <select name="cat" defaultValue={current.cat} className="h-10 rounded-xl border border-[#251A40] bg-[#0F0A1E] px-3 text-sm text-[#F5F1FA] focus:border-[#8B5CF6] focus:outline-none">
+                <option value="all">Toutes catégories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              <select name="sort" defaultValue={sort} className="h-10 rounded-xl border border-[#251A40] bg-[#0F0A1E] px-3 text-sm text-[#F5F1FA] focus:border-[#8B5CF6] focus:outline-none">
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <Button className="h-10 rounded-xl border-0 bg-[#532B88] px-4 text-white hover:bg-[#7C3AED]">
+                Appliquer
+              </Button>
+            </form>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href={leaderboardHref(current, { view: 'table' })}
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${view === 'table' ? 'border-[#532B88] bg-[#251A40] text-white' : 'border-[#251A40] text-[#A78BCF] hover:text-white'}`}
+                aria-label="Vue tableau"
+              >
+                <List className="h-4 w-4" />
+              </Link>
+              <Link
+                href={leaderboardHref(current, { view: 'cards' })}
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${view === 'cards' ? 'border-[#532B88] bg-[#251A40] text-white' : 'border-[#251A40] text-[#A78BCF] hover:text-white'}`}
+                aria-label="Vue cartes"
+              >
+                <Grid2X2 className="h-4 w-4" />
+              </Link>
+              <Link href="/leaderboard" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#251A40] text-[#A78BCF] transition-colors hover:text-white" aria-label="Réinitialiser">
+                <RotateCcw className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {topAgents.length > 0 && (
+          <section className="mb-10 overflow-hidden rounded-2xl border border-[#251A40] bg-gradient-to-br from-[#1A152F] via-[#15112A] to-[#0F0B22] p-5 md:p-8">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-label text-xs text-[#9B72CF]">Top de la période</p>
+                <h2 className="font-display text-2xl font-bold text-[#F5F1FA]">Agents les plus solides</h2>
+              </div>
+              <BarChart3 className="h-6 w-6 text-[#8B5CF6]" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {topAgents.map((agent) => <PodiumCard key={agent.id} agent={agent} />)}
+            </div>
+          </section>
+        )}
+
+        {agents.length === 0 ? (
+          <section className="rounded-2xl border border-[#251A40] bg-[#0F0A1E] px-6 py-12 text-center">
+            <h2 className="font-display text-2xl font-bold text-[#F5F1FA]">Aucun agent à classer</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#A78BCF]">
+              Les agents approuvés de la marketplace apparaîtront ici dès qu’ils seront disponibles pour cette catégorie.
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button asChild className="rounded-xl border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                <Link href="/agenthub/search">Voir la marketplace</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-[#2F184B] bg-transparent text-[#D6C5E8] hover:bg-[#15112A] hover:text-white">
+                <Link href="/leaderboard">Réinitialiser</Link>
+              </Button>
+            </div>
+          </section>
+        ) : view === 'table' ? (
+          <section className="overflow-x-auto rounded-2xl border border-[#251A40] bg-[#110D24]">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead>
+                <tr className="border-b border-[#251A40] text-[10px] text-[#A78BCF]">
+                  <th className="p-4 text-left font-label">Rang</th>
+                  <th className="text-left font-label">Agent</th>
+                  <th className="text-left font-label">Créateur</th>
+                  <th className="text-left font-label">Catégorie</th>
+                  <th className="text-right font-label">Accès</th>
+                  <th className="text-right font-label">Avis</th>
+                  <th className="text-right font-label">Score</th>
+                  <th className="p-4 text-right font-label">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.map((agent) => (
+                  <tr key={agent.id} className={`border-b border-[#251A40] hover:bg-[#1A152F] ${agent.rank === 1 ? 'bg-[#1A1130]' : ''}`}>
+                    <td className="p-4 font-stat text-[#F5F1FA]">{agent.rank}</td>
+                    <td>
+                      <Link href={`/agenthub/agents/${agent.slug}`} className="flex items-center gap-3">
+                        <AgentAvatar index={agent.gradient} size="xs" />
+                        <span className="font-display font-semibold text-[#F5F1FA]">{agent.name}</span>
+                        {agent.certified && <ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />}
+                      </Link>
+                    </td>
+                    <td className="text-[#A78BCF]">{agent.creator.name}</td>
+                    <td>
+                      <span className="rounded-full bg-[#1A152F] px-2 py-1 text-[10px] text-[#D6C5E8]">{agent.category}</span>
+                    </td>
+                    <td className="text-right font-stat text-[#F5F1FA]">{agent.periodAccesses}</td>
+                    <td className="text-right text-[#F5F1FA]">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <Star className="h-3.5 w-3.5 fill-[#F59E0B] text-[#F59E0B]" />
+                        {formatRating(agent)}
+                        <span className="text-[#A78BCF]">({agent.reviews})</span>
+                      </span>
+                    </td>
+                    <td className="text-right font-stat text-[#F5F1FA]">{formatScore(agent.score)}</td>
+                    <td className="p-4 text-right">
+                      <Button asChild size="sm" className="rounded-xl border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">
+                        <Link href={`/agenthub/agents/${agent.slug}`}>
+                          Activer
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ) : (
+          <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {agents.map((agent) => (
+              <div key={agent.id} className="relative">
+                <div className={`absolute -left-2 -top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full border font-stat text-base font-bold ${agent.rank === 1 ? 'border-[#532B88] bg-[#1A1130] text-[#F4EFFA]' : 'border-[#2F184B] bg-[#0F0B22] text-[#C8B1E4]'}`}>
+                  {agent.rank}
+                </div>
+                <AgentCard agent={agent} />
+              </div>
+            ))}
+          </section>
+        )}
+
+        <section className="mt-12 rounded-2xl border border-[#251A40] bg-gradient-to-br from-[#1A152F] to-[#110D24] p-8 text-center">
+          <h2 className="font-display mb-2 text-2xl font-bold text-[#F5F1FA] md:text-3xl">Rejoindre le classement</h2>
+          <p className="mb-5 text-[#A78BCF]">Publiez un agent, passez la revue admin, puis accumulez des activations et des avis vérifiés.</p>
+          <Button asChild className="h-11 rounded-xl border-0 bg-[#532B88] px-6 text-white hover:bg-[#7C3AED]">
+            <Link href="/code/agents/new">
+              Créer mon agent
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }

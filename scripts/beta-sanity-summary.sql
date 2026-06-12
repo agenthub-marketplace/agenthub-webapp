@@ -76,6 +76,63 @@ duplicate_reviews as (
   from public.agent_reviews
   group by rental_request_id
   having count(*) > 1
+),
+ledger_missing_payment_paid as (
+  select payments.id
+  from public.payments
+  left join public.creator_revenue_ledger
+    on creator_revenue_ledger.payment_id = payments.id
+    and creator_revenue_ledger.event_type = 'payment_paid'
+  where payments.status in ('paid', 'paid_blocked')
+    and creator_revenue_ledger.id is null
+),
+ledger_missing_access_created as (
+  select rental_requests.id
+  from public.rental_requests
+  join public.payments on payments.rental_request_id = rental_requests.id
+  left join public.creator_revenue_ledger
+    on creator_revenue_ledger.payment_id = payments.id
+    and creator_revenue_ledger.event_type = 'access_created'
+  where rental_requests.status = 'active'
+    and payments.status = 'paid'
+    and creator_revenue_ledger.id is null
+),
+security_precheck_missing_final as (
+  select agents.id
+  from public.agents
+  left join lateral (
+    select agent_security_prechecks.status
+    from public.agent_security_prechecks
+    where agent_security_prechecks.agent_version_id = agents.active_version_id
+    order by agent_security_prechecks.created_at desc
+    limit 1
+  ) latest_precheck on true
+  where agents.status in ('submitted', 'in_review')
+    and (
+      latest_precheck.status is null
+      or latest_precheck.status not in ('passed', 'warning', 'failed')
+    )
+),
+security_precheck_needs_attention as (
+  select agent_security_prechecks.id
+  from public.agent_security_prechecks
+  where agent_security_prechecks.status in ('stale', 'error')
+    or (
+      agent_security_prechecks.status in ('pending', 'running')
+      and agent_security_prechecks.created_at < now() - interval '10 minutes'
+    )
+),
+security_precheck_blocking_findings as (
+  select agent_security_prechecks.id
+  from public.agent_security_prechecks
+  where agent_security_prechecks.status in ('warning', 'failed')
+    and agent_security_prechecks.recommended_action in (
+      'block_publication',
+      'reject_candidate',
+      'request_changes',
+      'require_security_review',
+      'manual_review'
+    )
 )
 select 'expected_agents_total' as check_name, count(*)::int as count
 from expected_readiness
@@ -138,4 +195,31 @@ union all
 select 'unconfirmed_auth_users', count(*)::int
 from auth.users
 where email_confirmed_at is null
-  and deleted_at is null;
+  and deleted_at is null
+union all
+select 'ledger_missing_payment_paid', count(*)::int
+from ledger_missing_payment_paid
+union all
+select 'ledger_missing_access_created', count(*)::int
+from ledger_missing_access_created
+union all
+select 'ledger_blocked_events', count(*)::int
+from public.creator_revenue_ledger
+where status = 'blocked'
+union all
+select 'ledger_earned_events', count(*)::int
+from public.creator_revenue_ledger
+where status = 'earned'
+union all
+select 'ledger_payout_ready_events', count(*)::int
+from public.creator_revenue_ledger
+where status = 'payout_ready'
+union all
+select 'security_precheck_missing_final', count(*)::int
+from security_precheck_missing_final
+union all
+select 'security_precheck_needs_attention', count(*)::int
+from security_precheck_needs_attention
+union all
+select 'security_precheck_blocking_findings', count(*)::int
+from security_precheck_blocking_findings;

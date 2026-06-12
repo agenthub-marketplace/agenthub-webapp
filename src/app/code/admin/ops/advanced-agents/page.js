@@ -10,8 +10,80 @@ function checkTone(ok) {
   return ok ? 'approved' : 'failed';
 }
 
+function compatibilityTone(status) {
+  if (status === 'ready') {
+    return 'approved';
+  }
+
+  if (status === 'review_required') {
+    return 'in_review';
+  }
+
+  return 'failed';
+}
+
 function ReadyBadge({ ready }) {
   return ready ? <StatusBadge status="approved" label="Prêt beta" /> : <StatusBadge status="failed" label="Bloqué" />;
+}
+
+function ReadinessScore({ readiness }) {
+  const toneClass =
+    readiness.tone === 'success'
+      ? 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]'
+      : readiness.tone === 'warning'
+        ? 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]'
+        : 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]';
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="font-label text-xs">Readiness score</p>
+      <div className="mt-2 flex items-end gap-2">
+        <p className="font-display text-3xl font-bold">{readiness.score}</p>
+        <p className="pb-1 text-sm font-semibold">/ 100 · {readiness.label}</p>
+      </div>
+      {readiness.blockers.length > 0 && (
+        <p className="mt-2 text-xs leading-5">
+          Blockers: {readiness.blockers.join(', ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function infraDescription(item) {
+  if (item.runtimeType === 'creator_endpoint') {
+    return 'AgentHub garde accès, paiement, historique et avis. L’exécution passe par un endpoint creator approuvé, appelé serveur uniquement.';
+  }
+
+  if (item.infra.fallbackMode === 'hybrid_webhook') {
+    return 'Workflow orchestré par AgentHub avec au moins un webhook creator approuvé. Les health checks doivent être OK ou explicitement waivés.';
+  }
+
+  return 'Workflow orchestré par AgentHub. Aucun endpoint creator n’est requis pour cette version.';
+}
+
+function WorkspaceCompatibility({ compatibility }) {
+  return (
+    <div className="rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-label text-xs text-[#6B3FA0]">Compatibilité workspace</p>
+          <p className="mt-1 text-sm font-bold text-[#111827]">{compatibility.label}</p>
+        </div>
+        <StatusBadge status={compatibilityTone(compatibility.status)} label={compatibility.status === 'ready' ? 'Compatible' : compatibility.status === 'review_required' ? 'À revoir' : 'Bloqué'} />
+      </div>
+      <p className="mt-3 text-xs leading-5 text-[#64748B]">{compatibility.detail}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {compatibility.checks.map((check) => (
+          <StatusBadge
+            key={check.key}
+            status={checkTone(check.ok)}
+            label={`${check.label}: ${check.ok ? 'OK' : 'KO'}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function AdvancedAgentCard({ item }) {
@@ -43,6 +115,26 @@ function AdvancedAgentCard({ item }) {
               Security review
             </Link>
           )}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <ReadinessScore readiness={item.readiness} />
+        <div className="grid gap-4">
+          <WorkspaceCompatibility compatibility={item.workspaceCompatibility} />
+          <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+            <p className="font-label mb-2 text-xs text-[#6B3FA0]">Infrastructure runtime</p>
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge status="in_review" label={item.infra.fallbackMode} />
+              {item.infra.health && (
+                <StatusBadge status={item.infra.health.ok ? 'approved' : 'failed'} label={`health: ${item.infra.health.status}`} />
+              )}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#64748B]">{infraDescription(item)}</p>
+            {item.infra.health?.detail && (
+              <p className="mt-2 text-xs leading-5 text-[#64748B]">Dernier health check : {item.infra.health.detail}</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -122,10 +214,11 @@ export default async function AdvancedAgentsOpsPage() {
 
       {result.error && <CodeAlert tone="error">Impossible de charger le diagnostic agents avancés.</CodeAlert>}
 
-      <section className="mb-6 grid gap-4 md:grid-cols-3">
+      <section className="mb-6 grid gap-4 md:grid-cols-4">
         <AdminStatCard label="Agents avancés" value={result.summary.total} />
         <AdminStatCard label="Prêts beta" value={result.summary.ready} tone="success" />
         <AdminStatCard label="Bloqués" value={result.summary.blocked} tone={result.summary.blocked > 0 ? 'warning' : 'success'} />
+        <AdminStatCard label="Readiness moyenne" value={`${result.summary.averageReadiness}/100`} tone={result.summary.averageReadiness >= 90 ? 'success' : result.summary.averageReadiness >= 70 ? 'warning' : 'error'} />
       </section>
 
       <section className="grid gap-4">

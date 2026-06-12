@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import WorkspaceRunActions from '@/components/workspace/WorkspaceRunActions';
@@ -97,7 +97,7 @@ function unavailableCopy(rental) {
 function WorkspaceUnavailable({ eyebrow = 'AGENT WORKSPACE', message, profile, title }) {
   return (
     <div className="min-h-screen">
-      <Navbar profile={profile} />
+      <AgentHubNavbar profile={profile} />
       <main className="container py-20">
         <div className="mx-auto max-w-2xl rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-8">
           <p className="font-label mb-3 text-xs text-[#F59E0B]">{eyebrow}</p>
@@ -183,6 +183,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : runtimeContract.runner.kind === 'workflow' ? (
@@ -192,6 +194,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : runtimeContract.runner.kind === 'document' ? (
@@ -203,6 +207,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       locale="en"
       maxFileBytes={runtimeContract.limits.maxFileBytes}
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : (
@@ -213,6 +219,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   );
@@ -262,7 +270,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
 
   return (
     <div className="min-h-screen">
-      <Navbar profile={profile} />
+      <AgentHubNavbar profile={profile} />
       <main className="container py-8">
         <Link href="/en/workspace" className="mb-8 inline-flex items-center gap-2 text-sm text-[#9B72CF] hover:text-[#F4EFFA]">
           <ArrowLeft className="h-4 w-4" />
@@ -275,14 +283,18 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <aside className="rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-6">
-            <AgentAvatar index={0} size="xl" className="mb-5" />
-            <p className="font-label mb-2 text-xs text-[#10B981]">Active access</p>
-            <h1 className="font-display text-3xl font-bold text-[#F4EFFA]">
-              {rental.agent?.name ?? 'AgentHub agent'}
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#C8B1E4]">{rental.agent?.summary}</p>
+        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          <aside className="self-start rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+            <div className="mb-5 flex items-center gap-4">
+              <AgentAvatar index={rental.agent?.gradient ?? 0} size="md" />
+              <div className="min-w-0">
+                <p className="font-label mb-1 text-xs text-[#10B981]">Active access</p>
+                <h1 className="font-display text-xl font-bold leading-tight text-[#F4EFFA]">
+                  {rental.agent?.name ?? 'AgentHub agent'}
+                </h1>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-[#C8B1E4]">{rental.agent?.summary}</p>
             <div className="mt-6 space-y-3 text-sm text-[#C8B1E4]">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-[#10B981]" />

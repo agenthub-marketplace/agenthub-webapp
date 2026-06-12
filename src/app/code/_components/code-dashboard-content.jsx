@@ -92,6 +92,100 @@ function RevenueBucketList({ buckets, currency, emptyText, totalCents }) {
   );
 }
 
+function ledgerCoverageTone(status) {
+  if (status === 'clean') {
+    return 'approved';
+  }
+
+  if (status === 'attention') {
+    return 'in_review';
+  }
+
+  return 'draft';
+}
+
+function revenueReadinessTone(status) {
+  if (status === 'ready') {
+    return 'approved';
+  }
+
+  if (status === 'blocked') {
+    return 'failed';
+  }
+
+  if (status === 'attention') {
+    return 'in_review';
+  }
+
+  return 'draft';
+}
+
+function payoutStageClasses(status) {
+  if (status === 'done') {
+    return {
+      dot: 'bg-[#10B981]',
+      panel: 'border-[#BBF7D0] bg-[#F0FDF4]',
+      text: 'text-[#166534]',
+    };
+  }
+
+  if (status === 'blocked') {
+    return {
+      dot: 'bg-[#EF4444]',
+      panel: 'border-[#FCA5A5] bg-[#FEF2F2]',
+      text: 'text-[#7F1D1D]',
+    };
+  }
+
+  if (status === 'current') {
+    return {
+      dot: 'bg-[#F59E0B]',
+      panel: 'border-[#FCD34D] bg-[#FFFBEB]',
+      text: 'text-[#92400E]',
+    };
+  }
+
+  return {
+    dot: 'bg-[#94A3B8]',
+    panel: 'border-[#E3E7F2] bg-[#F8FAFC]',
+    text: 'text-[#475569]',
+  };
+}
+
+function PayoutPathPanel({ payoutPath }) {
+  if (!payoutPath?.stages?.length) {
+    return null;
+  }
+
+  return (
+    <CodePanel className="border-[#DDD6FE] bg-white" tone="default">
+      <div className="mb-4">
+        <p className="font-label mb-2 text-xs text-[#6B3FA0]">CHEMIN VERS PAYOUTS</p>
+        <h3 className="font-display text-lg font-bold text-[#111827]">{payoutPath.label}</h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">{payoutPath.detail}</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {payoutPath.stages.map((stage, index) => {
+          const styles = payoutStageClasses(stage.status);
+
+          return (
+            <article key={stage.key} className={`rounded-2xl border p-4 ${styles.panel}`}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-[#111827]">
+                  {index + 1}
+                </span>
+                <span className={`h-2.5 w-2.5 rounded-full ${styles.dot}`} aria-hidden="true" />
+              </div>
+              <p className="text-sm font-bold text-[#111827]">{stage.label}</p>
+              <p className={`mt-2 text-xs leading-5 ${styles.text}`}>{stage.detail}</p>
+            </article>
+          );
+        })}
+      </div>
+    </CodePanel>
+  );
+}
+
 function RevenueBetaSection({ result }) {
   const analytics = result?.analytics;
   const period = analytics?.period ?? '30d';
@@ -131,6 +225,126 @@ function RevenueBetaSection({ result }) {
             <MetricCard icon={Users} tone="green" label="Achats" value={analytics?.purchaseCount ?? 0} detail={`${analytics?.activeAgentCount ?? 0} agent(s) acheté(s)`} />
             <MetricCard icon={Gauge} tone="slate" label="Panier moyen" value={formatMoney(analytics?.averageOrderCents ?? 0, currency)} detail="sur accès activés" />
           </div>
+
+          <CodePanel className="border-[#DDD6FE] bg-white" tone="default">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-label mb-2 text-xs text-[#6B3FA0]">PAYOUT CREATOR</p>
+                <h3 className="font-display text-lg font-bold text-[#111827]">
+                  {analytics?.payoutReadiness?.label ?? 'Payouts non configurés'}
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                  {analytics?.payoutReadiness?.detail ?? 'GMV sandbox uniquement. Stripe Connect et les payouts creator ne sont pas activés en beta.'}
+                </p>
+              </div>
+              <span className="inline-flex w-fit rounded-full border border-[#FCD34D] bg-[#FFFBEB] px-3 py-1.5 text-xs font-semibold text-[#92400E]">
+                Beta sandbox
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm text-[#4B5563] md:grid-cols-3">
+              {(analytics?.payoutReadiness?.nextSteps ?? [
+                'Stabiliser les achats sandbox et les accès actifs.',
+                'Définir la commission AgentHub et les règles de remboursement.',
+                'Activer Stripe Connect dans une phase dédiée.',
+              ]).map((step) => (
+                <div key={step} className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] px-3 py-2">
+                  {step}
+                </div>
+              ))}
+            </div>
+          </CodePanel>
+
+          <PayoutPathPanel payoutPath={analytics?.payoutPath} />
+
+          <CodePanel className="border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#F8FAFC_100%)]" tone="default">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-label mb-2 text-xs text-[#6B3FA0]">GO / NO-GO REVENUS</p>
+                <h3 className="font-display text-lg font-bold text-[#111827]">
+                  {analytics?.revenueReadiness?.label ?? 'Aucune donnée revenue'}
+                </h3>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                  {analytics?.revenueReadiness?.detail ?? 'Aucun signal revenue disponible pour cette période.'}
+                </p>
+              </div>
+              <StatusBadge
+                status={revenueReadinessTone(analytics?.revenueReadiness?.status)}
+                label={analytics?.revenueReadiness?.status ?? 'empty'}
+              />
+            </div>
+            {analytics?.revenueReadiness?.blockers?.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-4">
+                <p className="font-label mb-2 text-xs text-[#991B1B]">Blocages avant payout futur</p>
+                <ul className="space-y-1 text-sm text-[#7F1D1D]">
+                  {analytics.revenueReadiness.blockers.map((blocker) => (
+                    <li key={blocker}>• {blocker}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-4 grid gap-2 text-sm text-[#4B5563] md:grid-cols-3">
+              {(analytics?.revenueReadiness?.nextSteps ?? [
+                'Publier au moins un agent achetable.',
+                'Valider un achat Stripe sandbox jusqu’à l’accès actif.',
+                'Vérifier que le ledger reçoit un événement earned.',
+              ]).map((step) => (
+                <div key={step} className="rounded-xl border border-[#E3E7F2] bg-white px-3 py-2">
+                  {step}
+                </div>
+              ))}
+            </div>
+          </CodePanel>
+
+          <CodePanel className="border-[#DDD6FE] bg-white" tone="default">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-label mb-2 text-xs text-[#6B3FA0]">LEDGER REVENUS</p>
+                <h3 className="font-display text-lg font-bold text-[#111827]">Attribution beta auditée</h3>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                  Ces montants viennent du ledger interne. Ils préparent les futurs payouts, mais ne sont pas encore payables.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge
+                  status={ledgerCoverageTone(analytics?.ledgerCoverage?.status)}
+                  label={analytics?.ledgerCoverage?.label ?? 'Ledger non initialisé'}
+                />
+                <span className="inline-flex w-fit rounded-full border border-[#DDD6FE] bg-[#F5F3FF] px-3 py-1.5 text-xs font-semibold text-[#5B21B6]">
+                  {analytics?.ledger?.eventCount ?? 0} événement(s)
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="font-label text-[10px] text-[#6B3FA0]">Rapprochement ledger</p>
+                  <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+                    {analytics?.ledgerCoverage?.detail ?? 'Aucun signal de rapprochement disponible.'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs text-[#4B5563] sm:min-w-[300px]">
+                  <div className="rounded-xl border border-[#E3E7F2] bg-white p-2">
+                    <p className="font-stat text-lg text-[#111827]">{analytics?.ledgerCoverage?.coveredPurchaseCount ?? 0}</p>
+                    <p>earned</p>
+                  </div>
+                  <div className="rounded-xl border border-[#E3E7F2] bg-white p-2">
+                    <p className="font-stat text-lg text-[#111827]">{analytics?.ledgerCoverage?.missingEarnedCount ?? 0}</p>
+                    <p>manquants</p>
+                  </div>
+                  <div className="rounded-xl border border-[#E3E7F2] bg-white p-2">
+                    <p className="font-stat text-lg text-[#111827]">{(analytics?.ledgerCoverage?.pendingAccessCount ?? 0) + (analytics?.ledgerCoverage?.blockedCount ?? 0)}</p>
+                    <p>à traiter</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <MetricCard icon={TrendingUp} tone="green" label="Attribué beta" value={formatMoney(analytics?.ledger?.earnedCents ?? 0, currency)} detail={`${analytics?.ledger?.earnedCount ?? 0} événement(s) earned`} />
+              <MetricCard icon={Clock3} tone="amber" label="Accès en attente" value={formatMoney(analytics?.ledger?.pendingAccessCents ?? 0, currency)} detail={`${analytics?.ledger?.pendingAccessCount ?? 0} paiement(s)`} />
+              <MetricCard icon={ShieldAlert} tone="blue" label="Bloqué" value={formatMoney(analytics?.ledger?.blockedCents ?? 0, currency)} detail={`${analytics?.ledger?.blockedCount ?? 0} événement(s)`} />
+              <MetricCard icon={CreditCard} tone="slate" label="Payout-ready" value={formatMoney(analytics?.ledger?.payoutReadyCents ?? 0, currency)} detail="toujours 0 en beta sauf release future" />
+            </div>
+          </CodePanel>
 
           {!hasRevenue ? (
             <EmptyCodeState
@@ -192,6 +406,116 @@ function RevenueBetaSection({ result }) {
         </div>
       )}
     </section>
+  );
+}
+
+function creatorActionForAgent(agent) {
+  if (isChangesRequest(agent.latestAdminReview)) {
+    return {
+      detail: cleanAdminNotes(agent.latestAdminReview.notes) || 'Un retour admin nécessite une correction avant publication.',
+      href: `/code/agents/${agent.id}/edit`,
+      label: 'Corriger',
+      title: agent.name,
+      tone: 'rejected',
+    };
+  }
+
+  if (agent.status === 'draft') {
+    return {
+      detail: 'Compléter la fiche, le contrat agent, les limites et les exemples avant soumission.',
+      href: `/code/agents/${agent.id}/edit`,
+      label: 'Finaliser',
+      title: agent.name,
+      tone: 'draft',
+    };
+  }
+
+  if (agent.status === 'submitted') {
+    return {
+      detail: 'Agent soumis. Attendre la prise en review ou préparer les réponses aux questions admin.',
+      href: `/code/agents/${agent.id}`,
+      label: 'Voir',
+      title: agent.name,
+      tone: 'submitted',
+    };
+  }
+
+  if (agent.status === 'in_review') {
+    return {
+      detail: 'Validation admin en cours. Garder la promesse, les limites et le workspace cohérents.',
+      href: `/code/agents/${agent.id}`,
+      label: 'Suivre',
+      title: agent.name,
+      tone: 'in_review',
+    };
+  }
+
+  if (agent.status === 'approved') {
+    return {
+      detail: 'Agent publié. Surveiller les achats sandbox, les runs réussis et les avis vérifiés.',
+      href: `/code/agents/${agent.id}`,
+      label: 'Piloter',
+      title: agent.name,
+      tone: 'approved',
+    };
+  }
+
+  return null;
+}
+
+function CreatorPublicationPath({ agents, revenueAnalyticsResult }) {
+  const actions = agents
+    .map(creatorActionForAgent)
+    .filter(Boolean)
+    .sort((left, right) => {
+      const order = { rejected: 0, draft: 1, submitted: 2, in_review: 3, approved: 4 };
+
+      return (order[left.tone] ?? 9) - (order[right.tone] ?? 9);
+    })
+    .slice(0, 5);
+  const revenueReadiness = revenueAnalyticsResult?.analytics?.revenueReadiness ?? null;
+  const revenueNeedsAction = revenueReadiness && ['blocked', 'attention', 'empty'].includes(revenueReadiness.status);
+
+  return (
+    <CodePanel tone="violet">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <p className="font-label text-xs text-[#6B3FA0]">PARCOURS CRÉATEUR</p>
+          <h2 className="font-display mt-1 text-xl font-bold text-[#111827]">Prochaine action utile</h2>
+        </div>
+        <ArrowRight className="h-5 w-5 text-[#6B3FA0]" />
+      </div>
+
+      {actions.length === 0 ? (
+        <p className="text-sm leading-6 text-[#4B5563]">
+          Créez un agent depuis un template pour démarrer le parcours publication → marketplace → revenus beta.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {actions.map((action) => (
+            <article key={`${action.title}-${action.href}`} className="rounded-2xl border border-[#E3E7F2] bg-white p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold text-[#111827]">{action.title}</p>
+                <StatusBadge status={action.tone} label={action.label} />
+              </div>
+              <p className="text-xs leading-5 text-[#4B5563]">{action.detail}</p>
+              <Link href={action.href} className="mt-3 inline-flex text-xs font-semibold text-[#6B3FA0] hover:text-[#111827]">
+                {action.label}
+                <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {revenueNeedsAction && (
+        <div className="mt-4 rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] p-3">
+          <p className="font-label text-[10px] text-[#92400E]">Revenus beta</p>
+          <p className="mt-1 text-sm font-semibold text-[#111827]">{revenueReadiness.label}</p>
+          <p className="mt-1 text-xs leading-5 text-[#92400E]">{revenueReadiness.detail}</p>
+        </div>
+      )}
+    </CodePanel>
   );
 }
 
@@ -471,6 +795,8 @@ export default function CodeDashboardContent({
           </section>
 
           <aside className="space-y-6">
+            <CreatorPublicationPath agents={agents} revenueAnalyticsResult={revenueAnalyticsResult} />
+
             <CodePanel tone="violet">
               <div className="mb-4 flex items-center justify-between">
                 <div>

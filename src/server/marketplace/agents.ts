@@ -35,6 +35,7 @@ export type MarketplaceAgent = {
   deliverables: string[];
   limitations: string[];
   dataHandlingNotes: string | null;
+  createdAt: string;
   contract: AgentContract;
   reviewSummaries: {
     id: string;
@@ -243,6 +244,7 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
     deliverables: version?.deliverables ?? [],
     limitations: version?.limitations ?? [],
     dataHandlingNotes: version?.data_handling_notes ?? null,
+    createdAt: row.created_at,
     contract,
     reviewSummaries: reviews
       .map((review) => ({

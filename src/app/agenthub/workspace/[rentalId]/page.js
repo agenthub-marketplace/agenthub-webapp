@@ -175,6 +175,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : runtimeContract.runner.kind === 'workflow' ? (
@@ -184,6 +186,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : runtimeContract.runner.kind === 'document' ? (
@@ -195,6 +199,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       locale="fr"
       maxFileBytes={runtimeContract.limits.maxFileBytes}
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   ) : (
@@ -205,6 +211,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
+      nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
+      readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
     />
   );

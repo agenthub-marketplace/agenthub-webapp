@@ -35,11 +35,26 @@ export default async function AdminOpsPage() {
         </CodePanel>
       </Link>
 
-      <section className="mb-6 grid gap-4 md:grid-cols-4">
+      <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {(result.checks ?? []).map((check) => (
           <AdminStatCard key={check.key} label={check.label} value={check.value} tone={check.tone} />
         ))}
       </section>
+
+      <CodePanel className="mb-6 border-[#DDD6FE] bg-[#FAF7FF]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="font-label mb-1 text-xs text-[#6B3FA0]">SECURITY PRECHECK</p>
+            <h2 className="font-display text-xl font-bold text-[#111827]">Tri admin avant publication</h2>
+            <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+              Les compteurs précheck signalent les agents soumis sans artefact final, les préchecks à relancer et les findings qui doivent être lus avant approbation.
+            </p>
+          </div>
+          <Link href="/code/admin/review" className="rounded-xl border border-[#8B5CF6] bg-white px-4 py-2 text-sm font-semibold text-[#5B21B6] hover:bg-[#F5F3FF]">
+            Ouvrir la review
+          </Link>
+        </div>
+      </CodePanel>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div>

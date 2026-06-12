@@ -335,6 +335,47 @@ function buildSecurityPrecheck(input: {
     });
   }
 
+  if (input.contract.runtimeType === "creator_endpoint") {
+    addWarning({
+      code: "workspace_strategy_creator_infra",
+      detail: "Le workspace AgentHub devra conserver l'accès, l'historique et les avis, mais l'exécution dépendra d'un endpoint creator approuvé.",
+      suggestedAdminAction: "Vérifier endpoint, HMAC, security review, disclosure utilisateur et comportement d'erreur avant publication.",
+      title: "Stratégie workspace : infra creator",
+    });
+  } else if (input.contract.runtimeType === "workflow_automation") {
+    const webhookStepCount = input.workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0;
+
+    if (webhookStepCount > 0) {
+      addWarning({
+        code: "workspace_strategy_hybrid",
+        detail: `Le workspace sera orchestré par AgentHub avec ${webhookStepCount} étape(s) webhook creator.`,
+        suggestedAdminAction: "Vérifier que chaque webhook est approuvé, health-checké et couvert par la security review.",
+        title: "Stratégie workspace : hybride",
+      });
+    } else {
+      addPass({
+        code: "workspace_strategy_agenthub_workflow",
+        detail: "Le workflow peut être exécuté dans le workspace AgentHub sans endpoint creator obligatoire.",
+        suggestedAdminAction: "Vérifier le worker workflow, les étapes LLM et l'historique de run.",
+        title: "Stratégie workspace : AgentHub",
+      });
+    }
+  } else if (input.contract.runtimeType === "document_file" || input.contract.dataPolicy.requires_files || input.contract.workspaceMode === "document_required") {
+    addWarning({
+      code: "workspace_strategy_document",
+      detail: "Le workspace doit gérer l'ajout d'un document privé, l'extraction texte et les limites de fichiers beta.",
+      suggestedAdminAction: "Vérifier le runtime document, les limites PDF/DOCX, l'absence d'OCR et la politique de données.",
+      title: "Stratégie workspace : document",
+    });
+  } else {
+    addPass({
+      code: "workspace_strategy_agenthub_native",
+      detail: "Le workspace AgentHub natif suffit pour ce runtime.",
+      suggestedAdminAction: "Continuer la review standard du setup et des limites.",
+      title: "Stratégie workspace : native",
+    });
+  }
+
   if (input.agent.risk_level === "forbidden_beta") {
     addBlocker({
       code: "forbidden_beta",
@@ -500,6 +541,8 @@ function buildSecurityPrecheck(input: {
   if (input.type === "advanced_agent") {
     adminQuestions.push("Les assets workflow/API ont-ils été validés indépendamment de la fiche publique ?");
   }
+
+  adminQuestions.push("La stratégie workspace est-elle claire pour le testeur : AgentHub natif, document, hybride ou infra creator ?");
 
   const riskLevel: SecurityPrecheckRiskLevel =
     blockers.length > 0

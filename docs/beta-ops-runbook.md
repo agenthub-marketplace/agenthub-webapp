@@ -185,6 +185,13 @@ Check:
 - reviews on invalid access;
 - auth users without profiles;
 - unconfirmed auth users.
+- revenue ledger events missing for paid payments;
+- revenue ledger events missing for paid active accesses;
+- blocked revenue ledger events needing support review;
+- duplicate revenue ledger events by payment/type.
+- submitted/in-review agents without a final persisted security precheck;
+- stale, errored, or stuck security prechecks;
+- security prechecks recommending block, reject, changes, security review, or manual review.
 
 Agent Contract readiness should flag any agent with:
 
@@ -204,13 +211,41 @@ Use `scripts/beta-daily-metrics.sql` once per day during the closed beta.
 It reports:
 
 - daily checkout/payment/access/LLM/review funnel proxy;
+- daily earned ledger events and attributed sandbox GMV;
 - current payment and access states;
 - agent-level beta performance;
 - agents with access but no successful LLM run;
 - user-level beta activity;
-- manual review queue for old pending payments, paid payments without access, and stale running runs.
+- manual review queue for old pending payments, paid payments without access, stale running runs, ledger attribution gaps, and security precheck issues.
 
 There is no dedicated workspace-open event yet, so use active accesses and LLM runs as backend-side proxies.
+
+Revenue ledger notes:
+
+- `ledger_earned_gmv_cents` is sandbox GMV attribution, not real revenue and not a creator payout.
+- `ledger_missing_payment_paid` means a paid or blocked payment was not mirrored into the ledger.
+- `ledger_missing_access_created` means an active paid access has no earned ledger event.
+- `ledger_blocked_events` should match activation problems such as `paid_blocked` and must be reviewed before any future payout readiness.
+- Do not fix ledger rows manually in production unless a dedicated hotfix plan has been reviewed.
+
+Admin Ops mirrors the two critical ledger gaps directly:
+
+- `Ledger paiement manquant`: paid or paid_blocked payment without a `payment_paid` ledger event.
+- `Ledger accès manquant`: paid payment with linked access but without an `access_created` ledger event.
+
+Go/No-Go for future creator payout work:
+
+- both ledger gap counters must be `0`;
+- blocked ledger events must be triaged;
+- payout-ready can stay `0` during sandbox beta;
+- never treat GMV sandbox as payable creator revenue.
+
+Security precheck notes:
+
+- `security_precheck_missing_final` means an agent is submitted/in review but the latest precheck is missing or not final.
+- `security_precheck_needs_attention` means a precheck is stale, errored, or stuck for more than 10 minutes.
+- `security_precheck_blocking_findings` means an admin should review findings before approval.
+- Admin approval is intentionally blocked until the latest persisted precheck is final (`passed`, `warning`, or `failed`).
 
 ## Day 3 backend observability
 
@@ -403,6 +438,9 @@ Only use these checks after `workflow_automation` is intentionally enabled for a
 - Confirm `agent_runtime_settings.workflow_automation.enabled=true` and `run_enabled=true`.
 - Confirm the creator is present in `creator_runtime_access`.
 - Confirm every `webhook_step` uses an approved `creator_webhook_endpoints` row.
+- For workflows with `webhook_step`, run `/code/admin/endpoints` health check
+  and confirm `/code/admin/ops/advanced-agents` shows webhook health OK or a
+  deliberate security-review waiver.
 - Confirm workspace launch creates one `agent_runs` row and one `agent_workflow_runs` row.
 - Confirm `agent_workflow_steps` reaches `succeeded` or a clear `failed` error.
 - Confirm creator cannot read user workflow outputs.

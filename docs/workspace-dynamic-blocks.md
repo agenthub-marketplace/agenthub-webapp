@@ -26,6 +26,21 @@ The workspace should answer four questions immediately:
 3. How do I run it?
 4. Where is the result/history?
 
+Before rental, the marketplace and agent detail pages should expose the same
+runtime family in user-facing language:
+
+```text
+Assistant IA guidé
+Agent document
+Agent workflow
+Agent API
+Workspace guidé
+```
+
+This avoids selling every listing as a generic "agent" while the setup and
+workspace behavior differ. The public label is advisory for discovery only; API
+routes and workspace contracts remain the execution source of truth.
+
 ## Standard Block Registry
 
 ### `access_status`
@@ -177,6 +192,28 @@ It can wrap or summarize runtime-specific status blocks:
 
 The workspace should never leave the user with only a spinner and no state.
 
+### `next_actions`
+
+Purpose: turn the runtime state into concrete user guidance.
+
+Content:
+
+- 2 to 3 ordered actions derived from `workspaceRecipe.nextActions`;
+- runtime-specific language for assistant, document, workflow, or creator API;
+- a single unblock action when execution is disabled;
+- no secrets, endpoint URLs, internal asset ids, or private payload details.
+
+Examples:
+
+- assistant: describe need -> generate response -> retrieve result in history;
+- document: upload text PDF/DOCX -> verify extraction -> run document action;
+- workflow: provide context -> launch workflow -> review final result and steps;
+- creator endpoint: acknowledge creator-hosted boundary -> send request -> handle
+  endpoint unavailability.
+
+This block belongs in the global workspace readiness summary first. Runners can
+later consume the same list to highlight the next clickable control.
+
 ### `endpoint_status`
 
 Purpose: show that AgentHub is calling creator infrastructure server-side.
@@ -281,6 +318,14 @@ Examples:
 - OpenAI unavailable.
 
 This block should use precise copy for beta debugging without exposing secrets.
+
+Current implementation:
+
+- `workspaceRecipe.blocks` emits `support_state` in the `use` tab when a
+  runtime blocker, trust warning, or creator-infra disclosure should be seen
+  before execution;
+- the block is required only when execution is actually blocked;
+- it stays hidden when no support signal is active.
 
 ## Runtime Block Recipes
 

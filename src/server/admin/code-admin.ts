@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AgentRuntimeType } from "@/lib/agent-contract";
+import { serverEnv } from "@/lib/env.server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
@@ -38,7 +39,10 @@ type WorkflowEndpointRow = {
   approved_at: string | null;
   created_at: string;
   creator_id: string;
-  creator_profiles: { public_name: string } | { public_name: string }[] | null;
+  creator_profiles:
+    | { profiles: { email: string | null } | { email: string | null }[] | null; public_name: string }
+    | { profiles: { email: string | null } | { email: string | null }[] | null; public_name: string }[]
+    | null;
   endpoint_url: string;
   id: string;
   name: string;
@@ -183,8 +187,128 @@ type AgentRunDiagnosticRow = {
   status: string;
 };
 
+type EndpointHealthAuditRow = {
+  created_at: string;
+  entity_id: string | null;
+  metadata: { code?: unknown; ok?: unknown } | null;
+};
+
+type ReviewableAgentPrecheckRow = {
+  active_version_id: string | null;
+  id: string;
+  name: string;
+  status: string;
+};
+
+type SecurityPrecheckOpsRow = {
+  agent_version_id: string;
+  created_at: string;
+  status: string;
+};
+
+type PaymentLedgerCheckRow = {
+  id: string;
+};
+
+type PaymentAccessLedgerCheckRow = {
+  id: string;
+  rental_request_id: string | null;
+};
+
+type LedgerPaymentEventRow = {
+  payment_id: string | null;
+};
+
+const OPS_LEDGER_PAGE_SIZE = 1000;
+
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+async function countMissingLedgerEvents(input: {
+  eventType: "access_created" | "payment_paid";
+  paymentIds: string[];
+  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
+}) {
+  if (input.paymentIds.length === 0) {
+    return 0;
+  }
+
+  const recordedPaymentIds = new Set<string>();
+
+  for (let index = 0; index < input.paymentIds.length; index += OPS_LEDGER_PAGE_SIZE) {
+    const paymentIds = input.paymentIds.slice(index, index + OPS_LEDGER_PAGE_SIZE);
+    const { data } = await input.supabase
+      .from("creator_revenue_ledger")
+      .select("payment_id")
+      .eq("event_type", input.eventType)
+      .in("payment_id", paymentIds)
+      .returns<LedgerPaymentEventRow[]>();
+
+    for (const row of data ?? []) {
+      if (row.payment_id) {
+        recordedPaymentIds.add(row.payment_id);
+      }
+    }
+  }
+
+  return input.paymentIds.filter((paymentId) => !recordedPaymentIds.has(paymentId)).length;
+}
+
+async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>) {
+  const paidPaymentIds: string[] = [];
+  const paidAccessPaymentIds: string[] = [];
+
+  for (let from = 0; ; from += OPS_LEDGER_PAGE_SIZE) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id")
+      .in("status", ["paid", "paid_blocked"])
+      .range(from, from + OPS_LEDGER_PAGE_SIZE - 1)
+      .returns<PaymentLedgerCheckRow[]>();
+    const rows = data ?? [];
+
+    paidPaymentIds.push(...rows.map((row) => row.id));
+
+    if (rows.length < OPS_LEDGER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  for (let from = 0; ; from += OPS_LEDGER_PAGE_SIZE) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id,rental_request_id")
+      .eq("status", "paid")
+      .not("rental_request_id", "is", null)
+      .range(from, from + OPS_LEDGER_PAGE_SIZE - 1)
+      .returns<PaymentAccessLedgerCheckRow[]>();
+    const rows = data ?? [];
+
+    paidAccessPaymentIds.push(...rows.map((row) => row.id));
+
+    if (rows.length < OPS_LEDGER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  const [missingPaymentPaid, missingAccessCreated] = await Promise.all([
+    countMissingLedgerEvents({
+      eventType: "payment_paid",
+      paymentIds: paidPaymentIds,
+      supabase,
+    }),
+    countMissingLedgerEvents({
+      eventType: "access_created",
+      paymentIds: paidAccessPaymentIds,
+      supabase,
+    }),
+  ]);
+
+  return {
+    missingAccessCreated,
+    missingPaymentPaid,
+  };
 }
 
 function mapAccess(rows: RuntimeAccessRow[] | null | undefined) {
@@ -267,13 +391,13 @@ export async function getAdminEndpoints() {
   const [workflowResult, apiResult] = await Promise.all([
     supabase
       .from("creator_webhook_endpoints")
-      .select("id,creator_id,name,endpoint_url,status,verification_notes,approved_at,created_at,creator_profiles(public_name)")
+      .select("id,creator_id,name,endpoint_url,status,verification_notes,approved_at,created_at,creator_profiles(public_name,profiles!creator_profiles_user_id_fkey(email))")
       .order("created_at", { ascending: false })
       .limit(100)
       .returns<WorkflowEndpointRow[]>(),
     supabase
       .from("creator_api_endpoints")
-      .select("id,creator_id,name,endpoint_url,status,verification_notes,approved_at,created_at,creator_profiles(public_name)")
+      .select("id,creator_id,name,endpoint_url,status,verification_notes,approved_at,created_at,creator_profiles(public_name,profiles!creator_profiles_user_id_fkey(email))")
       .order("created_at", { ascending: false })
       .limit(100)
       .returns<CreatorApiEndpointRow[]>(),
@@ -283,21 +407,55 @@ export async function getAdminEndpoints() {
     return { workflowEndpoints: [], creatorApiEndpoints: [], error: "endpoints-load-failed" };
   }
 
-  const mapEndpoint = (endpoint: WorkflowEndpointRow) => ({
-    id: endpoint.id,
-    creatorId: endpoint.creator_id,
-    creatorName: readSingle(endpoint.creator_profiles)?.public_name ?? "Créateur inconnu",
-    name: endpoint.name,
-    endpointUrl: endpoint.endpoint_url,
-    status: endpoint.status,
-    verificationNotes: endpoint.verification_notes,
-    approvedAt: endpoint.approved_at,
-    createdAt: endpoint.created_at,
-  });
+  const workflowEndpointIds = (workflowResult.data ?? []).map((endpoint) => endpoint.id);
+  const apiEndpointIds = (apiResult.data ?? []).map((endpoint) => endpoint.id);
+  const [workflowHealthResult, apiHealthResult] = await Promise.all([
+    workflowEndpointIds.length
+      ? supabase
+          .from("audit_logs")
+          .select("entity_id,metadata,created_at")
+          .eq("entity_type", "creator_webhook_endpoints")
+          .eq("action", "endpoint.workflow_webhook.health_check")
+          .in("entity_id", workflowEndpointIds)
+          .order("created_at", { ascending: false })
+          .returns<EndpointHealthAuditRow[]>()
+      : Promise.resolve({ data: [] as EndpointHealthAuditRow[], error: null }),
+    apiEndpointIds.length
+      ? supabase
+          .from("audit_logs")
+          .select("entity_id,metadata,created_at")
+          .eq("entity_type", "creator_api_endpoints")
+          .eq("action", "endpoint.creator_api.health_check")
+          .in("entity_id", apiEndpointIds)
+          .order("created_at", { ascending: false })
+          .returns<EndpointHealthAuditRow[]>()
+      : Promise.resolve({ data: [] as EndpointHealthAuditRow[], error: null }),
+  ]);
+  const workflowHealthById = latestHealthByEndpoint(workflowHealthResult.error ? [] : workflowHealthResult.data);
+  const apiHealthById = latestHealthByEndpoint(apiHealthResult.error ? [] : apiHealthResult.data);
+
+  const mapEndpoint = (endpoint: WorkflowEndpointRow, healthById: Map<string, EndpointHealthAuditRow>) => {
+    const creatorProfile = readSingle(endpoint.creator_profiles);
+    const linkedProfile = readSingle(creatorProfile?.profiles ?? null);
+
+    return {
+      id: endpoint.id,
+      creatorId: endpoint.creator_id,
+      creatorEmail: linkedProfile?.email ?? null,
+      creatorName: creatorProfile?.public_name ?? "Créateur inconnu",
+      name: endpoint.name,
+      endpointUrl: endpoint.endpoint_url,
+      status: endpoint.status,
+      verificationNotes: endpoint.verification_notes,
+      approvedAt: endpoint.approved_at,
+      createdAt: endpoint.created_at,
+      healthCheck: endpointHealthDiagnostic(healthById.get(endpoint.id)),
+    };
+  };
 
   return {
-    workflowEndpoints: (workflowResult.data ?? []).map(mapEndpoint),
-    creatorApiEndpoints: (apiResult.data ?? []).map(mapEndpoint),
+    workflowEndpoints: (workflowResult.data ?? []).map((endpoint) => mapEndpoint(endpoint, workflowHealthById)),
+    creatorApiEndpoints: (apiResult.data ?? []).map((endpoint) => mapEndpoint(endpoint, apiHealthById)),
     error: null,
   };
 }
@@ -435,12 +593,50 @@ export async function getAdminOpsSnapshot() {
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
-  const [pendingPayments, paidWithoutAccess, failedRuns, staleRuns, auditLogs] = await Promise.all([
+  const [
+    pendingPayments,
+    paidWithoutAccess,
+    failedRuns,
+    staleRuns,
+    ledgerEarned,
+    ledgerBlocked,
+    ledgerPayoutReady,
+    ledgerGaps,
+    reviewableAgentsResult,
+    attentionPrechecks,
+    stuckPrechecks,
+    blockingPrechecks,
+    auditLogs,
+  ] = await Promise.all([
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending").lt("created_at", oneDayAgo),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "paid").is("rental_request_id", null),
     supabase.from("agent_runs").select("id", { count: "exact", head: true }).eq("status", "failed").gt("created_at", oneDayAgo),
     supabase.from("agent_runs").select("id", { count: "exact", head: true }).eq("status", "running").lt("created_at", oneHourAgo),
+    supabase.from("creator_revenue_ledger").select("id", { count: "exact", head: true }).eq("status", "earned"),
+    supabase.from("creator_revenue_ledger").select("id", { count: "exact", head: true }).eq("status", "blocked"),
+    supabase.from("creator_revenue_ledger").select("id", { count: "exact", head: true }).eq("status", "payout_ready"),
+    loadLedgerGapCounts(supabase),
+    supabase
+      .from("agents")
+      .select("id,name,status,active_version_id")
+      .in("status", ["submitted", "in_review"])
+      .returns<ReviewableAgentPrecheckRow[]>(),
+    supabase
+      .from("agent_security_prechecks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["stale", "error"]),
+    supabase
+      .from("agent_security_prechecks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "running"])
+      .lt("created_at", tenMinutesAgo),
+    supabase
+      .from("agent_security_prechecks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["warning", "failed"])
+      .in("recommended_action", ["block_publication", "reject_candidate", "request_changes", "require_security_review", "manual_review"]),
     supabase
       .from("audit_logs")
       .select("id,action,entity_type,entity_id,metadata,created_at,profiles(email)")
@@ -448,6 +644,33 @@ export async function getAdminOpsSnapshot() {
       .limit(20)
       .returns<AuditLogRow[]>(),
   ]);
+
+  const reviewableVersionIds = [
+    ...new Set((reviewableAgentsResult.data ?? []).map((agent) => agent.active_version_id).filter((id): id is string => Boolean(id))),
+  ];
+  let missingFinalPrecheckCount = 0;
+
+  if (reviewableVersionIds.length > 0) {
+    const { data: prechecks } = await supabase
+      .from("agent_security_prechecks")
+      .select("agent_version_id,status,created_at")
+      .in("agent_version_id", reviewableVersionIds)
+      .order("created_at", { ascending: false })
+      .returns<SecurityPrecheckOpsRow[]>();
+    const latestByAgentVersion = latestByVersion(prechecks ?? []);
+
+    missingFinalPrecheckCount = (reviewableAgentsResult.data ?? []).filter((agent) => {
+      if (!agent.active_version_id) {
+        return true;
+      }
+
+      const latestPrecheck = latestByAgentVersion.get(agent.active_version_id);
+
+      return !latestPrecheck || !["passed", "warning", "failed"].includes(latestPrecheck.status);
+    }).length;
+  }
+
+  const securityPrecheckAttentionCount = (attentionPrechecks.count ?? 0) + (stuckPrechecks.count ?? 0);
 
   const { data: recentRuns } = await supabase
     .from("agent_runs")
@@ -462,6 +685,14 @@ export async function getAdminOpsSnapshot() {
       { key: "paid-without-access", label: "Payments paid sans accès", value: paidWithoutAccess.count ?? 0, tone: (paidWithoutAccess.count ?? 0) > 0 ? "error" : "success" },
       { key: "failed-runs", label: "Runs failed 24h", value: failedRuns.count ?? 0, tone: (failedRuns.count ?? 0) > 0 ? "warning" : "success" },
       { key: "stale-running-runs", label: "Runs running > 1h", value: staleRuns.count ?? 0, tone: (staleRuns.count ?? 0) > 0 ? "error" : "success" },
+      { key: "ledger-earned", label: "Ledger earned", value: ledgerEarned.count ?? 0, tone: "success" },
+      { key: "ledger-blocked", label: "Ledger bloqué", value: ledgerBlocked.count ?? 0, tone: (ledgerBlocked.count ?? 0) > 0 ? "warning" : "success" },
+      { key: "ledger-payout-ready", label: "Ledger payout-ready", value: ledgerPayoutReady.count ?? 0, tone: "neutral" },
+      { key: "ledger-missing-payment-paid", label: "Ledger paiement manquant", value: ledgerGaps.missingPaymentPaid, tone: ledgerGaps.missingPaymentPaid > 0 ? "error" : "success" },
+      { key: "ledger-missing-access-created", label: "Ledger accès manquant", value: ledgerGaps.missingAccessCreated, tone: ledgerGaps.missingAccessCreated > 0 ? "error" : "success" },
+      { key: "security-precheck-missing", label: "Préchecks manquants", value: missingFinalPrecheckCount, tone: missingFinalPrecheckCount > 0 ? "error" : "success" },
+      { key: "security-precheck-attention", label: "Préchecks à reprendre", value: securityPrecheckAttentionCount, tone: securityPrecheckAttentionCount > 0 ? "warning" : "success" },
+      { key: "security-precheck-blocking", label: "Préchecks bloquants", value: blockingPrechecks.count ?? 0, tone: (blockingPrechecks.count ?? 0) > 0 ? "warning" : "success" },
     ],
     recentRuns: (recentRuns ?? []).map((run) => ({
       id: run.id,
@@ -516,11 +747,251 @@ function firstBlocker(checks: Array<{ detail: string | null; label: string; ok: 
   return blocked ? `${blocked.label}${blocked.detail ? `: ${blocked.detail}` : ""}` : null;
 }
 
+function checkIsOk(checks: Array<{ key: string; ok: boolean }>, key: string) {
+  return checks.find((check) => check.key === key)?.ok ?? false;
+}
+
+function latestHealthByEndpoint(rows: EndpointHealthAuditRow[] | null | undefined) {
+  const result = new Map<string, EndpointHealthAuditRow>();
+
+  for (const row of rows ?? []) {
+    if (!row.entity_id || result.has(row.entity_id)) {
+      continue;
+    }
+
+    result.set(row.entity_id, row);
+  }
+
+  return result;
+}
+
+function endpointHealthDiagnostic(row: EndpointHealthAuditRow | null | undefined) {
+  if (!row) {
+    return {
+      code: "not_checked",
+      detail: "Aucun test endpoint enregistré",
+      ok: false,
+      status: "not_checked",
+      testedAt: null,
+    };
+  }
+
+  const ok = row.metadata?.ok === true;
+  const code = typeof row.metadata?.code === "string" ? row.metadata.code : ok ? "ok" : "unknown_error";
+
+  return {
+    code,
+    detail: `${code} · ${row.created_at}`,
+    ok,
+    status: ok ? "ok" : "failed",
+    testedAt: row.created_at,
+  };
+}
+
+function workflowWebhookHealthDiagnostic(input: {
+  endpointIds: string[];
+  healthByEndpoint: Map<string, EndpointHealthAuditRow>;
+}) {
+  const endpointIds = [...new Set(input.endpointIds.filter(Boolean))];
+
+  if (endpointIds.length === 0) {
+    return null;
+  }
+
+  const diagnostics = endpointIds.map((endpointId) => endpointHealthDiagnostic(input.healthByEndpoint.get(endpointId)));
+  const failed = diagnostics.filter((diagnostic) => !diagnostic.ok);
+
+  return {
+    code: failed.length > 0 ? failed[0]?.code ?? "failed" : "ok",
+    detail:
+      failed.length > 0
+        ? `${failed.length}/${endpointIds.length} webhook health check à reprendre`
+        : `${endpointIds.length}/${endpointIds.length} webhook health check OK`,
+    ok: failed.length === 0,
+    status: failed.length === 0 ? "ok" : "failed",
+    testedAt: diagnostics.find((diagnostic) => diagnostic.testedAt)?.testedAt ?? null,
+  };
+}
+
+function calculateReadinessScore(input: {
+  checks: Array<{ key: string; label: string; ok: boolean }>;
+  endpointHealth?: { ok: boolean; status: string } | null;
+  workflowWebhookHealth?: { ok: boolean; status: string } | null;
+  runtimeType: string;
+}) {
+  let score = 100;
+  const blockers: string[] = [];
+
+  const subtract = (condition: boolean, points: number, label: string) => {
+    if (!condition) {
+      score -= points;
+      blockers.push(label);
+    }
+  };
+
+  subtract(checkIsOk(input.checks, "runtime-setting"), 25, "runtime disabled");
+  subtract(checkIsOk(input.checks, "runner-env"), 15, "runner env missing");
+  subtract(checkIsOk(input.checks, "creator-allowlist"), 20, "creator not allowlisted");
+  subtract(checkIsOk(input.checks, "asset-approved"), 20, "asset not approved");
+  subtract(checkIsOk(input.checks, "security-review"), 15, "security review missing");
+  subtract(checkIsOk(input.checks, "agent-published"), 10, "agent not approved");
+
+  if (input.runtimeType === "creator_endpoint") {
+    subtract(Boolean(input.endpointHealth?.ok), 10, "endpoint health missing or failed");
+  }
+
+  if (input.runtimeType === "workflow_automation" && input.workflowWebhookHealth) {
+    subtract(Boolean(input.workflowWebhookHealth.ok), 10, "workflow webhook health missing or failed");
+  }
+
+  subtract(checkIsOk(input.checks, "latest-run"), 10, "latest run failed");
+
+  const normalizedScore = Math.max(0, score);
+
+  return {
+    blockers,
+    label: normalizedScore >= 90 ? "Runnable beta" : normalizedScore >= 70 ? "À surveiller" : "Bloquer",
+    score: normalizedScore,
+    tone: normalizedScore >= 90 ? "success" : normalizedScore >= 70 ? "warning" : "error",
+  };
+}
+
+function runtimeEnvDiagnostic(runtimeType: string) {
+  if (runtimeType === "workflow_automation") {
+    return {
+      detail: `WORKFLOW_RUNS_ENABLED=${serverEnv.workflowRunsEnabled}, WORKFLOW_WORKER_SECRET=${serverEnv.workflowWorkerSecret ? "configured" : "missing"}`,
+      ok: serverEnv.workflowRunsEnabled && Boolean(serverEnv.workflowWorkerSecret),
+    };
+  }
+
+  if (runtimeType === "creator_endpoint") {
+    return {
+      detail: `CREATOR_ENDPOINT_RUNS_ENABLED=${serverEnv.creatorEndpointRunsEnabled}, CREATOR_ENDPOINT_SIGNING_SECRET=${serverEnv.creatorEndpointSigningSecret ? "configured" : "missing"}`,
+      ok: serverEnv.creatorEndpointRunsEnabled && Boolean(serverEnv.creatorEndpointSigningSecret),
+    };
+  }
+
+  return {
+    detail: null,
+    ok: true,
+  };
+}
+
+function workspaceCompatibilityDiagnostic(input: {
+  agentStatus: string;
+  assetApproved: boolean;
+  endpointHealth?: { ok: boolean; status: string } | null;
+  runtimeSetting?: RuntimeSettingRow | null;
+  runtimeType: AgentRuntimeType;
+  securityReviewStatus?: string | null;
+  securityReviewWaived: boolean;
+  workflowWebhookHealth?: { ok: boolean; status: string } | null;
+  workflowWebhookStepCount: number;
+}) {
+  const runtimeReady = Boolean(input.runtimeSetting?.enabled && input.runtimeSetting.run_enabled);
+  const securityReady = input.securityReviewStatus === "passed" || input.securityReviewWaived;
+  const published = input.agentStatus === "approved";
+  const endpointReady =
+    input.runtimeType !== "creator_endpoint" || Boolean(input.endpointHealth?.ok || input.securityReviewWaived);
+  const webhookReady =
+    input.workflowWebhookStepCount === 0 || Boolean(input.workflowWebhookHealth?.ok || input.securityReviewWaived);
+
+  const checks = [
+    diagnosticCheck({
+      key: "workspace-runtime",
+      label: "Runtime workspace",
+      ok: runtimeReady,
+      detail: input.runtimeSetting
+        ? `enabled=${input.runtimeSetting.enabled}, run_enabled=${input.runtimeSetting.run_enabled}`
+        : "runtime setting introuvable",
+    }),
+    diagnosticCheck({
+      key: "workspace-asset",
+      label: "Asset exécutable",
+      ok: input.assetApproved,
+      detail: input.assetApproved ? null : "workflow ou endpoint non approuvé",
+    }),
+    diagnosticCheck({
+      key: "workspace-security",
+      label: "Security review",
+      ok: securityReady,
+      detail: input.securityReviewStatus ? `status=${input.securityReviewStatus}` : "security review manquante",
+    }),
+    diagnosticCheck({
+      key: "workspace-publication",
+      label: "Agent publié",
+      ok: published,
+      detail: `agent=${input.agentStatus}`,
+    }),
+    ...(input.runtimeType === "creator_endpoint"
+      ? [
+          diagnosticCheck({
+            key: "workspace-endpoint-health",
+            label: "Endpoint utilisable",
+            ok: endpointReady,
+            detail: input.endpointHealth?.status
+              ? `health=${input.endpointHealth.status}`
+              : input.securityReviewWaived
+                ? "health check waived by security review"
+                : "aucun health check endpoint",
+          }),
+        ]
+      : []),
+    ...(input.workflowWebhookStepCount > 0
+      ? [
+          diagnosticCheck({
+            key: "workspace-webhook-health",
+            label: "Webhook utilisable",
+            ok: webhookReady,
+            detail: input.workflowWebhookHealth?.status
+              ? `health=${input.workflowWebhookHealth.status}`
+              : input.securityReviewWaived
+                ? "webhook health waived by security review"
+                : "aucun health check webhook",
+          }),
+        ]
+      : []),
+  ];
+
+  const blocked = checks.filter((check) => !check.ok);
+  const status = blocked.length === 0 ? "ready" : blocked.length <= 2 ? "review_required" : "blocked";
+  const mode =
+    input.runtimeType === "creator_endpoint"
+      ? "creator_infra_required"
+      : input.workflowWebhookStepCount > 0
+        ? "hybrid_creator_infra"
+        : "agenthub_hosted";
+
+  const label =
+    mode === "creator_infra_required"
+      ? "Infra créateur requise"
+      : mode === "hybrid_creator_infra"
+        ? "Workspace hybride"
+        : "Workspace AgentHub";
+  const detail =
+    blocked.length > 0
+      ? `À corriger avant beta workspace : ${blocked.map((check) => check.label).join(", ")}.`
+      : mode === "creator_infra_required"
+        ? "AgentHub garde l'accès, l'audit et l'historique; l'exécution passe par un endpoint creator approuvé."
+        : mode === "hybrid_creator_infra"
+          ? "AgentHub orchestre le workflow et appelle uniquement les webhooks creator approuvés."
+          : "AgentHub peut exécuter ce workflow dans le workspace sans infra creator obligatoire.";
+
+  return {
+    checks,
+    detail,
+    label,
+    mode,
+    status,
+    tone: status === "ready" ? "success" : status === "review_required" ? "warning" : "error",
+  };
+}
+
 export async function getAdvancedAgentDiagnostics() {
   const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
-    return { diagnostics: [], error: "missing-config", summary: { blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "missing-config", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
   }
 
   const { data: versions, error: versionError } = await supabase
@@ -532,7 +1003,7 @@ export async function getAdvancedAgentDiagnostics() {
     .returns<AdvancedAgentVersionRow[]>();
 
   if (versionError) {
-    return { diagnostics: [], error: "advanced-agents-load-failed", summary: { blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "advanced-agents-load-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
   }
 
   const normalizedVersions: Array<AdvancedAgentVersionRow & { agent: AdvancedAgentRow }> = [];
@@ -617,7 +1088,7 @@ export async function getAdvancedAgentDiagnostics() {
     securityReviewsResult.error ||
     runsResult.error
   ) {
-    return { diagnostics: [], error: "advanced-agents-related-data-failed", summary: { blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "advanced-agents-related-data-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
   }
 
   const creatorsById = new Map((creatorsResult.data ?? []).map((creator) => [creator.id, creator]));
@@ -629,6 +1100,49 @@ export async function getAdvancedAgentDiagnostics() {
   const endpointConfigByVersion = latestByVersion(endpointConfigsResult.data);
   const reviewByVersion = latestByVersion(securityReviewsResult.data);
   const runByVersion = latestByVersion(runsResult.data);
+  const workflowWebhookEndpointIds = [
+    ...new Set(
+      (workflowsResult.data ?? [])
+        .flatMap((workflow) => normalizeWorkflowDefinition(workflow.definition)?.steps ?? [])
+        .filter((step) => step.type === "webhook_step" && Boolean(step.endpointId))
+        .map((step) => step.endpointId)
+        .filter((endpointId): endpointId is string => Boolean(endpointId)),
+    ),
+  ];
+  const endpointIds = [
+    ...new Set(
+      (endpointConfigsResult.data ?? [])
+        .map((config) => config.endpoint_id)
+        .filter((endpointId): endpointId is string => Boolean(endpointId)),
+    ),
+  ];
+  const endpointHealthResult = endpointIds.length
+    ? await supabase
+        .from("audit_logs")
+        .select("entity_id,metadata,created_at")
+        .eq("entity_type", "creator_api_endpoints")
+        .in("entity_id", endpointIds)
+        .eq("action", "endpoint.creator_api.health_check")
+        .order("created_at", { ascending: false })
+        .returns<EndpointHealthAuditRow[]>()
+    : { data: [] as EndpointHealthAuditRow[], error: null };
+  const workflowWebhookHealthResult = workflowWebhookEndpointIds.length
+    ? await supabase
+        .from("audit_logs")
+        .select("entity_id,metadata,created_at")
+        .eq("entity_type", "creator_webhook_endpoints")
+        .in("entity_id", workflowWebhookEndpointIds)
+        .eq("action", "endpoint.workflow_webhook.health_check")
+        .order("created_at", { ascending: false })
+        .returns<EndpointHealthAuditRow[]>()
+    : { data: [] as EndpointHealthAuditRow[], error: null };
+
+  if (endpointHealthResult.error || workflowWebhookHealthResult.error) {
+    return { diagnostics: [], error: "advanced-agents-health-load-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
+  }
+
+  const endpointHealthById = latestHealthByEndpoint(endpointHealthResult.data);
+  const workflowWebhookHealthById = latestHealthByEndpoint(workflowWebhookHealthResult.data);
 
   const diagnostics = normalizedVersions.map((version) => {
     const setting = settingsByRuntime.get(version.runtime_type);
@@ -637,15 +1151,37 @@ export async function getAdvancedAgentDiagnostics() {
     const access = accessByCreatorRuntime.get(`${version.agent.creator_id}:${version.runtime_type}`);
     const workflow = workflowByVersion.get(version.id);
     const workflowDefinition = normalizeWorkflowDefinition(workflow?.definition);
+    const workflowWebhookEndpointIdsForVersion =
+      workflowDefinition?.steps
+        .filter((step) => step.type === "webhook_step" && Boolean(step.endpointId))
+        .map((step) => step.endpointId)
+        .filter((endpointId): endpointId is string => Boolean(endpointId)) ?? [];
+    const workflowWebhookHealth =
+      version.runtime_type === "workflow_automation"
+        ? workflowWebhookHealthDiagnostic({
+            endpointIds: workflowWebhookEndpointIdsForVersion,
+            healthByEndpoint: workflowWebhookHealthById,
+          })
+        : null;
     const endpointConfig = endpointConfigByVersion.get(version.id);
     const endpoint = readSingle(endpointConfig?.creator_api_endpoints ?? null);
     const securityReview = reviewByVersion.get(version.id);
     const latestRun = runByVersion.get(version.id);
+    const endpointHealth =
+      version.runtime_type === "creator_endpoint"
+        ? endpointHealthDiagnostic(endpointConfig?.endpoint_id ? endpointHealthById.get(endpointConfig.endpoint_id) : null)
+        : null;
+    const securityReviewWaived = securityReview?.status === "waived";
     const assetLabel = version.runtime_type === "workflow_automation" ? "Workflow asset" : "Endpoint asset";
     const assetApproved =
       version.runtime_type === "workflow_automation"
         ? Boolean(workflow && workflow.status === "approved" && workflowDefinition)
         : Boolean(endpointConfig && endpointConfig.status === "approved" && endpoint?.status === "approved");
+    const envDiagnostic = runtimeEnvDiagnostic(version.runtime_type);
+    const workflowWebhookStepCount =
+      version.runtime_type === "workflow_automation"
+        ? workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0
+        : 0;
 
     const checks = [
       diagnosticCheck({
@@ -659,6 +1195,12 @@ export async function getAdvancedAgentDiagnostics() {
         label: "Runtime enabled/run_enabled",
         ok: Boolean(setting?.enabled && setting.run_enabled),
         detail: setting ? `enabled=${setting.enabled}, run_enabled=${setting.run_enabled}` : "runtime setting introuvable",
+      }),
+      diagnosticCheck({
+        key: "runner-env",
+        label: "Env runner serveur",
+        ok: envDiagnostic.ok,
+        detail: envDiagnostic.detail,
       }),
       diagnosticCheck({
         key: "creator-allowlist",
@@ -679,6 +1221,34 @@ export async function getAdvancedAgentDiagnostics() {
               ? `config=${endpointConfig.status}, endpoint=${endpoint?.status ?? "missing"}`
               : "endpoint config manquante",
       }),
+      ...(version.runtime_type === "creator_endpoint"
+        ? [
+            diagnosticCheck({
+              key: "endpoint-health",
+              label: "Endpoint health check",
+              ok: Boolean(endpointHealth?.ok || securityReviewWaived),
+              detail: endpointHealth?.ok
+                ? endpointHealth.detail
+                : securityReviewWaived
+                  ? "health check waived by security review"
+                  : endpointHealth?.detail ?? "Aucun test endpoint enregistré",
+            }),
+          ]
+        : []),
+      ...(version.runtime_type === "workflow_automation" && workflowWebhookHealth
+        ? [
+            diagnosticCheck({
+              key: "workflow-webhook-health",
+              label: "Webhook health checks",
+              ok: Boolean(workflowWebhookHealth.ok || securityReviewWaived),
+              detail: workflowWebhookHealth.ok
+                ? workflowWebhookHealth.detail
+                : securityReviewWaived
+                  ? "webhook health waived by security review"
+                  : workflowWebhookHealth.detail,
+            }),
+          ]
+        : []),
       diagnosticCheck({
         key: "security-review",
         label: "Security review",
@@ -699,6 +1269,23 @@ export async function getAdvancedAgentDiagnostics() {
       }),
     ];
     const blocker = firstBlocker(checks);
+    const readiness = calculateReadinessScore({
+      checks,
+      endpointHealth: securityReviewWaived ? { ok: true, status: "waived" } : endpointHealth,
+      workflowWebhookHealth: securityReviewWaived ? { ok: true, status: "waived" } : workflowWebhookHealth,
+      runtimeType: version.runtime_type,
+    });
+    const workspaceCompatibility = workspaceCompatibilityDiagnostic({
+      agentStatus: version.agent.status,
+      assetApproved,
+      endpointHealth,
+      runtimeSetting: setting,
+      runtimeType: version.runtime_type,
+      securityReviewStatus: securityReview?.status ?? null,
+      securityReviewWaived,
+      workflowWebhookHealth,
+      workflowWebhookStepCount,
+    });
 
     return {
       agent: {
@@ -721,6 +1308,17 @@ export async function getAdvancedAgentDiagnostics() {
         publicName: creator?.public_name ?? "Créateur inconnu",
       },
       firstBlocker: blocker,
+      infra: {
+        fallbackMode:
+          version.runtime_type === "creator_endpoint"
+            ? "creator_hosted"
+            : workflowWebhookHealth
+              ? "hybrid_webhook"
+              : version.runtime_type === "workflow_automation"
+                ? "agenthub_orchestrated"
+                : "agenthub_native",
+        health: endpointHealth ?? workflowWebhookHealth,
+      },
       latestRun: latestRun
         ? {
             createdAt: latestRun.created_at,
@@ -730,6 +1328,7 @@ export async function getAdvancedAgentDiagnostics() {
             status: latestRun.status,
           }
         : null,
+      readiness,
       ready: !blocker,
       runtimeType: version.runtime_type,
       securityReview: securityReview
@@ -739,6 +1338,7 @@ export async function getAdvancedAgentDiagnostics() {
           }
         : null,
       versionId: version.id,
+      workspaceCompatibility,
     };
   });
 
@@ -746,6 +1346,9 @@ export async function getAdvancedAgentDiagnostics() {
     diagnostics,
     error: null,
     summary: {
+      averageReadiness: diagnostics.length
+        ? Math.round(diagnostics.reduce((sum, item) => sum + item.readiness.score, 0) / diagnostics.length)
+        : 0,
       blocked: diagnostics.filter((item) => !item.ready).length,
       ready: diagnostics.filter((item) => item.ready).length,
       total: diagnostics.length,

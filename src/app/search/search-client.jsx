@@ -9,6 +9,7 @@ import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
+import { AGENT_RUNTIME_TYPE_LABELS } from '@/lib/agent-contract';
 import { formatCredits } from '@/lib/format-credits';
 import { translate, useT } from '@/lib/i18n';
 
@@ -29,8 +30,11 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
   const [showFilters, setShowFilters] = useState(false);
 
   const agentTypeOptions = [
-    { id: 'dialogue', label: 'Conversation' },
-    { id: 'automation', label: 'Automatisation' },
+    { id: 'llm_prompt', label: AGENT_RUNTIME_TYPE_LABELS.llm_prompt },
+    { id: 'document_file', label: AGENT_RUNTIME_TYPE_LABELS.document_file },
+    { id: 'workflow_automation', label: AGENT_RUNTIME_TYPE_LABELS.workflow_automation },
+    { id: 'creator_endpoint', label: AGENT_RUNTIME_TYPE_LABELS.creator_endpoint },
+    { id: 'static_guided', label: AGENT_RUNTIME_TYPE_LABELS.static_guided },
   ];
 
   const filtered = useMemo(() => {
@@ -39,7 +43,19 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
     if (normalizedQuery) {
       result = result.filter((agent) =>
-        [agent.name, agent.pitch, agent.category, agent.creator?.name]
+        [
+          agent.name,
+          agent.pitch,
+          agent.category,
+          agent.creator?.name,
+          AGENT_RUNTIME_TYPE_LABELS[agent.contract?.runtimeType],
+          agent.contract?.outputPromise?.summary,
+          ...(agent.capabilities ?? []),
+          ...(agent.requiredInputs ?? []),
+          ...(agent.deliverables ?? []),
+          ...(agent.limitations ?? []),
+          ...(agent.contract?.outputPromise?.examples ?? []),
+        ]
           .join(' ')
           .toLowerCase()
           .includes(normalizedQuery),
@@ -52,7 +68,7 @@ export default function SearchClient({ initialAgents = [], initialCategories = [
 
     if (agentTypes.length) {
       result = result.filter((agent) => {
-        const agentType = agent.contract?.executionMode === 'llm_prompt' ? 'dialogue' : 'automation';
+        const agentType = agent.contract?.runtimeType || 'static_guided';
         return agentTypes.includes(agentType);
       });
     }
