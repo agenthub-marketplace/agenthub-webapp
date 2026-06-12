@@ -11,6 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
 import { createStripeCheckoutSession, retrieveStripeCheckoutSession } from "@/server/payments/stripe";
+import { recordCreatorRevenueLedgerAccessStopped } from "@/server/payments/revenue-ledger";
 import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 import { getUserAgentOrderState } from "@/server/rentals/user-rentals";
 
@@ -300,6 +301,15 @@ export async function stopAgentAccessAction(locale: Locale, formData: FormData) 
   if (stopError || !stoppedRental || stoppedRental.length === 0) {
     redirect(`${localizedPath("/workspace", locale)}?accessStop=error`);
   }
+
+  await recordCreatorRevenueLedgerAccessStopped({
+    metadata: {
+      source: "user_stop_access",
+      previous_status: rental.status,
+    },
+    rentalRequestId: rental.id,
+    supabase: serviceClient,
+  });
 
   const agent = Array.isArray(rental.agents) ? rental.agents[0] : rental.agents;
 

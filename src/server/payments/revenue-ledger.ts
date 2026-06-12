@@ -4,7 +4,7 @@ import type { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 type ServiceClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
-type LedgerEventType = "access_created" | "activation_blocked" | "payment_paid";
+type LedgerEventType = "access_created" | "access_stopped" | "activation_blocked" | "payment_paid";
 
 type PaymentLedgerRow = {
   agent_id: string;
@@ -36,6 +36,10 @@ function statusForEvent(eventType: LedgerEventType) {
     return "blocked";
   }
 
+  if (eventType === "access_stopped") {
+    return "cancelled";
+  }
+
   return "pending_access";
 }
 
@@ -59,8 +63,8 @@ export async function recordCreatorRevenueLedgerEvent(input: {
   }
 
   const rentalRequestId = input.rentalRequestId ?? payment.rental_request_id;
-  const isBlocked = input.eventType === "activation_blocked";
-  const creatorGrossCents = isBlocked ? 0 : payment.amount_cents;
+  const isZeroRevenueEvent = input.eventType === "activation_blocked" || input.eventType === "access_stopped";
+  const creatorGrossCents = isZeroRevenueEvent ? 0 : payment.amount_cents;
 
   const { error: insertError } = await input.supabase.from("creator_revenue_ledger").upsert(
     {
@@ -88,4 +92,29 @@ export async function recordCreatorRevenueLedgerEvent(input: {
   }
 
   return { error: null, ok: true };
+}
+
+export async function recordCreatorRevenueLedgerAccessStopped(input: {
+  metadata?: Record<string, unknown>;
+  rentalRequestId: string;
+  supabase: ServiceClient;
+}) {
+  const { data: payment, error } = await input.supabase
+    .from("payments")
+    .select("id")
+    .eq("rental_request_id", input.rentalRequestId)
+    .eq("status", "paid")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !payment?.id) {
+    return { error: "ledger-payment-load-failed", ok: false };
+  }
+
+  return recordCreatorRevenueLedgerEvent({
+    eventType: "access_stopped",
+    metadata: input.metadata,
+    paymentId: payment.id,
+    rentalRequestId: input.rentalRequestId,
+    supabase: input.supabase,
+  });
 }

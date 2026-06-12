@@ -87,6 +87,18 @@ payout_hold_created
 payout_ready
 ```
 
+État implémenté actuel :
+
+```text
+payment_paid       -> webhook fulfillment
+access_created     -> webhook fulfillment après création/liaison d'accès
+activation_blocked -> webhook fulfillment si activation impossible
+access_stopped     -> action serveur user stop access, montant 0, audit uniquement
+```
+
+`access_stopped` ne crée pas un deuxième revenu. L'événement sert à tracer la
+fin d'utilisation avant les futures règles de hold, remboursement ou payout.
+
 ## États De Revenu Créateur
 
 Un paiement peut produire une ligne de revenu créateur uniquement si :
