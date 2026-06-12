@@ -498,7 +498,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                             {t('nav.admin')}
                           </Link>
                         )}
-            <Link href={`${routePrefix}/auth/logout`} className={`flex items-center gap-3 border-t px-3 py-2.5 text-sm text-[#EF4444] transition-colors ${isCodeExperience ? 'border-[#E3E7F2] hover:bg-[#FEF2F2]' : 'border-[#251A40] hover:bg-[#251A40]'}`}>
+            <Link prefetch={false} href={`${routePrefix}/auth/logout`} className={`flex items-center gap-3 border-t px-3 py-2.5 text-sm text-[#EF4444] transition-colors ${isCodeExperience ? 'border-[#E3E7F2] hover:bg-[#FEF2F2]' : 'border-[#251A40] hover:bg-[#251A40]'}`}>
                           <LogOut className="h-4 w-4" />
                           {t('nav.signout')}
                         </Link>
@@ -623,7 +623,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                 ))}
               </div>
               {isSignedIn ? (
-                <Link href={`${routePrefix}/auth/logout`} onClick={() => setDrawerOpen(false)}>
+                <Link prefetch={false} href={`${routePrefix}/auth/logout`} onClick={() => setDrawerOpen(false)}>
                   <Button variant="outline" className="w-full border-[#EF4444]/70 bg-transparent text-[#EF4444] hover:bg-[#EF4444]/10">
                     {t('nav.signout')}
                   </Button>

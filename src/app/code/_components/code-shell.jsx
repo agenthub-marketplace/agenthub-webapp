@@ -215,6 +215,7 @@ export function CodeSidebar({ mobile = false, onNavigate, profile, unreadNotific
           </div>
         </div>
         <Link
+          prefetch={false}
           href="/auth/logout"
           onClick={onNavigate}
           className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-sm font-semibold text-[#B91C1C] transition-colors hover:border-[#EF4444] hover:bg-[#FEE2E2]"
@@ -334,7 +335,7 @@ export function CodeTopbar({
             Compte
           </Button>
         </Link>
-        <Link href="/auth/logout" className="hidden sm:block">
+        <Link prefetch={false} href="/auth/logout" className="hidden sm:block">
           <Button variant="outline" className="h-10 border-[#FECACA] bg-white text-[#B91C1C] hover:border-[#EF4444] hover:bg-[#FEF2F2]">
             <LogOut className="mr-2 h-4 w-4" />
             Déconnexion
