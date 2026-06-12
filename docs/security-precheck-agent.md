@@ -106,6 +106,13 @@ precheck:
     "nextAction": "block_publication | request_creator_changes | run_security_review | approve_assets | review_standard | wait_precheck",
     "blocksApproval": true,
     "reason": "Short admin-readable reason."
+  },
+  "workspaceCompatibility": {
+    "mode": "agenthub_hosted | hybrid_creator_infra | creator_infra_required",
+    "status": "ready | review_required | blocked",
+    "label": "Workspace AgentHub",
+    "detail": "Short admin-readable compatibility summary.",
+    "checks": []
   }
 }
 ```
@@ -113,6 +120,16 @@ precheck:
 This routing hint is not an automatic decision. It is an orchestration signal
 for the admin queue, Codex audit loops, and future review automation. The human
 admin remains responsible for the final approve/reject/request-changes action.
+
+`workspaceCompatibility` is the canonical server signal for deciding whether a
+submitted agent can run inside AgentHub, needs a hybrid creator dependency, or
+must use creator infrastructure fallback. In the manifest/precheck context it is
+computed as a **publication target**: marketplace publication itself is not used
+as a blocker, because agents under review are not approved yet by definition.
+The admin ops diagnostic may add the current publication status separately.
+The admin review page consumes the same signal in its decision checklist and
+intervention plan, so failed compatibility checks become concrete admin actions
+instead of passive diagnostics.
 
 Each finding:
 

@@ -253,6 +253,21 @@ The signal checks:
 - endpoint health for `creator_endpoint`;
 - webhook health for workflow steps that call creator webhooks.
 
+The canonical implementation is now server-side in:
+
+```text
+src/server/agents/workspace-compatibility.ts
+```
+
+Any future security precheck, admin queue, creator preview or workspace
+readiness feature should reuse this helper instead of recreating its own
+compatibility matrix. That keeps the decision consistent across:
+
+- admin triage;
+- workspace readiness;
+- creator infra fallback;
+- future security-agent recommendations.
+
 It must never override the API route checks. It exists so admins can see whether
 the next action is:
 

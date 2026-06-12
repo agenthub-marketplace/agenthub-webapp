@@ -13,6 +13,10 @@ import {
   type AgentContractQualityReport,
 } from "@/lib/agent-contract-quality";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import {
+  buildWorkspaceCompatibilityDiagnostic,
+  type WorkspaceCompatibilityDiagnostic,
+} from "@/server/agents/workspace-compatibility";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 export type AgentPublicationType = "guided_assistant" | "advanced_agent";
@@ -135,6 +139,7 @@ export type AgentManifestV1 = {
     setupType: AgentContract["setupRequirements"]["type"];
   };
   workspaceBlocks: string[];
+  workspaceCompatibility: WorkspaceCompatibilityDiagnostic;
   workspaceMode: WorkspaceMode;
   workflow: {
     id: string;
@@ -431,6 +436,7 @@ function buildSecurityPrecheck(input: {
   runtimeSetting: RuntimeSettingManifestRow | null;
   securityReviewStatus: AgentManifestV1["securityProfile"]["securityReviewStatus"];
   type: AgentPublicationType;
+  workspaceCompatibility: WorkspaceCompatibilityDiagnostic;
   workflowDefinition: ReturnType<typeof normalizeWorkflowDefinition>;
   workflowRow: WorkflowManifestRow | null | undefined;
 }) {
@@ -515,45 +521,35 @@ function buildSecurityPrecheck(input: {
     });
   }
 
-  if (input.contract.runtimeType === "creator_endpoint") {
-    addWarning({
-      code: "workspace_strategy_creator_infra",
-      detail: "Le workspace AgentHub devra conserver l'accès, l'historique et les avis, mais l'exécution dépendra d'un endpoint creator approuvé.",
-      suggestedAdminAction: "Vérifier endpoint, HMAC, security review, disclosure utilisateur et comportement d'erreur avant publication.",
-      title: "Stratégie workspace : infra creator",
-    });
-  } else if (input.contract.runtimeType === "workflow_automation") {
-    const webhookStepCount = input.workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0;
+  const workspaceFinding = {
+    code:
+      input.workspaceCompatibility.mode === "creator_infra_required"
+        ? "workspace_strategy_creator_infra"
+        : input.workspaceCompatibility.mode === "hybrid_creator_infra"
+          ? "workspace_strategy_hybrid"
+          : input.contract.runtimeType === "document_file" || input.contract.dataPolicy.requires_files || input.contract.workspaceMode === "document_required"
+            ? "workspace_strategy_document"
+            : input.contract.runtimeType === "workflow_automation"
+              ? "workspace_strategy_agenthub_workflow"
+              : "workspace_strategy_agenthub_native",
+    detail: `${input.workspaceCompatibility.label} · ${input.workspaceCompatibility.detail}`,
+    suggestedAdminAction:
+      input.workspaceCompatibility.mode === "creator_infra_required"
+        ? "Vérifier endpoint, HMAC, security review, disclosure utilisateur et comportement d'erreur avant publication."
+        : input.workspaceCompatibility.mode === "hybrid_creator_infra"
+          ? "Vérifier que chaque webhook est approuvé, health-checké et couvert par la security review."
+          : input.contract.runtimeType === "document_file" || input.contract.dataPolicy.requires_files || input.contract.workspaceMode === "document_required"
+            ? "Vérifier le runtime document, les limites PDF/DOCX, l'absence d'OCR et la politique de données."
+            : input.contract.runtimeType === "workflow_automation"
+              ? "Vérifier le worker workflow, les étapes LLM et l'historique de run."
+              : "Continuer la review standard du setup et des limites.",
+    title: `Stratégie workspace : ${input.workspaceCompatibility.label}`,
+  };
 
-    if (webhookStepCount > 0) {
-      addWarning({
-        code: "workspace_strategy_hybrid",
-        detail: `Le workspace sera orchestré par AgentHub avec ${webhookStepCount} étape(s) webhook creator.`,
-        suggestedAdminAction: "Vérifier que chaque webhook est approuvé, health-checké et couvert par la security review.",
-        title: "Stratégie workspace : hybride",
-      });
-    } else {
-      addPass({
-        code: "workspace_strategy_agenthub_workflow",
-        detail: "Le workflow peut être exécuté dans le workspace AgentHub sans endpoint creator obligatoire.",
-        suggestedAdminAction: "Vérifier le worker workflow, les étapes LLM et l'historique de run.",
-        title: "Stratégie workspace : AgentHub",
-      });
-    }
-  } else if (input.contract.runtimeType === "document_file" || input.contract.dataPolicy.requires_files || input.contract.workspaceMode === "document_required") {
-    addWarning({
-      code: "workspace_strategy_document",
-      detail: "Le workspace doit gérer l'ajout d'un document privé, l'extraction texte et les limites de fichiers beta.",
-      suggestedAdminAction: "Vérifier le runtime document, les limites PDF/DOCX, l'absence d'OCR et la politique de données.",
-      title: "Stratégie workspace : document",
-    });
+  if (input.workspaceCompatibility.mode === "agenthub_hosted" && input.workspaceCompatibility.status === "ready") {
+    addPass(workspaceFinding);
   } else {
-    addPass({
-      code: "workspace_strategy_agenthub_native",
-      detail: "Le workspace AgentHub natif suffit pour ce runtime.",
-      suggestedAdminAction: "Continuer la review standard du setup et des limites.",
-      title: "Stratégie workspace : native",
-    });
+    addWarning(workspaceFinding);
   }
 
   if (input.agent.risk_level === "forbidden_beta") {
@@ -853,6 +849,16 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     contract.runtimeType === "creator_endpoint" && Boolean(endpointConfig) && endpointConfig?.status !== "approved";
   const endpointMissing = contract.runtimeType === "creator_endpoint" && Boolean(endpointConfig) && !endpoint;
   const endpointNotApproved = contract.runtimeType === "creator_endpoint" && Boolean(endpoint) && endpoint?.status !== "approved";
+  const assetApproved =
+    contract.runtimeType === "workflow_automation"
+      ? Boolean(workflowRow && workflowRow.status === "approved" && workflowDefinition)
+      : contract.runtimeType === "creator_endpoint"
+        ? Boolean(endpointConfig && endpointConfig.status === "approved" && endpoint?.status === "approved")
+        : true;
+  const workflowWebhookStepCount =
+    contract.runtimeType === "workflow_automation"
+      ? workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0
+      : 0;
 
   const blockingFindings = [
     !runtimeSetting?.enabled ? "runtime_disabled" : null,
@@ -865,6 +871,17 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     endpointNotApproved ? "creator_api_endpoint_not_approved" : null,
     requiresSecurityReview && !["passed", "waived"].includes(securityReviewStatus) ? "security_review_required" : null,
   ].filter((item): item is string => Boolean(item));
+  const workspaceCompatibility = buildWorkspaceCompatibilityDiagnostic({
+    agentStatus: "approved",
+    assetApproved,
+    endpointHealth: null,
+    runtimeSetting: runtimeSetting ?? null,
+    runtimeType: contract.runtimeType,
+    securityReviewStatus,
+    securityReviewWaived: securityReviewStatus === "waived",
+    workflowWebhookHealth: null,
+    workflowWebhookStepCount,
+  });
   const securityPrecheck = buildSecurityPrecheck({
     agent,
     contract,
@@ -877,6 +894,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     runtimeSetting: runtimeSetting ?? null,
     securityReviewStatus,
     type,
+    workspaceCompatibility,
     workflowDefinition,
     workflowRow,
   });
@@ -965,6 +983,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
         setupType: contract.setupRequirements.type,
       },
       workspaceBlocks: workspaceBlocksForRuntime(contract.runtimeType, contract),
+      workspaceCompatibility,
       workspaceMode: contract.workspaceMode,
       workflow:
         workflowRow && workflowDefinition

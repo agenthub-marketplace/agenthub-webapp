@@ -70,6 +70,73 @@ function hasUnsupportedExternalActionPromise(value) {
     });
 }
 
+function workspaceStrategyPreview(values) {
+  const usesWebhook = hasWebhookStep(values.workflow_steps);
+
+  if (values.runtime_type === 'creator_endpoint') {
+    return {
+      detail: 'AgentHub gardera accès, paiement, historique et avis, mais l’exécution passera par ton endpoint HTTPS approuvé.',
+      items: [
+        'Endpoint HTTPS public requis',
+        'Validation admin + security review obligatoires',
+        'Aucun appel direct depuis le navigateur utilisateur',
+      ],
+      label: 'Infra creator requise',
+      tone: 'warning',
+    };
+  }
+
+  if (values.runtime_type === 'workflow_automation' && usesWebhook) {
+    return {
+      detail: 'AgentHub orchestrera le workflow et appellera uniquement les webhooks creator approuvés.',
+      items: [
+        'Chaque webhook doit être validé',
+        'Le workflow doit rester linéaire et court',
+        'Prévoir un comportement lisible si le webhook échoue',
+      ],
+      label: 'Workspace hybride',
+      tone: 'warning',
+    };
+  }
+
+  if (values.runtime_type === 'workflow_automation') {
+    return {
+      detail: 'AgentHub peut exécuter ce workflow dans son workspace avec le worker et les étapes LLM validées.',
+      items: [
+        '2 à 5 étapes maximum',
+        'Décision LLM visible',
+        'Historique de run stocké dans AgentHub',
+      ],
+      label: 'Workspace AgentHub',
+      tone: 'success',
+    };
+  }
+
+  if (values.workspace_mode === 'document_required') {
+    return {
+      detail: 'L’assistant guidé devra recevoir un document dans le workspace avant génération.',
+      items: [
+        'PDF/DOCX uniquement en beta document',
+        'Pas d’OCR pour les PDF scannés',
+        'Ne pas demander de documents réels sensibles aux testeurs',
+      ],
+      label: 'Workspace document',
+      tone: 'warning',
+    };
+  }
+
+  return {
+    detail: 'Le workspace AgentHub natif suffit pour ce runtime et les actions guidées.',
+    items: [
+      'Contexte utilisateur saisi dans AgentHub',
+      'Réponse stockée dans l’historique du workspace',
+      'Avis vérifié possible après utilisation',
+    ],
+    label: 'Workspace AgentHub natif',
+    tone: 'success',
+  };
+}
+
 function buildQualityReport(values) {
   return evaluateAgentContractQuality({
     name: values.name,
@@ -222,6 +289,7 @@ function GuardrailItem({ check }) {
 export default function CreatorGuardrailPreview({ values }) {
   const qualityReport = buildQualityReport(values);
   const runtimeChecks = runtimeGuardrails(values);
+  const workspaceStrategy = workspaceStrategyPreview(values);
   const failedQualityChecks = qualityReport.checks.filter((check) => check.status === 'fail');
   const failedRuntimeChecks = runtimeChecks.filter((check) => !check.passes);
   const blockerCount = qualityReport.blockerCount + failedRuntimeChecks.filter((check) => check.severity === 'blocker').length;
@@ -250,6 +318,27 @@ export default function CreatorGuardrailPreview({ values }) {
         <div className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
           <p className="font-label text-[10px] text-[#6B7280]">Warnings</p>
           <p className="font-stat mt-1 text-2xl text-[#111827]">{warningCount}</p>
+        </div>
+      </div>
+      <div
+        className={`mb-4 rounded-2xl border p-4 ${
+          workspaceStrategy.tone === 'success'
+            ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#14532D]'
+            : 'border-[#FCD34D] bg-[#FFFBEB] text-[#78350F]'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-label text-[10px] opacity-80">STRATÉGIE WORKSPACE</p>
+            <h4 className="mt-1 text-sm font-bold">{workspaceStrategy.label}</h4>
+            <p className="mt-2 text-sm leading-5 opacity-85">{workspaceStrategy.detail}</p>
+            <ul className="mt-3 space-y-1 text-xs leading-5 opacity-85">
+              {workspaceStrategy.items.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
       <div className="space-y-3">

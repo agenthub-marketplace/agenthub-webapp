@@ -60,6 +60,33 @@ function infraLabel(value) {
 }
 
 function workspaceStrategy(manifest) {
+  if (manifest.workspaceCompatibility) {
+    const compatibility = manifest.workspaceCompatibility;
+    const tone =
+      compatibility.status === 'ready'
+        ? 'approved'
+        : compatibility.status === 'review_required'
+          ? 'in_review'
+          : 'failed';
+    const key =
+      compatibility.mode === 'creator_infra_required'
+        ? 'creator_infra'
+        : compatibility.mode === 'hybrid_creator_infra'
+          ? 'hybrid'
+          : manifest.runtimeType === 'workflow_automation'
+            ? 'agenthub_workflow'
+            : manifest.runtimeType === 'document_file' || manifest.runtimeRequirements.requiresDocumentExtraction
+              ? 'document'
+              : 'native';
+
+    return {
+      detail: compatibility.detail,
+      key,
+      label: compatibility.label,
+      tone,
+    };
+  }
+
   if (manifest.runtimeType === 'creator_endpoint') {
     return {
       detail: 'AgentHub garde accès, paiement, historique et avis. L’exécution dépend d’un endpoint creator HTTPS approuvé.',
@@ -104,6 +131,30 @@ function workspaceStrategy(manifest) {
     label: 'Workspace natif',
     tone: 'approved',
   };
+}
+
+function workspaceCompatibilityStatusLabel(status) {
+  if (status === 'ready') {
+    return 'Compatible';
+  }
+
+  if (status === 'review_required') {
+    return 'À revoir';
+  }
+
+  return 'Bloqué';
+}
+
+function workspaceCompatibilityTone(status) {
+  if (status === 'ready') {
+    return 'approved';
+  }
+
+  if (status === 'review_required') {
+    return 'in_review';
+  }
+
+  return 'failed';
 }
 
 const workspaceStrategySummary = [
@@ -429,6 +480,7 @@ function buildAdminDecisionChecklist(agent) {
   const precheck = getPrecheck(agent);
   const status = getPrecheckStatus(agent);
   const runtimeType = agent.contract?.runtimeType;
+  const workspaceCompatibility = agent.manifest?.workspaceCompatibility;
 
   if (!precheck) {
     items.push('Générer et enregistrer un précheck sécurité avant toute décision.');
@@ -456,6 +508,19 @@ function buildAdminDecisionChecklist(agent) {
     items.push('Approuver ou refuser l’endpoint creator avant publication.');
   }
 
+  if (workspaceCompatibility?.status === 'blocked') {
+    items.push(`Bloquer la publication workspace : ${workspaceCompatibility.detail}`);
+  } else if (workspaceCompatibility?.status === 'review_required') {
+    const failedChecks = workspaceCompatibility.checks.filter((check) => !check.ok).map((check) => check.label);
+    items.push(`Finaliser la compatibilité workspace avant approbation : ${failedChecks.join(', ') || workspaceCompatibility.label}.`);
+  }
+
+  if (workspaceCompatibility?.mode === 'creator_infra_required') {
+    items.push('Confirmer le fallback infra creator : endpoint approuvé, HMAC, health check et disclosure user.');
+  } else if (workspaceCompatibility?.mode === 'hybrid_creator_infra') {
+    items.push('Confirmer le mode hybride : webhooks approuvés, health checks et comportement d’erreur lisible.');
+  }
+
   if (!['llm_prompt', 'static_guided'].includes(runtimeType) && !['passed', 'waived'].includes(agent.securityReview?.status)) {
     items.push('Créer ou finaliser une security review passée/waived pour ce runtime sensible.');
   }
@@ -480,6 +545,7 @@ function buildAdminDecisionChecklist(agent) {
 function buildPrecheckInterventionPlan(agent) {
   const precheck = getPrecheck(agent);
   const strategy = agent.manifest ? workspaceStrategy(agent.manifest) : null;
+  const workspaceCompatibility = agent.manifest?.workspaceCompatibility;
   const runtimeType = agent.contract?.runtimeType;
   const steps = [];
 
@@ -515,6 +581,18 @@ function buildPrecheckInterventionPlan(agent) {
     steps.push('Vérifier endpoint HTTPS, statut approuvé, disclosure user et comportement d’erreur.');
   }
 
+  if (workspaceCompatibility?.status === 'blocked') {
+    steps.push('Bloquer le test workspace tant que la compatibilité serveur reste KO.');
+  } else if (workspaceCompatibility?.status === 'review_required') {
+    steps.push('Traiter les checks workspace KO avant d’envoyer l’agent à des testeurs.');
+  }
+
+  if (workspaceCompatibility?.mode === 'creator_infra_required') {
+    steps.push('Valider explicitement le fallback infra creator ou demander un runtime AgentHub compatible.');
+  } else if (workspaceCompatibility?.mode === 'hybrid_creator_infra') {
+    steps.push('Valider les dépendances hybrides avant de considérer le workflow testable.');
+  }
+
   if (!['llm_prompt', 'static_guided'].includes(runtimeType)) {
     steps.push('Confirmer que la security review est passée ou waived.');
   }
@@ -525,6 +603,11 @@ function buildPrecheckInterventionPlan(agent) {
     agent.runtimeSetting?.enabled ? 'Runtime global activé' : 'Runtime global à vérifier',
     agent.workflow ? `Workflow ${agent.workflow.status}` : null,
     agent.creatorEndpoint ? `Endpoint config ${agent.creatorEndpoint.status}` : null,
+    workspaceCompatibility ? `Compatibilité workspace ${workspaceCompatibility.status}` : null,
+    ...(workspaceCompatibility?.checks ?? [])
+      .filter((check) => !check.ok)
+      .slice(0, 3)
+      .map((check) => `Check workspace KO : ${check.label}`),
     agent.securityReview ? `Security review ${agent.securityReview.status}` : 'Security review absente ou non requise',
   ].filter(Boolean);
 
@@ -973,6 +1056,36 @@ export default async function AdminReviewPage({ searchParams }) {
                           <StatusBadge status={workspaceStrategy(agent.manifest).tone} label={infraLabel(agent.manifest.infraMode)} />
                         </div>
                       </div>
+                      {agent.manifest.workspaceCompatibility && (
+                        <div className="rounded-xl border border-[#C4B5FD] bg-white p-3 md:col-span-2 xl:col-span-4">
+                          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="font-label text-[10px] text-[#6B3FA0]">Compatibilité workspace</p>
+                              <p className="mt-1 text-sm font-semibold text-[#111827]">
+                                {agent.manifest.workspaceCompatibility.label}
+                              </p>
+                              <p className="mt-2 text-xs leading-5 text-[#64748B]">
+                                Signal serveur partagé entre review, ops avancées et futur précheck agent sécurité.
+                              </p>
+                            </div>
+                            <StatusBadge
+                              status={workspaceCompatibilityTone(agent.manifest.workspaceCompatibility.status)}
+                              label={workspaceCompatibilityStatusLabel(agent.manifest.workspaceCompatibility.status)}
+                            />
+                          </div>
+                          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {agent.manifest.workspaceCompatibility.checks.map((check) => (
+                              <div key={check.key} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-bold text-[#111827]">{check.label}</p>
+                                  <StatusBadge status={check.ok ? 'approved' : 'failed'} label={check.ok ? 'OK' : 'KO'} />
+                                </div>
+                                {check.detail && <p className="mt-2 text-xs leading-5 text-[#64748B]">{check.detail}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
                         <p className="font-label text-[10px] text-[#6B3FA0]">Publication</p>
                         <p className="mt-1 text-sm font-semibold text-[#111827]">{publicationLabel(agent.manifest.publicationType)}</p>

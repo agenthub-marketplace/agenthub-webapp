@@ -4,6 +4,7 @@ import type { AgentRuntimeType } from "@/lib/agent-contract";
 import { serverEnv } from "@/lib/env.server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildWorkspaceCompatibilityDiagnostic } from "@/server/agents/workspace-compatibility";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 type RuntimeAccessRow = {
@@ -918,116 +919,6 @@ function runtimeEnvDiagnostic(runtimeType: string) {
   };
 }
 
-function workspaceCompatibilityDiagnostic(input: {
-  agentStatus: string;
-  assetApproved: boolean;
-  endpointHealth?: { ok: boolean; status: string } | null;
-  runtimeSetting?: RuntimeSettingRow | null;
-  runtimeType: AgentRuntimeType;
-  securityReviewStatus?: string | null;
-  securityReviewWaived: boolean;
-  workflowWebhookHealth?: { ok: boolean; status: string } | null;
-  workflowWebhookStepCount: number;
-}) {
-  const runtimeReady = Boolean(input.runtimeSetting?.enabled && input.runtimeSetting.run_enabled);
-  const securityReady = input.securityReviewStatus === "passed" || input.securityReviewWaived;
-  const published = input.agentStatus === "approved";
-  const endpointReady =
-    input.runtimeType !== "creator_endpoint" || Boolean(input.endpointHealth?.ok || input.securityReviewWaived);
-  const webhookReady =
-    input.workflowWebhookStepCount === 0 || Boolean(input.workflowWebhookHealth?.ok || input.securityReviewWaived);
-
-  const checks = [
-    diagnosticCheck({
-      key: "workspace-runtime",
-      label: "Runtime workspace",
-      ok: runtimeReady,
-      detail: input.runtimeSetting
-        ? `enabled=${input.runtimeSetting.enabled}, run_enabled=${input.runtimeSetting.run_enabled}`
-        : "runtime setting introuvable",
-    }),
-    diagnosticCheck({
-      key: "workspace-asset",
-      label: "Asset exécutable",
-      ok: input.assetApproved,
-      detail: input.assetApproved ? null : "workflow ou endpoint non approuvé",
-    }),
-    diagnosticCheck({
-      key: "workspace-security",
-      label: "Security review",
-      ok: securityReady,
-      detail: input.securityReviewStatus ? `status=${input.securityReviewStatus}` : "security review manquante",
-    }),
-    diagnosticCheck({
-      key: "workspace-publication",
-      label: "Agent publié",
-      ok: published,
-      detail: `agent=${input.agentStatus}`,
-    }),
-    ...(input.runtimeType === "creator_endpoint"
-      ? [
-          diagnosticCheck({
-            key: "workspace-endpoint-health",
-            label: "Endpoint utilisable",
-            ok: endpointReady,
-            detail: input.endpointHealth?.status
-              ? `health=${input.endpointHealth.status}`
-              : input.securityReviewWaived
-                ? "health check waived by security review"
-                : "aucun health check endpoint",
-          }),
-        ]
-      : []),
-    ...(input.workflowWebhookStepCount > 0
-      ? [
-          diagnosticCheck({
-            key: "workspace-webhook-health",
-            label: "Webhook utilisable",
-            ok: webhookReady,
-            detail: input.workflowWebhookHealth?.status
-              ? `health=${input.workflowWebhookHealth.status}`
-              : input.securityReviewWaived
-                ? "webhook health waived by security review"
-                : "aucun health check webhook",
-          }),
-        ]
-      : []),
-  ];
-
-  const blocked = checks.filter((check) => !check.ok);
-  const status = blocked.length === 0 ? "ready" : blocked.length <= 2 ? "review_required" : "blocked";
-  const mode =
-    input.runtimeType === "creator_endpoint"
-      ? "creator_infra_required"
-      : input.workflowWebhookStepCount > 0
-        ? "hybrid_creator_infra"
-        : "agenthub_hosted";
-
-  const label =
-    mode === "creator_infra_required"
-      ? "Infra créateur requise"
-      : mode === "hybrid_creator_infra"
-        ? "Workspace hybride"
-        : "Workspace AgentHub";
-  const detail =
-    blocked.length > 0
-      ? `À corriger avant beta workspace : ${blocked.map((check) => check.label).join(", ")}.`
-      : mode === "creator_infra_required"
-        ? "AgentHub garde l'accès, l'audit et l'historique; l'exécution passe par un endpoint creator approuvé."
-        : mode === "hybrid_creator_infra"
-          ? "AgentHub orchestre le workflow et appelle uniquement les webhooks creator approuvés."
-          : "AgentHub peut exécuter ce workflow dans le workspace sans infra creator obligatoire.";
-
-  return {
-    checks,
-    detail,
-    label,
-    mode,
-    status,
-    tone: status === "ready" ? "success" : status === "review_required" ? "warning" : "error",
-  };
-}
-
 export async function getAdvancedAgentDiagnostics() {
   const supabase = createSupabaseServiceClient();
 
@@ -1316,7 +1207,7 @@ export async function getAdvancedAgentDiagnostics() {
       workflowWebhookHealth: securityReviewWaived ? { ok: true, status: "waived" } : workflowWebhookHealth,
       runtimeType: version.runtime_type,
     });
-    const workspaceCompatibility = workspaceCompatibilityDiagnostic({
+    const workspaceCompatibility = buildWorkspaceCompatibilityDiagnostic({
       agentStatus: version.agent.status,
       assetApproved,
       endpointHealth,
