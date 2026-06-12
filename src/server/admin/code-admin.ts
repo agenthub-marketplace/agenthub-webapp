@@ -215,6 +215,10 @@ type PaymentAccessLedgerCheckRow = {
   rental_request_id: string | null;
 };
 
+type RentalRequestLedgerCheckRow = {
+  id: string;
+};
+
 type LedgerPaymentEventRow = {
   payment_id: string | null;
 };
@@ -226,7 +230,7 @@ function readSingle<T>(value: T | T[] | null) {
 }
 
 async function countMissingLedgerEvents(input: {
-  eventType: "access_created" | "payment_paid";
+  eventType: "access_created" | "access_stopped" | "payment_paid";
   paymentIds: string[];
   supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 }) {
@@ -258,6 +262,8 @@ async function countMissingLedgerEvents(input: {
 async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>) {
   const paidPaymentIds: string[] = [];
   const paidAccessPaymentIds: string[] = [];
+  const stoppedRentalIds: string[] = [];
+  const stoppedAccessPaymentIds: string[] = [];
 
   for (let from = 0; ; from += OPS_LEDGER_PAGE_SIZE) {
     const { data } = await supabase
@@ -292,7 +298,35 @@ async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof creat
     }
   }
 
-  const [missingPaymentPaid, missingAccessCreated] = await Promise.all([
+  for (let from = 0; ; from += OPS_LEDGER_PAGE_SIZE) {
+    const { data } = await supabase
+      .from("rental_requests")
+      .select("id")
+      .eq("status", "stopped")
+      .range(from, from + OPS_LEDGER_PAGE_SIZE - 1)
+      .returns<RentalRequestLedgerCheckRow[]>();
+    const rows = data ?? [];
+
+    stoppedRentalIds.push(...rows.map((row) => row.id));
+
+    if (rows.length < OPS_LEDGER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  for (let index = 0; index < stoppedRentalIds.length; index += OPS_LEDGER_PAGE_SIZE) {
+    const rentalIds = stoppedRentalIds.slice(index, index + OPS_LEDGER_PAGE_SIZE);
+    const { data } = await supabase
+      .from("payments")
+      .select("id,rental_request_id")
+      .eq("status", "paid")
+      .in("rental_request_id", rentalIds)
+      .returns<PaymentAccessLedgerCheckRow[]>();
+
+    stoppedAccessPaymentIds.push(...(data ?? []).map((row) => row.id));
+  }
+
+  const [missingPaymentPaid, missingAccessCreated, missingAccessStopped] = await Promise.all([
     countMissingLedgerEvents({
       eventType: "payment_paid",
       paymentIds: paidPaymentIds,
@@ -303,10 +337,16 @@ async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof creat
       paymentIds: paidAccessPaymentIds,
       supabase,
     }),
+    countMissingLedgerEvents({
+      eventType: "access_stopped",
+      paymentIds: stoppedAccessPaymentIds,
+      supabase,
+    }),
   ]);
 
   return {
     missingAccessCreated,
+    missingAccessStopped,
     missingPaymentPaid,
   };
 }
@@ -690,6 +730,7 @@ export async function getAdminOpsSnapshot() {
       { key: "ledger-payout-ready", label: "Ledger payout-ready", value: ledgerPayoutReady.count ?? 0, tone: "neutral" },
       { key: "ledger-missing-payment-paid", label: "Ledger paiement manquant", value: ledgerGaps.missingPaymentPaid, tone: ledgerGaps.missingPaymentPaid > 0 ? "error" : "success" },
       { key: "ledger-missing-access-created", label: "Ledger accès manquant", value: ledgerGaps.missingAccessCreated, tone: ledgerGaps.missingAccessCreated > 0 ? "error" : "success" },
+      { key: "ledger-missing-access-stopped", label: "Ledger arrêt accès manquant", value: ledgerGaps.missingAccessStopped, tone: ledgerGaps.missingAccessStopped > 0 ? "warning" : "success" },
       { key: "security-precheck-missing", label: "Préchecks manquants", value: missingFinalPrecheckCount, tone: missingFinalPrecheckCount > 0 ? "error" : "success" },
       { key: "security-precheck-attention", label: "Préchecks à reprendre", value: securityPrecheckAttentionCount, tone: securityPrecheckAttentionCount > 0 ? "warning" : "success" },
       { key: "security-precheck-blocking", label: "Préchecks bloquants", value: blockingPrechecks.count ?? 0, tone: (blockingPrechecks.count ?? 0) > 0 ? "warning" : "success" },

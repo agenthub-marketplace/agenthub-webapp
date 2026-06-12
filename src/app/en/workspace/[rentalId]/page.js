@@ -186,6 +186,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
       readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
+      setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
+      successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
     />
   ) : runtimeContract.runner.kind === 'workflow' ? (
     <WorkflowWorkspaceActions
@@ -197,6 +199,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
       readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
+      setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
+      successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
     />
   ) : runtimeContract.runner.kind === 'document' ? (
     <DocumentWorkspaceActions
@@ -210,6 +214,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
       readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
+      setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
+      successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
     />
   ) : (
     <WorkspaceRunActions
@@ -222,6 +228,8 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       nextActions={runtimeContract.workspaceRecipe?.nextActions ?? []}
       readiness={runtimeContract.workspaceRecipe?.readiness ?? null}
       rentalId={rental.id}
+      setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
+      successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
     />
   );
   const reviewSlot = (

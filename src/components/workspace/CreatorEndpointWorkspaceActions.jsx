@@ -6,6 +6,7 @@ import { ChevronDown, Loader2, PlugZap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
+import WorkspaceRunGuidance from './WorkspaceRunGuidance';
 
 const copy = {
   fr: {
@@ -34,14 +35,17 @@ const copy = {
     launch: 'Envoyer à l’agent',
     loading: 'Agent API en cours...',
     nextActions: 'Prochaines actions',
+    nextActionNow: 'À faire maintenant',
     running: 'Un appel agent API est déjà en cours...',
     remaining: 'caractères restants',
     result: 'Résultat agent API',
     selectAction: 'Ajoutez votre demande. AgentHub appellera l’API créateur approuvée côté serveur, avec signature et historique conservé ici.',
+    setupGuidance: 'À préparer',
     showLess: 'Réduire',
     showLessHistory: 'Afficher moins d’historique',
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’appels API',
+    successGuidance: 'Résultat attendu',
     title: 'Agent API créateur',
   },
   en: {
@@ -69,15 +73,18 @@ const copy = {
     launch: 'Send to agent',
     loading: 'API agent running...',
     nextActions: 'Next actions',
+    nextActionNow: 'Do now',
     running: 'An API call is already running...',
     queued: 'An API call is queued and waiting to start...',
     remaining: 'characters remaining',
     result: 'API agent result',
     selectAction: 'Add your request. AgentHub will call the approved creator API server-side, with signing and history kept here.',
+    setupGuidance: 'Prepare',
     showLess: 'Collapse',
     showLessHistory: 'Show less history',
     showMore: 'View full result',
     showMoreHistory: 'Show more API calls',
+    successGuidance: 'Expected result',
     title: 'Creator API agent',
   },
 };
@@ -131,6 +138,8 @@ export default function CreatorEndpointWorkspaceActions({
   nextActions = [],
   readiness = null,
   rentalId,
+  setupChecklist = [],
+  successCriteria = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [inputText, setInputText] = useState('');
@@ -263,7 +272,14 @@ export default function CreatorEndpointWorkspaceActions({
         showDisabledMessage={!enabled}
       />
 
-      <WorkspaceNextActions items={nextActions} title={t.nextActions} />
+      <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
+
+      <WorkspaceRunGuidance
+        setupItems={setupChecklist}
+        setupTitle={t.setupGuidance}
+        successItems={successCriteria}
+        successTitle={t.successGuidance}
+      />
 
       {enabled && (
         <form onSubmit={submitRun} className="mt-5 space-y-3">

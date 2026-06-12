@@ -574,10 +574,17 @@ function buildNextActions(
   hasSetup: boolean,
 ) {
   if (!input.enabled) {
-    return [
+    const disabledActions = [
       input.runner.disabledMessage ?? labels.runtimeUnavailable,
-      labels.nextActionHints.disabled,
     ];
+
+    if (input.workspaceManifest.infraMode !== "agenthub_hosted") {
+      disabledActions.push(labels.nextActionHints.creatorInfra);
+    }
+
+    disabledActions.push(labels.nextActionHints.disabled);
+
+    return disabledActions.slice(0, 5);
   }
 
   const actions = [...labels.nextActions[panel]];

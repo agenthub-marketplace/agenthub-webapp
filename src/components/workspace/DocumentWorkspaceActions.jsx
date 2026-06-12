@@ -6,6 +6,7 @@ import { ChevronDown, FileText, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
+import WorkspaceRunGuidance from './WorkspaceRunGuidance';
 
 const copy = {
   fr: {
@@ -36,14 +37,17 @@ const copy = {
     launch: 'Lancer l’analyse',
     loading: 'Analyse en cours...',
     nextActions: 'Prochaines actions',
+    nextActionNow: 'À faire maintenant',
     noSensitive: 'N’ajoutez pas de documents sensibles réels pendant la beta.',
     remaining: 'caractères restants',
     result: 'Résultat généré',
     selectAction: 'Ajoutez un document, choisissez une action, puis lancez l’analyse.',
+    setupGuidance: 'À préparer',
     showLess: 'Réduire',
     showLessHistory: 'Afficher moins d’historique',
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’analyses',
+    successGuidance: 'Résultat attendu',
     title: 'Ajouter un document',
     upload: 'Extraire le document',
     uploading: 'Upload et extraction...',
@@ -76,14 +80,17 @@ const copy = {
     launch: 'Run analysis',
     loading: 'Analyzing...',
     nextActions: 'Next actions',
+    nextActionNow: 'Do now',
     noSensitive: 'Do not upload real sensitive documents during beta.',
     remaining: 'characters remaining',
     result: 'Generated result',
     selectAction: 'Add a document, choose an action, then run the analysis.',
+    setupGuidance: 'Prepare',
     showLess: 'Collapse',
     showLessHistory: 'Show less history',
     showMore: 'View full result',
     showMoreHistory: 'Show more analyses',
+    successGuidance: 'Expected result',
     title: 'Add a document',
     upload: 'Extract document',
     uploading: 'Uploading and extracting...',
@@ -147,6 +154,8 @@ export default function DocumentWorkspaceActions({
   nextActions = [],
   readiness = null,
   rentalId,
+  setupChecklist = [],
+  successCriteria = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -280,7 +289,14 @@ export default function DocumentWorkspaceActions({
         showDisabledMessage={!enabled}
       />
 
-      <WorkspaceNextActions items={nextActions} title={t.nextActions} />
+      <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
+
+      <WorkspaceRunGuidance
+        setupItems={setupChecklist}
+        setupTitle={t.setupGuidance}
+        successItems={successCriteria}
+        successTitle={t.successGuidance}
+      />
 
       <div className="mb-5 rounded-2xl border border-[#F59E0B]/25 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#FCD34D]">
         <p>{t.accepted}</p>

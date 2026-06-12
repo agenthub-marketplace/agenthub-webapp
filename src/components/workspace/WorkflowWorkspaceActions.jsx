@@ -6,6 +6,7 @@ import { ChevronDown, Loader2, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
+import WorkspaceRunGuidance from './WorkspaceRunGuidance';
 
 const copy = {
   fr: {
@@ -34,14 +35,17 @@ const copy = {
     launch: 'Lancer le workflow',
     loading: 'Workflow en cours...',
     nextActions: 'Prochaines actions',
+    nextActionNow: 'À faire maintenant',
     queued: 'Workflow en file d’attente...',
     remaining: 'caractères restants',
     result: 'Résultat workflow',
     selectAction: 'Ajoutez votre demande, puis lancez le workflow validé par AgentHub.',
+    setupGuidance: 'À préparer',
     showLess: 'Réduire',
     showLessHistory: 'Afficher moins d’historique',
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus de workflows',
+    successGuidance: 'Résultat attendu',
     stepOutput: 'Résultat étape',
     stepsTitle: 'Progression des étapes',
     stepTypes: {
@@ -76,14 +80,17 @@ const copy = {
     launch: 'Run workflow',
     loading: 'Workflow running...',
     nextActions: 'Next actions',
+    nextActionNow: 'Do now',
     queued: 'Workflow queued...',
     remaining: 'characters remaining',
     result: 'Workflow result',
     selectAction: 'Add your request, then run the AgentHub-reviewed workflow.',
+    setupGuidance: 'Prepare',
     showLess: 'Collapse',
     showLessHistory: 'Show less history',
     showMore: 'View full result',
     showMoreHistory: 'Show more workflows',
+    successGuidance: 'Expected result',
     stepOutput: 'Step output',
     stepsTitle: 'Step progress',
     stepTypes: {
@@ -193,6 +200,8 @@ export default function WorkflowWorkspaceActions({
   nextActions = [],
   readiness = null,
   rentalId,
+  setupChecklist = [],
+  successCriteria = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [inputText, setInputText] = useState('');
@@ -346,7 +355,14 @@ export default function WorkflowWorkspaceActions({
         showDisabledMessage={!enabled}
       />
 
-      <WorkspaceNextActions items={nextActions} title={t.nextActions} />
+      <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
+
+      <WorkspaceRunGuidance
+        setupItems={setupChecklist}
+        setupTitle={t.setupGuidance}
+        successItems={successCriteria}
+        successTitle={t.successGuidance}
+      />
 
       {enabled && (
         <form onSubmit={submitRun} className="mt-5 space-y-3">

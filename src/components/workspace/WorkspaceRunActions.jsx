@@ -6,6 +6,7 @@ import { ChevronDown, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
+import WorkspaceRunGuidance from './WorkspaceRunGuidance';
 
 const copy = {
   fr: {
@@ -19,13 +20,16 @@ const copy = {
     launch: 'Générer la réponse',
     loading: 'Génération en cours...',
     nextActions: 'Prochaines actions',
+    nextActionNow: 'À faire maintenant',
     remaining: 'caractères restants',
     result: 'Résultat généré',
     selectAction: 'Choisissez une action, ajoutez votre contexte, puis générez une réponse.',
+    setupGuidance: 'À préparer',
     showLess: 'Réduire',
     showLessHistory: 'Afficher moins d’historique',
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’exécutions',
+    successGuidance: 'Résultat attendu',
     title: 'Démarrer avec cet assistant',
   },
   en: {
@@ -39,13 +43,16 @@ const copy = {
     launch: 'Generate response',
     loading: 'Generating...',
     nextActions: 'Next actions',
+    nextActionNow: 'Do now',
     remaining: 'characters remaining',
     result: 'Generated result',
     selectAction: 'Choose an action, add context, then generate a response.',
+    setupGuidance: 'Prepare',
     showLess: 'Collapse',
     showLessHistory: 'Show less history',
     showMore: 'View full result',
     showMoreHistory: 'Show more runs',
+    successGuidance: 'Expected result',
     title: 'Start with this assistant',
   },
 };
@@ -90,6 +97,8 @@ export default function WorkspaceRunActions({
   nextActions = [],
   readiness = null,
   rentalId,
+  setupChecklist = [],
+  successCriteria = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -180,7 +189,14 @@ export default function WorkspaceRunActions({
         showDisabledMessage={!enabled}
       />
 
-      <WorkspaceNextActions items={nextActions} title={t.nextActions} />
+      <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
+
+      <WorkspaceRunGuidance
+        setupItems={setupChecklist}
+        setupTitle={t.setupGuidance}
+        successItems={successCriteria}
+        successTitle={t.successGuidance}
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         {actions.map((action, index) => (

@@ -1,6 +1,7 @@
 const copy = {
   fr: {
     blockedTitle: 'Exécution indisponible',
+    attentionTitle: 'Point à vérifier avant exécution',
     creatorInfra:
       'Cet agent utilise une infrastructure créateur approuvée. AgentHub garde l’accès, l’historique et les garde-fous côté serveur.',
     creatorInfraTitle: 'Infra créateur approuvée',
@@ -11,6 +12,7 @@ const copy = {
   },
   en: {
     blockedTitle: 'Execution unavailable',
+    attentionTitle: 'Check before running',
     creatorInfra:
       'This agent uses approved creator infrastructure. AgentHub keeps access, history, and server-side guardrails in place.',
     creatorInfraTitle: 'Approved creator infrastructure',
@@ -50,24 +52,28 @@ export default function WorkspaceReadinessNotice({
     ? readiness.blockers.filter((item) => typeof item === 'string' && item.trim().length > 0)
     : [];
   const disclosure = infraMessage(readiness, t);
-  const message = blockers.length > 0 ? null : disabledMessage || t.fallback;
-  const isBlocked = showDisabledMessage || blockers.length > 0;
+  const readinessStatus = readiness?.status ?? null;
+  const isBlocked = showDisabledMessage || blockers.length > 0 || readinessStatus === 'blocked';
+  const needsAttention = !isBlocked && readinessStatus === 'attention';
+  const message = blockers.length > 0 ? null : disabledMessage || readiness?.scoreDetail || t.fallback;
 
-  if (!showDisabledMessage && blockers.length === 0 && !disclosure) {
+  if (!showDisabledMessage && blockers.length === 0 && !needsAttention && !isBlocked && !disclosure) {
     return null;
   }
 
   return (
     <div
       className={`mb-5 space-y-3 rounded-2xl border p-4 text-sm leading-relaxed ${
-        isBlocked
+        isBlocked || needsAttention
           ? 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]'
           : 'border-[#10B981]/25 bg-[#071611] text-[#6EE7B7]'
       }`}
     >
-      {isBlocked && (
+      {(isBlocked || needsAttention) && (
         <div>
-          <p className="font-label mb-2 text-xs text-[#FCD34D]">{t.blockedTitle}</p>
+          <p className="font-label mb-2 text-xs text-[#FCD34D]">
+            {isBlocked ? t.blockedTitle : t.attentionTitle}
+          </p>
           {message && <p>{message}</p>}
           {blockers.length > 0 && (
             <ul className="space-y-1">

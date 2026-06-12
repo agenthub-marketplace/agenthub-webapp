@@ -7,7 +7,11 @@ import {
   type ExecutionMode,
   type WorkspaceMode,
 } from "@/lib/agent-contract";
-import { evaluateAgentContractQuality, type AgentContractQualityCheck } from "@/lib/agent-contract-quality";
+import {
+  evaluateAgentContractQuality,
+  type AgentContractQualityCheck,
+  type AgentContractQualityReport,
+} from "@/lib/agent-contract-quality";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
@@ -287,6 +291,7 @@ function buildSecurityPrecheck(input: {
   endpointConfig: CreatorEndpointManifestRow | null | undefined;
   infra: AgentInfraMode;
   limitations: string[] | null;
+  qualityReport: AgentContractQualityReport;
   requiresSecurityReview: boolean;
   runtimeSetting: RuntimeSettingManifestRow | null;
   securityReviewStatus: AgentManifestV1["securityProfile"]["securityReviewStatus"];
@@ -302,6 +307,46 @@ function buildSecurityPrecheck(input: {
   const addPass = (item: Omit<SecurityPrecheckFinding, "severity">) => passed.push(finding({ ...item, severity: "pass" }));
   const addWarning = (item: Omit<SecurityPrecheckFinding, "severity">) => warnings.push(finding({ ...item, severity: "warning" }));
   const addBlocker = (item: Omit<SecurityPrecheckFinding, "severity">) => blockers.push(finding({ ...item, severity: "blocker" }));
+  const failedQualityBlockers = input.qualityReport.checks.filter(
+    (check) => check.status === "fail" && check.severity === "blocker",
+  );
+  const failedQualityWarnings = input.qualityReport.checks.filter(
+    (check) =>
+      check.status === "fail" &&
+      check.severity === "warning" &&
+      check.id !== "closed_beta_execution_ready",
+  );
+
+  if (failedQualityBlockers.length > 0) {
+    addBlocker({
+      code: "agent_contract_quality_blockers",
+      detail: `Le contrat agent contient ${failedQualityBlockers.length} blocage(s) qualité : ${failedQualityBlockers
+        .slice(0, 4)
+        .map((check) => check.label)
+        .join(", ")}.`,
+      suggestedAdminAction: "Demander au créateur de corriger les champs obligatoires avant publication.",
+      title: "Contrat agent incomplet",
+    });
+  } else {
+    addPass({
+      code: "agent_contract_quality_required_fields",
+      detail: "Les champs obligatoires du contrat agent sont suffisants pour poursuivre la review.",
+      suggestedAdminAction: "Continuer la review runtime, sécurité et pricing.",
+      title: "Contrat agent exploitable",
+    });
+  }
+
+  if (failedQualityWarnings.length > 0) {
+    addWarning({
+      code: "agent_contract_quality_warnings",
+      detail: `Points qualité à clarifier : ${failedQualityWarnings
+        .slice(0, 4)
+        .map((check) => check.label)
+        .join(", ")}.`,
+      suggestedAdminAction: "Vérifier si ces points doivent devenir une demande de modifications.",
+      title: "Qualité agent à clarifier",
+    });
+  }
 
   if (!input.runtimeSetting) {
     addBlocker({
@@ -692,6 +737,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     endpointConfig,
     infra,
     limitations: version.limitations,
+    qualityReport,
     requiresSecurityReview,
     runtimeSetting: runtimeSetting ?? null,
     securityReviewStatus,

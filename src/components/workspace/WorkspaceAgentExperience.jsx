@@ -81,6 +81,24 @@ function RecipeBlocks({ blocks = [], requiredText, title }) {
   );
 }
 
+function tabRecipeStatus(blocks = []) {
+  const visibleBlocks = blocks.filter((item) => item.status !== 'hidden');
+
+  if (visibleBlocks.some((item) => item.status === 'disabled')) {
+    return 'disabled';
+  }
+
+  if (visibleBlocks.some((item) => item.status === 'attention')) {
+    return 'attention';
+  }
+
+  if (visibleBlocks.some((item) => item.required || item.status === 'ready')) {
+    return 'ready';
+  }
+
+  return null;
+}
+
 function formatWorkspaceDate(value, locale) {
   if (!value) {
     return '';
@@ -427,6 +445,11 @@ export default function WorkspaceAgentExperience({
           setup: 'Setup',
           use: 'Use',
         },
+        tabStatus: {
+          attention: 'Needs attention',
+          disabled: 'Blocked',
+          ready: 'Ready',
+        },
         useNow: 'Use now',
         recipeRequired: 'Required check',
         recipeTitle: 'Workspace checklist',
@@ -518,6 +541,11 @@ export default function WorkspaceAgentExperience({
           review: 'Avis',
           setup: 'Mise en place',
           use: 'Utiliser',
+        },
+        tabStatus: {
+          attention: 'À surveiller',
+          disabled: 'Bloqué',
+          ready: 'Prêt',
         },
         useNow: 'Utiliser maintenant',
         recipeRequired: 'Point requis',
@@ -616,19 +644,30 @@ export default function WorkspaceAgentExperience({
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
+              const tabStatus = tabRecipeStatus(recipeBlocksForTab(tab.id));
+              const tabStatusStyle = tabStatus ? recipeStatusStyles[tabStatus] : null;
 
               return (
                 <Link
                   key={tab.id}
                   href={tab.id === 'overview' ? baseHref : `${baseHref}?tab=${tab.id}`}
-                  className={`flex min-w-max cursor-pointer items-center gap-2 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors lg:min-w-0 ${
+                  className={`flex min-w-max cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors lg:min-w-0 ${
                     active
                       ? 'bg-[#251A40] text-[#F4EFFA]'
                       : 'text-[#9B72CF] hover:bg-[#15112A] hover:text-[#F4EFFA]'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{tab.label}</span>
+                  </span>
+                  {tabStatusStyle && (
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${tabStatusStyle.dot}`}
+                      aria-label={labels.tabStatus[tabStatus] ?? tabStatus}
+                      title={labels.tabStatus[tabStatus] ?? tabStatus}
+                    />
+                  )}
                 </Link>
               );
             })}
