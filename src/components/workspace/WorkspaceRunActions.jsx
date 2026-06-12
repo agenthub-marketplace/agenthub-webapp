@@ -14,6 +14,7 @@ const copy = {
     disabled: 'Ces actions restent des repères statiques pour le moment.',
     emptyHistory: 'Aucune exécution enregistrée pour le moment.',
     error: 'Impossible de générer cette réponse pour le moment.',
+    fallbackGuidance: 'Plan de secours',
     history: 'Historique d’exécution',
     inputLabel: 'Votre besoin',
     inputPlaceholder: 'Décrivez ce que vous voulez obtenir avec cet assistant...',
@@ -30,6 +31,7 @@ const copy = {
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’exécutions',
     successGuidance: 'Résultat attendu',
+    trustGuidance: 'Points de vigilance',
     title: 'Démarrer avec cet assistant',
   },
   en: {
@@ -37,6 +39,7 @@ const copy = {
     disabled: 'These actions are static starting points for now.',
     emptyHistory: 'No execution history yet.',
     error: 'Unable to generate this response right now.',
+    fallbackGuidance: 'Fallback path',
     history: 'Execution history',
     inputLabel: 'Your need',
     inputPlaceholder: 'Describe what you want to get from this assistant...',
@@ -53,6 +56,7 @@ const copy = {
     showMore: 'View full result',
     showMoreHistory: 'Show more runs',
     successGuidance: 'Expected result',
+    trustGuidance: 'Watch points',
     title: 'Start with this assistant',
   },
 };
@@ -90,6 +94,7 @@ function statusLabel(status, locale) {
 export default function WorkspaceRunActions({
   actions = [],
   enabled = false,
+  fallbackPath = [],
   disabledMessage,
   initialRuns = [],
   locale = 'fr',
@@ -99,6 +104,7 @@ export default function WorkspaceRunActions({
   rentalId,
   setupChecklist = [],
   successCriteria = [],
+  trustWarnings = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -192,10 +198,14 @@ export default function WorkspaceRunActions({
       <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
 
       <WorkspaceRunGuidance
+        fallbackItems={fallbackPath}
+        fallbackTitle={t.fallbackGuidance}
         setupItems={setupChecklist}
         setupTitle={t.setupGuidance}
         successItems={successCriteria}
         successTitle={t.successGuidance}
+        warningItems={trustWarnings}
+        warningTitle={t.trustGuidance}
       />
 
       <div className="grid gap-3 sm:grid-cols-3">

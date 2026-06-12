@@ -136,6 +136,22 @@ const precheckNextActions = {
   security_review_required: 'Créer ou finaliser la security review avant publication.',
 };
 
+const reviewRoutingActionLabels = {
+  approve_assets: 'Approuver ou rejeter les assets',
+  block_publication: 'Bloquer la publication',
+  request_creator_changes: 'Demander des modifications',
+  review_standard: 'Review standard',
+  run_security_review: 'Lancer la security review',
+  wait_precheck: 'Attendre ou régénérer le précheck',
+};
+
+const reviewRoutingOwnerLabels = {
+  admin: 'Admin',
+  creator: 'Creator',
+  platform_ops: 'Ops plateforme',
+  security_reviewer: 'Security reviewer',
+};
+
 const precheckRiskTone = {
   blocked: 'failed',
   high: 'rejected',
@@ -181,6 +197,24 @@ function getPrecheckStatus(agent) {
 }
 
 function getPrecheckPriority(agent) {
+  const routing = agent.manifest?.reviewRouting;
+
+  if (routing) {
+    return {
+      detail: routing.reason,
+      label: routing.priority,
+      title: reviewRoutingActionLabels[routing.nextAction] || 'Action précheck',
+      tone:
+        routing.priority === 'P0'
+          ? 'failed'
+          : routing.priority === 'P1'
+            ? 'rejected'
+            : routing.priority === 'P2'
+              ? 'in_review'
+              : 'approved',
+    };
+  }
+
   const precheck = getPrecheck(agent);
   const status = getPrecheckStatus(agent);
 
@@ -584,6 +618,7 @@ function PrecheckInterventionPlan({ agent }) {
 }
 
 function PrecheckNextAction({ agent }) {
+  const routing = agent.manifest?.reviewRouting;
   const precheck = getPrecheck(agent);
   const status = getPrecheckStatus(agent);
 
@@ -591,6 +626,22 @@ function PrecheckNextAction({ agent }) {
     return (
       <CodeAlert tone="error">
         Précheck indisponible : vérifier le manifest serveur avant de décider.
+      </CodeAlert>
+    );
+  }
+
+  if (routing) {
+    const tone = routing.priority === 'P0'
+      ? 'error'
+      : routing.priority === 'P1' || routing.priority === 'P2'
+        ? 'warning'
+        : 'success';
+
+    return (
+      <CodeAlert tone={tone}>
+        Action recommandée : {reviewRoutingActionLabels[routing.nextAction] || routing.nextAction}
+        {' '}· Responsable : {reviewRoutingOwnerLabels[routing.owner] || routing.owner}
+        {' '}· {routing.reason}
       </CodeAlert>
     );
   }
@@ -938,6 +989,12 @@ export default async function AdminReviewPage({ searchParams }) {
                         <p className="font-label text-[10px] text-[#6B3FA0]">Security gate</p>
                         <p className="mt-1 text-sm font-semibold text-[#111827]">
                           {agent.manifest.securityProfile.securityReviewRequired ? agent.manifest.securityProfile.securityReviewStatus : 'Non requis'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">
+                        <p className="font-label text-[10px] text-[#6B3FA0]">Routage review</p>
+                        <p className="mt-1 text-sm font-semibold text-[#111827]">
+                          {agent.manifest.reviewRouting.priority} · {reviewRoutingOwnerLabels[agent.manifest.reviewRouting.owner] || agent.manifest.reviewRouting.owner}
                         </p>
                       </div>
                       <div className="rounded-xl border border-[#DDD6FE] bg-white p-3">

@@ -172,6 +172,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     <CreatorEndpointWorkspaceActions
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
+      fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -180,11 +181,13 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       rentalId={rental.id}
       setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
       successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
+      trustWarnings={runtimeContract.workspaceRecipe?.trustWarnings ?? []}
     />
   ) : runtimeContract.runner.kind === 'workflow' ? (
     <WorkflowWorkspaceActions
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
+      fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -193,12 +196,14 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       rentalId={rental.id}
       setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
       successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
+      trustWarnings={runtimeContract.workspaceRecipe?.trustWarnings ?? []}
     />
   ) : runtimeContract.runner.kind === 'document' ? (
     <DocumentWorkspaceActions
       actions={runtimeContract.actions}
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
+      fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
       initialRuns={runtimeContract.history}
       locale="fr"
       maxFileBytes={runtimeContract.limits.maxFileBytes}
@@ -208,12 +213,14 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       rentalId={rental.id}
       setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
       successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
+      trustWarnings={runtimeContract.workspaceRecipe?.trustWarnings ?? []}
     />
   ) : (
     <WorkspaceRunActions
       actions={runtimeContract.actions}
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
+      fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
       initialRuns={runtimeContract.history}
       locale="fr"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -222,6 +229,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       rentalId={rental.id}
       setupChecklist={runtimeContract.workspaceRecipe?.setupChecklist ?? []}
       successCriteria={runtimeContract.workspaceRecipe?.successCriteria ?? []}
+      trustWarnings={runtimeContract.workspaceRecipe?.trustWarnings ?? []}
     />
   );
   const reviewSlot = (

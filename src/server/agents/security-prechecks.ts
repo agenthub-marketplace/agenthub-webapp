@@ -2,7 +2,13 @@ import "server-only";
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { isAgentRuntimeType } from "@/lib/agent-contract";
-import { buildAgentManifest, type AgentManifestV1, type SecurityPrecheckFinding, type SecurityPrecheckV0 } from "@/server/agents/manifest";
+import {
+  buildAgentManifest,
+  buildReviewRouting,
+  type AgentManifestV1,
+  type SecurityPrecheckFinding,
+  type SecurityPrecheckV0,
+} from "@/server/agents/manifest";
 
 type PrecheckStatus = "pending" | "running" | "passed" | "warning" | "failed" | "error" | "stale";
 type PrecheckTrigger = "admin_manual" | "admin_retry" | "resubmission" | "submission" | "system_refresh";
@@ -179,6 +185,10 @@ export function applyStoredSecurityPrecheck(manifest: AgentManifestV1 | null, st
 
   return {
     ...manifest,
+    reviewRouting: buildReviewRouting({
+      precheck: stored.precheck,
+      precheckStatus: stored.status,
+    }),
     securityPrecheck: stored.precheck,
     securityProfile: {
       ...manifest.securityProfile,

@@ -203,6 +203,48 @@ Asset approval actions are separate from final agent approval:
 - Endpoint moderation can independently move creator webhook/API endpoints to
   `approved`, `rejected`, or `suspended`.
 
+## Review Routing Overlay
+
+`AgentManifestV1.reviewRouting` is an orchestration overlay, not a persisted
+state.
+
+It does not add new transitions to the admin state machine. It gives the admin
+console and Codex loops a deterministic first action:
+
+```text
+P0 -> block publication or request creator changes before approval
+P1 -> clear security review, runtime ops, asset approval, or stale precheck
+P2 -> ask creator for clarification while preserving the existing state
+P3 -> proceed with standard human review
+```
+
+Owners are advisory:
+
+```text
+admin
+creator
+platform_ops
+security_reviewer
+```
+
+State-machine invariants still win:
+
+- `reviewRouting.nextAction = approve_assets` never approves the agent itself.
+- `reviewRouting.nextAction = run_security_review` never passes the review.
+- `reviewRouting.nextAction = request_creator_changes` still uses
+  `agents.status = in_review` plus admin review notes.
+- `reviewRouting.nextAction = review_standard` still requires explicit admin
+  action before `approved`.
+- `reviewRouting.blocksApproval = true` is an approval guard, not a DB status.
+
+Loop usage:
+
+- Start with `/code/admin` or `/code/admin/ops` routing counts.
+- Pick P0/P1 before broad UI polish.
+- Use this state map to verify the proposed fix preserves legal transitions.
+- Do not introduce `changes_requested`, `published`, or `restored` as persisted
+  states merely to satisfy routing labels.
+
 ## Invalid Or Risky Transitions To Preserve
 
 These transitions are currently blocked and should remain blocked unless a

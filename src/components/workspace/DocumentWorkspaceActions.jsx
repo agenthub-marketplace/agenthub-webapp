@@ -14,6 +14,7 @@ const copy = {
     disabled: 'Le runtime document est désactivé pour le moment.',
     emptyHistory: 'Aucune analyse de document enregistrée pour le moment.',
     error: 'Impossible de traiter ce document pour le moment.',
+    fallbackGuidance: 'Plan de secours',
     errors: {
       'document-file-already-used': 'Ce document a déjà été utilisé pour une analyse. Ajoutez-le à nouveau pour relancer.',
       'document-file-link-failed': 'Le document n’a pas pu être lié à cette analyse.',
@@ -48,6 +49,7 @@ const copy = {
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’analyses',
     successGuidance: 'Résultat attendu',
+    trustGuidance: 'Points de vigilance',
     title: 'Ajouter un document',
     upload: 'Extraire le document',
     uploading: 'Upload et extraction...',
@@ -57,6 +59,7 @@ const copy = {
     disabled: 'Document runtime is disabled right now.',
     emptyHistory: 'No document analysis history yet.',
     error: 'Unable to process this document right now.',
+    fallbackGuidance: 'Fallback path',
     errors: {
       'document-file-already-used': 'This document has already been used for an analysis. Upload it again to rerun.',
       'document-file-link-failed': 'The document could not be linked to this analysis.',
@@ -91,6 +94,7 @@ const copy = {
     showMore: 'View full result',
     showMoreHistory: 'Show more analyses',
     successGuidance: 'Expected result',
+    trustGuidance: 'Watch points',
     title: 'Add a document',
     upload: 'Extract document',
     uploading: 'Uploading and extracting...',
@@ -146,6 +150,7 @@ function errorLabel(errorCode, t) {
 export default function DocumentWorkspaceActions({
   actions = [],
   enabled = false,
+  fallbackPath = [],
   disabledMessage,
   initialRuns = [],
   locale = 'fr',
@@ -156,6 +161,7 @@ export default function DocumentWorkspaceActions({
   rentalId,
   setupChecklist = [],
   successCriteria = [],
+  trustWarnings = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -292,10 +298,14 @@ export default function DocumentWorkspaceActions({
       <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
 
       <WorkspaceRunGuidance
+        fallbackItems={fallbackPath}
+        fallbackTitle={t.fallbackGuidance}
         setupItems={setupChecklist}
         setupTitle={t.setupGuidance}
         successItems={successCriteria}
         successTitle={t.successGuidance}
+        warningItems={trustWarnings}
+        warningTitle={t.trustGuidance}
       />
 
       <div className="mb-5 rounded-2xl border border-[#F59E0B]/25 bg-[#F59E0B]/10 p-4 text-sm leading-relaxed text-[#FCD34D]">

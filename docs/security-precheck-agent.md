@@ -95,6 +95,25 @@ The precheck output should be JSON-compatible and safe to store.
 }
 ```
 
+The server manifest also derives a review routing hint from the latest stored
+precheck:
+
+```json
+{
+  "reviewRouting": {
+    "priority": "P0 | P1 | P2 | P3",
+    "owner": "admin | creator | platform_ops | security_reviewer",
+    "nextAction": "block_publication | request_creator_changes | run_security_review | approve_assets | review_standard | wait_precheck",
+    "blocksApproval": true,
+    "reason": "Short admin-readable reason."
+  }
+}
+```
+
+This routing hint is not an automatic decision. It is an orchestration signal
+for the admin queue, Codex audit loops, and future review automation. The human
+admin remains responsible for the final approve/reject/request-changes action.
+
 Each finding:
 
 ```json

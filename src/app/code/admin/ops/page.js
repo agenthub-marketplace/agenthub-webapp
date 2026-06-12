@@ -1,14 +1,21 @@
 import Link from 'next/link';
 import { requireAdminAccess } from '@/lib/auth/session';
 import { getAdminOpsSnapshot } from '@/server/admin/code-admin';
+import { getAdminReviewQueue } from '@/server/admin/review-queue';
 import { CodeAlert, CodePageHeader, CodePanel, StatusBadge, formatDate } from '../../_components/code-console-ui';
 import { AdminStatCard, EmptyAdminState } from '../_components/admin-shared';
+import { buildReviewRoutingSummary, routingActionLabels, routingOwnerLabels, routingToneByPriority } from '../_components/review-routing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminOpsPage() {
   await requireAdminAccess('fr', '/code/admin/ops');
-  const result = await getAdminOpsSnapshot();
+  const [result, reviewQueue] = await Promise.all([
+    getAdminOpsSnapshot(),
+    getAdminReviewQueue(),
+  ]);
+  const routingSummary = buildReviewRoutingSummary(reviewQueue.queue, { limit: 6 });
+  const blockingRoutes = routingSummary.routed.filter((item) => item.routing.blocksApproval).slice(0, 6);
 
   return (
     <main className="px-4 py-8 lg:px-8">
@@ -19,6 +26,7 @@ export default async function AdminOpsPage() {
       />
 
       {result.error && <CodeAlert tone="error">Impossible de charger les checks ops.</CodeAlert>}
+      {reviewQueue.error && <CodeAlert tone="error">Impossible de charger le routage des reviews.</CodeAlert>}
 
       <Link href="/code/admin/ops/advanced-agents" className="mb-6 block">
         <CodePanel tone="violet" className="transition hover:border-[#8B5CF6]">
@@ -53,6 +61,66 @@ export default async function AdminOpsPage() {
           <Link href="/code/admin/review" className="rounded-xl border border-[#8B5CF6] bg-white px-4 py-2 text-sm font-semibold text-[#5B21B6] hover:bg-[#F5F3FF]">
             Ouvrir la review
           </Link>
+        </div>
+      </CodePanel>
+
+      <CodePanel className="mb-6 border-[#C4B5FD] bg-[linear-gradient(135deg,#FFFFFF_0%,#F5F3FF_100%)]">
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="font-label mb-1 text-xs text-[#6B3FA0]">ROUTAGE REVIEW</p>
+            <h2 className="font-display text-xl font-bold text-[#111827]">File opérationnelle P0/P1/P2/P3</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Signal agrégé depuis le dernier précheck enregistré. À utiliser pour lancer les boucles Codex ciblées sans relire toute la file admin.
+            </p>
+          </div>
+          <Link href="/code/admin/review" className="rounded-xl border border-[#8B5CF6] bg-white px-4 py-2 text-sm font-semibold text-[#5B21B6] hover:bg-[#F5F3FF]">
+            Ouvrir review
+          </Link>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(routingSummary.counts).map(([priority, value]) => (
+              <div key={priority} className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-label text-xs text-[#6B3FA0]">{priority}</p>
+                  <StatusBadge status={routingToneByPriority[priority]} label={priority === 'P0' ? 'bloquant' : 'tri'} />
+                </div>
+                <p className="mt-2 font-display text-3xl font-bold text-[#111827]">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-display text-lg font-bold text-[#111827]">Blocages approval</h3>
+              <StatusBadge status={blockingRoutes.length > 0 ? 'failed' : 'approved'} label={`${blockingRoutes.length}`} />
+            </div>
+            {blockingRoutes.length === 0 ? (
+              <p className="text-sm text-[#6B7280]">Aucun blocage d’approbation dans la file courante.</p>
+            ) : (
+              <div className="grid gap-3">
+                {blockingRoutes.map(({ agent, routing }) => (
+                  <Link key={agent.id} href="/code/admin/review" className="rounded-xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 transition hover:border-[#8B5CF6] hover:bg-[#FAF7FF]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold text-[#111827]">{agent.name}</p>
+                          <StatusBadge status={routingToneByPriority[routing.priority]} label={routing.priority} />
+                        </div>
+                        <p className="mt-1 text-xs text-[#6B7280]">{agent.creatorName || 'Créateur inconnu'} · {formatDate(agent.createdAt)}</p>
+                        <p className="mt-2 text-xs leading-5 text-[#4B5563]">{routing.reason}</p>
+                      </div>
+                      <div className="text-right text-xs">
+                        <p className="font-semibold text-[#5B21B6]">{routingActionLabels[routing.nextAction] || routing.nextAction}</p>
+                        <p className="mt-1 text-[#64748B]">{routingOwnerLabels[routing.owner] || routing.owner}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </CodePanel>
 

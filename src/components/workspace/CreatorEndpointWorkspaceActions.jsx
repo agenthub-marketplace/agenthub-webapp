@@ -15,6 +15,7 @@ const copy = {
     disabled: 'L’agent API créateur est désactivé pour le moment.',
     emptyHistory: 'Aucun appel API enregistré pour le moment.',
     error: 'Impossible d’envoyer cette demande à l’agent API pour le moment.',
+    fallbackGuidance: 'Plan de secours',
     errors: {
       'creator-endpoint-invalid-json': 'L’API créateur a répondu dans un format invalide. Le créateur doit retourner un JSON avec output_text.',
       'creator-endpoint-missing-output': 'L’API créateur n’a pas retourné de résultat exploitable.',
@@ -46,6 +47,7 @@ const copy = {
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus d’appels API',
     successGuidance: 'Résultat attendu',
+    trustGuidance: 'Points de vigilance',
     title: 'Agent API créateur',
   },
   en: {
@@ -53,6 +55,7 @@ const copy = {
     disabled: 'The creator API agent is disabled right now.',
     emptyHistory: 'No API agent history yet.',
     error: 'Unable to send this request to the API agent right now.',
+    fallbackGuidance: 'Fallback path',
     errors: {
       'creator-endpoint-invalid-json': 'The creator API returned invalid JSON. It must return output_text.',
       'creator-endpoint-missing-output': 'The creator API did not return a usable result.',
@@ -85,6 +88,7 @@ const copy = {
     showMore: 'View full result',
     showMoreHistory: 'Show more API calls',
     successGuidance: 'Expected result',
+    trustGuidance: 'Watch points',
     title: 'Creator API agent',
   },
 };
@@ -131,6 +135,7 @@ function errorLabel(errorCode, t) {
 
 export default function CreatorEndpointWorkspaceActions({
   enabled = false,
+  fallbackPath = [],
   disabledMessage,
   initialRuns = [],
   locale = 'fr',
@@ -140,6 +145,7 @@ export default function CreatorEndpointWorkspaceActions({
   rentalId,
   setupChecklist = [],
   successCriteria = [],
+  trustWarnings = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [inputText, setInputText] = useState('');
@@ -275,10 +281,14 @@ export default function CreatorEndpointWorkspaceActions({
       <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
 
       <WorkspaceRunGuidance
+        fallbackItems={fallbackPath}
+        fallbackTitle={t.fallbackGuidance}
         setupItems={setupChecklist}
         setupTitle={t.setupGuidance}
         successItems={successCriteria}
         successTitle={t.successGuidance}
+        warningItems={trustWarnings}
+        warningTitle={t.trustGuidance}
       />
 
       {enabled && (

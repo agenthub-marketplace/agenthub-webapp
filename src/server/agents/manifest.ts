@@ -42,6 +42,24 @@ export type SecurityPrecheckV0 = {
   warnings: SecurityPrecheckFinding[];
 };
 
+export type AgentReviewRoutingPriority = "P0" | "P1" | "P2" | "P3";
+export type AgentReviewRoutingOwner = "admin" | "creator" | "platform_ops" | "security_reviewer";
+export type AgentReviewRoutingAction =
+  | "approve_assets"
+  | "block_publication"
+  | "request_creator_changes"
+  | "review_standard"
+  | "run_security_review"
+  | "wait_precheck";
+
+export type AgentReviewRoutingV0 = {
+  blocksApproval: boolean;
+  nextAction: AgentReviewRoutingAction;
+  owner: AgentReviewRoutingOwner;
+  priority: AgentReviewRoutingPriority;
+  reason: string;
+};
+
 export type AgentManifestV1 = {
   agentId: string;
   agentVersionId: string;
@@ -77,6 +95,7 @@ export type AgentManifestV1 = {
     payoutStatus: "not_enabled";
     pricingType: string;
   };
+  reviewRouting: AgentReviewRoutingV0;
   qualityProfile: {
     blockerCount: number;
     checks: AgentContractQualityCheck[];
@@ -275,6 +294,122 @@ function hasWorkflowDecisionStep(workflowDefinition: ReturnType<typeof normalize
     /\b(decid|class|priori|qualif|score|route|triage|cat[ée]gor|chois|select|rank|evaluate|assess|recommend|next action)\b/i;
 
   return workflowDefinition.steps.some((step) => step.type === "llm_step" && decisionPattern.test(step.label));
+}
+
+function findingCodes(findings: SecurityPrecheckFinding[]) {
+  return new Set(findings.map((finding) => finding.code));
+}
+
+export function buildReviewRouting(input: {
+  precheck: SecurityPrecheckV0;
+  precheckStatus: AgentManifestV1["securityProfile"]["precheckStatus"];
+}): AgentReviewRoutingV0 {
+  const blockerCodes = findingCodes(input.precheck.blockers);
+
+  if (input.precheckStatus === "stale" || input.precheckStatus === "error") {
+    return {
+      blocksApproval: true,
+      nextAction: "wait_precheck",
+      owner: "admin",
+      priority: "P0",
+      reason: "Le précheck est obsolète ou en erreur. L’admin doit le relancer avant toute décision.",
+    };
+  }
+
+  if (input.precheckStatus === "not_started" || input.precheckStatus === "pending" || input.precheckStatus === "running") {
+    return {
+      blocksApproval: true,
+      nextAction: "wait_precheck",
+      owner: "admin",
+      priority: "P1",
+      reason: "Le précheck n’est pas finalisé. L’admin doit attendre ou relancer avant d’approuver.",
+    };
+  }
+
+  if (input.precheck.recommendation === "block_publication" || input.precheck.riskLevel === "blocked" || input.precheck.blockers.length > 0) {
+    if (blockerCodes.has("runtime_disabled") || blockerCodes.has("runtime_run_disabled") || blockerCodes.has("runtime_setting_missing")) {
+      return {
+        blocksApproval: true,
+        nextAction: "block_publication",
+        owner: "platform_ops",
+        priority: "P0",
+        reason: "Le runtime plateforme bloque l’exécution. Il faut corriger la configuration avant publication.",
+      };
+    }
+
+    if (
+      blockerCodes.has("workflow_not_approved") ||
+      blockerCodes.has("workflow_missing") ||
+      blockerCodes.has("creator_endpoint_config_not_approved") ||
+      blockerCodes.has("creator_api_endpoint_not_approved") ||
+      blockerCodes.has("creator_endpoint_missing") ||
+      blockerCodes.has("creator_api_endpoint_missing")
+    ) {
+      return {
+        blocksApproval: true,
+        nextAction: "approve_assets",
+        owner: "admin",
+        priority: "P1",
+        reason: "Les assets workflow/API ne sont pas prêts. L’admin doit approuver ou rejeter ces assets avant publication.",
+      };
+    }
+
+    return {
+      blocksApproval: true,
+      nextAction: "request_creator_changes",
+      owner: "creator",
+      priority: "P0",
+      reason: "Le précheck détecte un blocage de publication à corriger par le creator ou à rejeter par l’admin.",
+    };
+  }
+
+  if (input.precheck.recommendation === "security_review_required" || input.precheck.warnings.some((finding) => finding.code === "security_review_required")) {
+    return {
+      blocksApproval: true,
+      nextAction: "run_security_review",
+      owner: "security_reviewer",
+      priority: "P1",
+      reason: "Un runtime sensible nécessite une security review passée ou waived avant publication.",
+    };
+  }
+
+  if (input.precheck.recommendation === "request_changes") {
+    return {
+      blocksApproval: false,
+      nextAction: "request_creator_changes",
+      owner: "creator",
+      priority: "P2",
+      reason: "La fiche est techniquement lisible, mais des clarifications creator amélioreraient la beta.",
+    };
+  }
+
+  if (input.precheck.riskLevel === "high") {
+    return {
+      blocksApproval: false,
+      nextAction: "run_security_review",
+      owner: "security_reviewer",
+      priority: "P1",
+      reason: "Aucun blocage déterministe, mais le risque élevé justifie une review approfondie.",
+    };
+  }
+
+  if (input.precheck.riskLevel === "medium") {
+    return {
+      blocksApproval: false,
+      nextAction: "request_creator_changes",
+      owner: "creator",
+      priority: "P2",
+      reason: "Quelques points doivent être clarifiés avant une publication confortable en beta.",
+    };
+  }
+
+  return {
+    blocksApproval: false,
+    nextAction: "review_standard",
+    owner: "admin",
+    priority: "P3",
+    reason: "Aucun blocage détecté. L’admin peut faire la review standard et décider.",
+  };
 }
 
 function buildSecurityPrecheck(input: {
@@ -745,6 +880,11 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     workflowDefinition,
     workflowRow,
   });
+  const precheckStatus = "not_started";
+  const reviewRouting = buildReviewRouting({
+    precheck: securityPrecheck,
+    precheckStatus,
+  });
 
   return {
     error: null,
@@ -783,6 +923,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
         payoutStatus: "not_enabled",
         pricingType: agent.pricing_type,
       },
+      reviewRouting,
       qualityProfile: {
         blockerCount: qualityReport.blockerCount,
         checks: qualityReport.checks,
@@ -811,7 +952,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
       securityProfile: {
         blockingFindings,
         precheckRequired: true,
-        precheckStatus: "not_started",
+        precheckStatus,
         securityReviewRequired: requiresSecurityReview,
         securityReviewStatus,
         warnings: [],

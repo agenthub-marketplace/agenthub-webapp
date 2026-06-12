@@ -14,6 +14,7 @@ const copy = {
     emptyHistory: 'Aucun workflow enregistré pour le moment.',
     error: 'Impossible de lancer ce workflow pour le moment.',
     currentStep: 'EN COURS',
+    fallbackGuidance: 'Plan de secours',
     errors: {
       'access-not-active': 'Cet accès n’est plus actif.',
       'agent-not-approved': 'Cet agent n’est pas encore approuvé pour l’exécution.',
@@ -46,6 +47,7 @@ const copy = {
     showMore: 'Voir le résultat complet',
     showMoreHistory: 'Voir plus de workflows',
     successGuidance: 'Résultat attendu',
+    trustGuidance: 'Points de vigilance',
     stepOutput: 'Résultat étape',
     stepsTitle: 'Progression des étapes',
     stepTypes: {
@@ -59,6 +61,7 @@ const copy = {
     emptyHistory: 'No workflow history yet.',
     error: 'Unable to run this workflow right now.',
     currentStep: 'CURRENT',
+    fallbackGuidance: 'Fallback path',
     errors: {
       'access-not-active': 'This access is no longer active.',
       'agent-not-approved': 'This agent is not approved for execution yet.',
@@ -91,6 +94,7 @@ const copy = {
     showMore: 'View full result',
     showMoreHistory: 'Show more workflows',
     successGuidance: 'Expected result',
+    trustGuidance: 'Watch points',
     stepOutput: 'Step output',
     stepsTitle: 'Step progress',
     stepTypes: {
@@ -193,6 +197,7 @@ function WorkflowStepProgress({ locale, t, workflowRun }) {
 
 export default function WorkflowWorkspaceActions({
   enabled = false,
+  fallbackPath = [],
   disabledMessage,
   initialRuns = [],
   locale = 'fr',
@@ -202,6 +207,7 @@ export default function WorkflowWorkspaceActions({
   rentalId,
   setupChecklist = [],
   successCriteria = [],
+  trustWarnings = [],
 }) {
   const t = copy[locale] ?? copy.fr;
   const [inputText, setInputText] = useState('');
@@ -358,10 +364,14 @@ export default function WorkflowWorkspaceActions({
       <WorkspaceNextActions focusTitle={t.nextActionNow} items={nextActions} title={t.nextActions} />
 
       <WorkspaceRunGuidance
+        fallbackItems={fallbackPath}
+        fallbackTitle={t.fallbackGuidance}
         setupItems={setupChecklist}
         setupTitle={t.setupGuidance}
         successItems={successCriteria}
         successTitle={t.successGuidance}
+        warningItems={trustWarnings}
+        warningTitle={t.trustGuidance}
       />
 
       {enabled && (
