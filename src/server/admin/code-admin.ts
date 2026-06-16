@@ -231,7 +231,7 @@ function readSingle<T>(value: T | T[] | null) {
 }
 
 async function countMissingLedgerEvents(input: {
-  eventType: "access_created" | "access_stopped" | "payment_paid";
+  eventType: "access_created" | "access_stopped" | "activation_blocked" | "payment_paid";
   paymentIds: string[];
   supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 }) {
@@ -262,6 +262,7 @@ async function countMissingLedgerEvents(input: {
 
 async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>) {
   const paidPaymentIds: string[] = [];
+  const blockedPaymentIds: string[] = [];
   const paidAccessPaymentIds: string[] = [];
   const stoppedRentalIds: string[] = [];
   const stoppedAccessPaymentIds: string[] = [];
@@ -269,13 +270,14 @@ async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof creat
   for (let from = 0; ; from += OPS_LEDGER_PAGE_SIZE) {
     const { data } = await supabase
       .from("payments")
-      .select("id")
+      .select("id,status")
       .in("status", ["paid", "paid_blocked"])
       .range(from, from + OPS_LEDGER_PAGE_SIZE - 1)
-      .returns<PaymentLedgerCheckRow[]>();
+      .returns<Array<PaymentLedgerCheckRow & { status: "paid" | "paid_blocked" }>>();
     const rows = data ?? [];
 
-    paidPaymentIds.push(...rows.map((row) => row.id));
+    paidPaymentIds.push(...rows.filter((row) => row.status === "paid").map((row) => row.id));
+    blockedPaymentIds.push(...rows.filter((row) => row.status === "paid_blocked").map((row) => row.id));
 
     if (rows.length < OPS_LEDGER_PAGE_SIZE) {
       break;
@@ -327,10 +329,15 @@ async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof creat
     stoppedAccessPaymentIds.push(...(data ?? []).map((row) => row.id));
   }
 
-  const [missingPaymentPaid, missingAccessCreated, missingAccessStopped] = await Promise.all([
+  const [missingPaymentPaid, missingActivationBlocked, missingAccessCreated, missingAccessStopped] = await Promise.all([
     countMissingLedgerEvents({
       eventType: "payment_paid",
       paymentIds: paidPaymentIds,
+      supabase,
+    }),
+    countMissingLedgerEvents({
+      eventType: "activation_blocked",
+      paymentIds: blockedPaymentIds,
       supabase,
     }),
     countMissingLedgerEvents({
@@ -348,6 +355,7 @@ async function loadLedgerGapCounts(supabase: NonNullable<ReturnType<typeof creat
   return {
     missingAccessCreated,
     missingAccessStopped,
+    missingActivationBlocked,
     missingPaymentPaid,
   };
 }
@@ -730,6 +738,7 @@ export async function getAdminOpsSnapshot() {
       { key: "ledger-blocked", label: "Ledger bloqué", value: ledgerBlocked.count ?? 0, tone: (ledgerBlocked.count ?? 0) > 0 ? "warning" : "success" },
       { key: "ledger-payout-ready", label: "Ledger payout-ready", value: ledgerPayoutReady.count ?? 0, tone: "neutral" },
       { key: "ledger-missing-payment-paid", label: "Ledger paiement manquant", value: ledgerGaps.missingPaymentPaid, tone: ledgerGaps.missingPaymentPaid > 0 ? "error" : "success" },
+      { key: "ledger-missing-activation-blocked", label: "Ledger blocage manquant", value: ledgerGaps.missingActivationBlocked, tone: ledgerGaps.missingActivationBlocked > 0 ? "warning" : "success" },
       { key: "ledger-missing-access-created", label: "Ledger accès manquant", value: ledgerGaps.missingAccessCreated, tone: ledgerGaps.missingAccessCreated > 0 ? "error" : "success" },
       { key: "ledger-missing-access-stopped", label: "Ledger arrêt accès manquant", value: ledgerGaps.missingAccessStopped, tone: ledgerGaps.missingAccessStopped > 0 ? "warning" : "success" },
       { key: "security-precheck-missing", label: "Préchecks manquants", value: missingFinalPrecheckCount, tone: missingFinalPrecheckCount > 0 ? "error" : "success" },
@@ -923,19 +932,21 @@ export async function getAdvancedAgentDiagnostics() {
   const supabase = createSupabaseServiceClient();
 
   if (!supabase) {
-    return { diagnostics: [], error: "missing-config", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "missing-config", summary: { averageReadiness: 0, blocked: 0, fallbackRequired: 0, ready: 0, total: 0 } };
   }
 
   const { data: versions, error: versionError } = await supabase
     .from("agent_versions")
-    .select("id,agent_id,runtime_type,execution_mode,workspace_mode,created_at,agents!inner(id,name,slug,status,creator_id,active_version_id)")
+    .select(
+      "id,agent_id,runtime_type,execution_mode,workspace_mode,created_at,agents!agent_versions_agent_id_fkey!inner(id,name,slug,status,creator_id,active_version_id)",
+    )
     .in("runtime_type", ["workflow_automation", "creator_endpoint"])
     .order("created_at", { ascending: false })
     .limit(100)
     .returns<AdvancedAgentVersionRow[]>();
 
   if (versionError) {
-    return { diagnostics: [], error: "advanced-agents-load-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "advanced-agents-load-failed", summary: { averageReadiness: 0, blocked: 0, fallbackRequired: 0, ready: 0, total: 0 } };
   }
 
   const normalizedVersions: Array<AdvancedAgentVersionRow & { agent: AdvancedAgentRow }> = [];
@@ -1020,7 +1031,7 @@ export async function getAdvancedAgentDiagnostics() {
     securityReviewsResult.error ||
     runsResult.error
   ) {
-    return { diagnostics: [], error: "advanced-agents-related-data-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
+    return { diagnostics: [], error: "advanced-agents-related-data-failed", summary: { averageReadiness: 0, blocked: 0, fallbackRequired: 0, ready: 0, total: 0 } };
   }
 
   const creatorsById = new Map((creatorsResult.data ?? []).map((creator) => [creator.id, creator]));
@@ -1069,12 +1080,8 @@ export async function getAdvancedAgentDiagnostics() {
         .returns<EndpointHealthAuditRow[]>()
     : { data: [] as EndpointHealthAuditRow[], error: null };
 
-  if (endpointHealthResult.error || workflowWebhookHealthResult.error) {
-    return { diagnostics: [], error: "advanced-agents-health-load-failed", summary: { averageReadiness: 0, blocked: 0, ready: 0, total: 0 } };
-  }
-
-  const endpointHealthById = latestHealthByEndpoint(endpointHealthResult.data);
-  const workflowWebhookHealthById = latestHealthByEndpoint(workflowWebhookHealthResult.data);
+  const endpointHealthById = latestHealthByEndpoint(endpointHealthResult.error ? [] : endpointHealthResult.data);
+  const workflowWebhookHealthById = latestHealthByEndpoint(workflowWebhookHealthResult.error ? [] : workflowWebhookHealthResult.data);
 
   const diagnostics = normalizedVersions.map((version) => {
     const setting = settingsByRuntime.get(version.runtime_type);
@@ -1282,6 +1289,7 @@ export async function getAdvancedAgentDiagnostics() {
         ? Math.round(diagnostics.reduce((sum, item) => sum + item.readiness.score, 0) / diagnostics.length)
         : 0,
       blocked: diagnostics.filter((item) => !item.ready).length,
+      fallbackRequired: diagnostics.filter((item) => item.workspaceCompatibility.decision.fallbackRequired).length,
       ready: diagnostics.filter((item) => item.ready).length,
       total: diagnostics.length,
     },

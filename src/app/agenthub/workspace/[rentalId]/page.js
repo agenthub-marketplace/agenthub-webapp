@@ -148,6 +148,12 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const accessCreated = query?.access === 'created';
   const reviewSubmitted = query?.reviewSubmitted === rental.id;
   const reviewError = typeof query?.reviewError === 'string' ? query.reviewError : null;
+  const reviewErrorMessage =
+    reviewError === 'review-run-required'
+      ? 'Lancez cet agent une fois depuis le workspace avant de laisser un avis vérifié.'
+      : reviewError === 'review-run-check-failed'
+        ? 'Impossible de vérifier l’historique d’exécution pour cet avis pour le moment.'
+        : 'Impossible de publier cet avis pour le moment.';
   const requestedTab = typeof query?.tab === 'string' ? query.tab : 'overview';
   const activeTab = ['overview', 'setup', 'use', 'details', 'review'].includes(requestedTab) ? requestedTab : 'overview';
   const contract = rental.agent.contract;
@@ -160,6 +166,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     workspaceMode: contract.workspaceMode,
   });
   const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
+  const hasSuccessfulRun = agentRuns.some((run) => run.status === 'succeeded');
   const runtimeContract = await buildWorkspaceRuntimeContract({
     actions,
     agentRuns,
@@ -241,7 +248,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       )}
       {reviewError && (
         <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
-          Impossible de publier cet avis pour le moment.
+          {reviewErrorMessage}
         </div>
       )}
       {rental.review ? (
@@ -253,6 +260,17 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </div>
           {rental.review.title && <p className="font-display font-bold text-[#F4EFFA]">{rental.review.title}</p>}
           {rental.review.body && <p className="mt-2 text-sm text-[#C8B1E4]">{rental.review.body}</p>}
+        </div>
+      ) : !hasSuccessfulRun ? (
+        <div className="rounded-2xl border border-[#6B3FA0]/40 bg-[#120C24] p-4 text-sm leading-6 text-[#C8B1E4]">
+          <p className="font-label mb-2 text-xs text-[#B794F4]">AVIS APRÈS UTILISATION</p>
+          <p>Lancez cet agent au moins une fois et vérifiez le résultat stocké dans l’historique avant de publier un avis vérifié.</p>
+          <Link
+            href={`/agenthub/workspace/${rental.id}?tab=use`}
+            className="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-[#532B88] px-4 text-sm font-bold text-white transition-colors hover:bg-[#7C3AED]"
+          >
+            Lancer l’agent
+          </Link>
         </div>
       ) : (
         <form action={reviewAction} className="space-y-3">

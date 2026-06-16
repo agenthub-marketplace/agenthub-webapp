@@ -63,6 +63,8 @@ function infraDescription(item) {
 }
 
 function WorkspaceCompatibility({ compatibility }) {
+  const decision = compatibility.decision;
+
   return (
     <div className="rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,6 +75,24 @@ function WorkspaceCompatibility({ compatibility }) {
         <StatusBadge status={compatibilityTone(compatibility.status)} label={compatibility.status === 'ready' ? 'Compatible' : compatibility.status === 'review_required' ? 'À revoir' : 'Bloqué'} />
       </div>
       <p className="mt-3 text-xs leading-5 text-[#64748B]">{compatibility.detail}</p>
+      {decision && (
+        <div className="mt-3 rounded-xl border border-[#E9D5FF] bg-white p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-label text-[10px] text-[#6B3FA0]">Décision workspace</p>
+              <p className="mt-1 text-sm font-bold text-[#111827]">
+                {decision.fallbackRequired ? 'Fallback creator requis' : 'Workspace AgentHub compatible'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#64748B]">{decision.adminAction}</p>
+              <p className="mt-2 text-xs leading-5 text-[#7C3AED]">{decision.userDisclosure}</p>
+            </div>
+            <StatusBadge
+              status={decision.fallbackRequired ? 'in_review' : 'approved'}
+              label={decision.runtimeOwner === 'creator' ? 'Creator-owned' : decision.runtimeOwner === 'hybrid' ? 'Hybrid' : 'AgentHub-owned'}
+            />
+          </div>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {compatibility.checks.map((check) => (
           <StatusBadge
@@ -214,10 +234,11 @@ export default async function AdvancedAgentsOpsPage() {
 
       {result.error && <CodeAlert tone="error">Impossible de charger le diagnostic agents avancés.</CodeAlert>}
 
-      <section className="mb-6 grid gap-4 md:grid-cols-4">
+      <section className="mb-6 grid gap-4 md:grid-cols-5">
         <AdminStatCard label="Agents avancés" value={result.summary.total} />
         <AdminStatCard label="Prêts beta" value={result.summary.ready} tone="success" />
         <AdminStatCard label="Bloqués" value={result.summary.blocked} tone={result.summary.blocked > 0 ? 'warning' : 'success'} />
+        <AdminStatCard label="Fallback creator" value={result.summary.fallbackRequired} tone={result.summary.fallbackRequired > 0 ? 'warning' : 'success'} />
         <AdminStatCard label="Readiness moyenne" value={`${result.summary.averageReadiness}/100`} tone={result.summary.averageReadiness >= 90 ? 'success' : result.summary.averageReadiness >= 70 ? 'warning' : 'error'} />
       </section>
 

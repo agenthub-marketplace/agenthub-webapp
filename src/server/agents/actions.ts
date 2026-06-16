@@ -83,6 +83,22 @@ function redirectWithEditError(locale: Locale, agentId: string, error: string): 
   redirect(`/code/agents/${agentId}/edit?error=${encodeURIComponent(error)}`);
 }
 
+function revalidateAgentSubmissionSurfaces(locale: Locale) {
+  revalidatePath(localizedPath("/creator", locale));
+  revalidatePath(localizedPath("/creator/dashboard", locale));
+  revalidatePath("/admin");
+  revalidatePath("/en/admin");
+  revalidatePath("/code");
+  revalidatePath("/code/dashboard");
+  revalidatePath("/code/agents");
+  revalidatePath("/code/admin");
+  revalidatePath("/code/admin/review");
+  revalidatePath("/code/admin/security");
+  revalidatePath("/code/admin/security/reviews");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/ops/advanced-agents");
+}
+
 function slugify(value: string) {
   const slug = value
     .toLowerCase()
@@ -588,19 +604,17 @@ export async function submitAgentForReviewAction(locale: Locale, formData: FormD
     agentId,
     trigger: "submission",
   });
+  const precheckFailed = Boolean(precheckResult.error);
 
-  if (precheckResult.error) {
+  if (precheckFailed) {
     console.warn("Security precheck generation failed after agent submission", {
       agentId,
       error: precheckResult.error,
     });
   }
 
-  revalidatePath(localizedPath("/creator", locale));
-  revalidatePath(localizedPath("/creator/dashboard", locale));
-  revalidatePath("/code");
-  revalidatePath("/code/agents");
-  redirect(`/code/agents?submitted=${encodeURIComponent(slug)}`);
+  revalidateAgentSubmissionSurfaces(locale);
+  redirect(`/code/agents?submitted=${encodeURIComponent(slug)}${precheckFailed ? "&precheck=failed" : "&precheck=completed"}`);
 }
 
 export async function resubmitAgentChangesAction(locale: Locale, formData: FormData) {
@@ -838,19 +852,15 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     agentId,
     trigger: "resubmission",
   });
+  const precheckFailed = Boolean(precheckResult.error);
 
-  if (precheckResult.error) {
+  if (precheckFailed) {
     console.warn("Security precheck generation failed after agent resubmission", {
       agentId,
       error: precheckResult.error,
     });
   }
 
-  revalidatePath(localizedPath("/creator", locale));
-  revalidatePath(localizedPath("/creator/dashboard", locale));
-  revalidatePath("/admin");
-  revalidatePath("/en/admin");
-  revalidatePath("/code");
-  revalidatePath("/code/agents");
-  redirect(`/code/agents?submitted=${encodeURIComponent(values.name)}`);
+  revalidateAgentSubmissionSurfaces(locale);
+  redirect(`/code/agents?submitted=${encodeURIComponent(values.name)}${precheckFailed ? "&precheck=failed" : "&precheck=completed"}`);
 }

@@ -1,6 +1,6 @@
 import { requireAuth } from '@/lib/auth/session';
 import { getUserPaymentOrders, getUserRentals } from '@/server/rentals/user-rentals';
-import DashboardContent from '../../dashboard/dashboard-content';
+import DashboardContent from '../../agenthub/dashboard/dashboard-content';
 
 export default async function DashboardPage({ searchParams }) {
   const profile = await requireAuth('en', '/en/dashboard');
@@ -22,6 +22,7 @@ export default async function DashboardPage({ searchParams }) {
       reviewSubmitted={typeof params?.reviewSubmitted === 'string' ? params.reviewSubmitted : null}
       reviewError={typeof params?.reviewError === 'string' ? params.reviewError : null}
       rentalCreated={typeof params?.rental === 'string' ? params.rental === "created" : false}
+      codeAccessRequired={params?.codeAccess === "creator-required"}
       locale="en"
     />
   );

@@ -1,11 +1,25 @@
 'use client';
 
+function actionText(item) {
+  if (typeof item === 'string') {
+    return item;
+  }
+
+  if (item && typeof item === 'object') {
+    return item.label || item.title || item.text || item.key || '';
+  }
+
+  return '';
+}
+
 export default function WorkspaceNextActions({ focusTitle, items = [], title }) {
-  if (!items.length) {
+  const visibleItems = items.map(actionText).filter(Boolean);
+
+  if (!visibleItems.length) {
     return null;
   }
 
-  const [firstAction, ...otherActions] = items;
+  const [firstAction, ...otherActions] = visibleItems;
 
   return (
     <div className="mb-5 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-4">

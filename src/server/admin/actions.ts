@@ -23,6 +23,7 @@ type AgentReviewRow = {
   id: string;
   active_version_id: string | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
+  slug: string | null;
   status: "submitted" | "in_review" | "approved" | "rejected" | "suspended" | "draft";
 };
 
@@ -30,6 +31,7 @@ type AgentModerationRow = {
   id: string;
   active_version_id: string | null;
   risk_level: "low" | "medium" | "high" | "forbidden_beta";
+  slug: string | null;
   status: "approved" | "suspended" | "submitted" | "in_review" | "rejected" | "draft" | "archived";
 };
 
@@ -40,6 +42,7 @@ type AgentVersionRuntimeRow = {
 
 type RuntimeSettingRow = {
   enabled: boolean;
+  run_enabled: boolean;
   runtime_type: AgentRuntimeType;
 };
 
@@ -109,6 +112,34 @@ function redirectWithError(locale: Locale, error: string): never {
 
 function redirectWithAgentsError(locale: Locale, error: string): never {
   redirect(`/code/admin/agents?error=${encodeURIComponent(error)}`);
+}
+
+function revalidateAgentPublicationSurfaces(agentSlug?: string | null) {
+  revalidatePath("/admin");
+  revalidatePath("/en/admin");
+  revalidatePath("/code");
+  revalidatePath("/code/dashboard");
+  revalidatePath("/code/agents");
+  revalidatePath("/code/admin");
+  revalidatePath("/code/admin/agents");
+  revalidatePath("/code/admin/review");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/ops/advanced-agents");
+  revalidatePath("/creator");
+  revalidatePath("/creator/dashboard");
+  revalidatePath("/en/creator");
+  revalidatePath("/en/creator/dashboard");
+  revalidatePath("/search");
+  revalidatePath("/en/search");
+  revalidatePath("/marketplace");
+  revalidatePath("/en/marketplace");
+  revalidatePath("/agenthub/search");
+
+  if (agentSlug) {
+    revalidatePath(`/agents/${agentSlug}`);
+    revalidatePath(`/en/agents/${agentSlug}`);
+    revalidatePath(`/agenthub/agents/${agentSlug}`);
+  }
 }
 
 function redirectToAdminCode(path: string, error?: string): never {
@@ -745,6 +776,8 @@ export async function createSecurityReviewAction(formData: FormData) {
   revalidatePath("/code/admin/review");
   revalidatePath("/code/admin/security");
   revalidatePath("/code/admin/security/reviews");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/ops/advanced-agents");
   redirect(`/code/admin/security/reviews/${review.id}`);
 }
 
@@ -768,6 +801,12 @@ export async function generateSecurityPrecheckAction(formData: FormData) {
 
   revalidatePath("/code/admin/review");
   revalidatePath("/code/admin/security");
+  revalidatePath("/code/admin/security/reviews");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/ops/advanced-agents");
+  revalidatePath("/code");
+  revalidatePath("/code/dashboard");
+  revalidatePath("/code/agents");
   redirect(`/code/admin/review?prechecked=${encodeURIComponent(agentId)}`);
 }
 
@@ -790,7 +829,7 @@ export async function reviewAgentAction(formData: FormData) {
 
   const { data: agent, error: agentError } = await supabase
     .from("agents")
-    .select("id,active_version_id,risk_level,status")
+    .select("id,active_version_id,risk_level,slug,status")
     .eq("id", agentId)
     .maybeSingle<AgentReviewRow>();
 
@@ -847,11 +886,15 @@ export async function reviewAgentAction(formData: FormData) {
 
     const { data: runtimeSetting, error: runtimeSettingError } = await supabase
       .from("agent_runtime_settings")
-      .select("runtime_type,enabled")
+      .select("runtime_type,enabled,run_enabled")
       .eq("runtime_type", runtimeType)
       .maybeSingle<RuntimeSettingRow>();
 
     if (runtimeSettingError || !runtimeSetting?.enabled) {
+      redirectWithError(locale, "runtime-disabled");
+    }
+
+    if (runtimeType !== "static_guided" && !runtimeSetting.run_enabled) {
       redirectWithError(locale, "runtime-disabled");
     }
 
@@ -980,15 +1023,7 @@ export async function reviewAgentAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/en/admin");
-  revalidatePath("/code/admin/review");
-  revalidatePath("/code/admin/agents");
-  revalidatePath("/creator");
-  revalidatePath("/creator/dashboard");
-  revalidatePath("/en/creator");
-  revalidatePath("/en/creator/dashboard");
-  revalidatePath("/search");
+  revalidateAgentPublicationSurfaces(agent.slug);
 
   redirect(`/code/admin/review?reviewed=${encodeURIComponent(agent.id)}`);
 }
@@ -1015,7 +1050,7 @@ export async function moderateAgentPublicationAction(formData: FormData) {
 
   const { data: agent, error: agentError } = await supabase
     .from("agents")
-    .select("id,active_version_id,risk_level,status")
+    .select("id,active_version_id,risk_level,slug,status")
     .eq("id", agentId)
     .maybeSingle<AgentModerationRow>();
 
@@ -1051,18 +1086,7 @@ export async function moderateAgentPublicationAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin");
-  revalidatePath("/en/admin");
-  revalidatePath("/code/admin/agents");
-  revalidatePath("/code/admin/review");
-  revalidatePath("/search");
-  revalidatePath("/en/search");
-  revalidatePath("/marketplace");
-  revalidatePath("/en/marketplace");
-  revalidatePath("/creator");
-  revalidatePath("/creator/dashboard");
-  revalidatePath("/en/creator");
-  revalidatePath("/en/creator/dashboard");
+  revalidateAgentPublicationSurfaces(agent.slug);
 
   redirect(`/code/admin/agents?moderated=${encodeURIComponent(updatedAgent.id)}`);
 }

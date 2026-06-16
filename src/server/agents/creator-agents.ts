@@ -1,7 +1,15 @@
 import "server-only";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { buildAgentWorkspaceBlueprint, type AgentWorkspaceBlueprintV1 } from "@/server/agents/workspace-blueprint";
+import {
+  buildWorkspaceCompatibilityDiagnostic,
+  workspaceCompatibilityMode,
+  type WorkspaceCompatibilityDiagnostic,
+} from "@/server/agents/workspace-compatibility";
+import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 import type { AgentStatus, PricingType } from "@/types/agent";
 
 export type AgentCategoryOption = {
@@ -26,6 +34,18 @@ export type CreatorAgentListItem = {
   rating: number;
   reviews: number;
   version: Pick<AgentContract, "executionMode" | "runtimeType" | "workspaceMode"> | null;
+  workspaceSignal: {
+    detail: string;
+    fallbackRequired: boolean;
+    label: string;
+    mode: "agenthub_hosted" | "creator_infra_required" | "hybrid_creator_infra";
+  } | null;
+  securityPrecheckSignal: {
+    label: string;
+    recommendedAction: string;
+    riskLevel: string;
+    status: string;
+  } | null;
   latestAdminReview: {
     decision: AgentStatus;
     notes: string | null;
@@ -83,11 +103,33 @@ export type CreatorAgentAccessStats = {
   cancelled: number;
 };
 
+export type CreatorWorkspaceReadiness = {
+  blueprint: AgentWorkspaceBlueprintV1;
+  compatibility: WorkspaceCompatibilityDiagnostic;
+};
+
+export type CreatorSecurityPrecheckSummary = {
+  createdAt: string;
+  findings: Array<{
+    detail: string;
+    severity: "blocker" | "warning";
+    title: string;
+  }>;
+  label: string;
+  recommendedAction: string;
+  riskLevel: string;
+  riskScore: number;
+  status: string;
+  summary: string;
+};
+
 export type CreatorAgentDetailItem = CreatorAgentListItem & {
   analyticsLimited: boolean;
   description: string;
   accessStats: CreatorAgentAccessStats;
   recentRuns: CreatorAgentRunSummary[];
+  securityPrecheck: CreatorSecurityPrecheckSummary | null;
+  workspaceReadiness: CreatorWorkspaceReadiness | null;
   version:
     | ({
         capabilities: string[];
@@ -127,6 +169,11 @@ type AgentVersionListRow = {
   workspace_mode: string | null;
 };
 
+type WorkflowListRow = {
+  agent_version_id: string;
+  definition: unknown;
+};
+
 type AgentReviewRatingRow = {
   agent_id: string;
   rating: number;
@@ -143,6 +190,39 @@ type AgentVersionEditRow = {
   execution_mode: string | null;
   runtime_type: string | null;
   data_policy: unknown;
+};
+
+type RuntimeSettingReadinessRow = {
+  enabled: boolean;
+  run_enabled: boolean;
+};
+
+type WorkflowReadinessRow = {
+  definition: unknown;
+  status: string;
+};
+
+type EndpointReadinessRow = {
+  creator_api_endpoints:
+    | { status: string }
+    | { status: string }[]
+    | null;
+  status: string;
+};
+
+type SecurityReviewReadinessRow = {
+  status: string;
+};
+
+type CreatorSecurityPrecheckRow = {
+  agent_version_id: string;
+  created_at: string;
+  findings: unknown;
+  recommended_action: string;
+  risk_level_suggested: string;
+  risk_score: number;
+  status: string;
+  summary: string | null;
 };
 
 type AdminReviewFeedbackRow = {
@@ -174,6 +254,228 @@ function readCategoryName(category: CreatorAgentRow["agent_categories"]) {
   }
 
   return category?.name ?? null;
+}
+
+function readSingle<T>(value: T | T[] | null | undefined) {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function creatorPrecheckLabel(status: string, riskLevel: string) {
+  if (status === "passed") {
+    return "Précheck OK";
+  }
+
+  if (status === "warning") {
+    return "Précheck à surveiller";
+  }
+
+  if (status === "failed" || riskLevel === "blocked") {
+    return "Précheck bloquant";
+  }
+
+  if (status === "error") {
+    return "Précheck à relancer";
+  }
+
+  if (status === "stale") {
+    return "Précheck obsolète";
+  }
+
+  return "Précheck en attente";
+}
+
+function isCreatorVisibleFinding(value: unknown): value is {
+  detail: string;
+  severity: "blocker" | "warning" | "pass";
+  title: string;
+} {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    typeof (value as { detail?: unknown }).detail === "string" &&
+    typeof (value as { title?: unknown }).title === "string" &&
+    ["blocker", "warning", "pass"].includes(String((value as { severity?: unknown }).severity))
+  );
+}
+
+function isCreatorActionableFinding(value: {
+  detail: string;
+  severity: "blocker" | "warning" | "pass";
+  title: string;
+}): value is {
+  detail: string;
+  severity: "blocker" | "warning";
+  title: string;
+} {
+  return value.severity === "blocker" || value.severity === "warning";
+}
+
+function mapCreatorSecurityPrecheck(row: CreatorSecurityPrecheckRow | null | undefined): CreatorSecurityPrecheckSummary | null {
+  if (!row) {
+    return null;
+  }
+
+  const findings = Array.isArray(row.findings)
+    ? row.findings
+        .filter(isCreatorVisibleFinding)
+        .filter(isCreatorActionableFinding)
+        .slice(0, 5)
+        .map((finding) => ({
+          detail: finding.detail,
+          severity: finding.severity,
+          title: finding.title,
+        }))
+    : [];
+
+  return {
+    createdAt: row.created_at,
+    findings,
+    label: creatorPrecheckLabel(row.status, row.risk_level_suggested),
+    recommendedAction: row.recommended_action,
+    riskLevel: row.risk_level_suggested,
+    riskScore: row.risk_score,
+    status: row.status,
+    summary: row.summary ?? "Précheck sécurité enregistré. L’admin garde la décision finale.",
+  };
+}
+
+function buildCreatorWorkspaceSignal(input: {
+  runtimeType: AgentContract["runtimeType"];
+  workflowDefinition?: unknown;
+}) {
+  const workflowDefinition = normalizeWorkflowDefinition(input.workflowDefinition);
+  const webhookStepCount = workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0;
+  const mode = workspaceCompatibilityMode({
+    runtimeType: input.runtimeType,
+    workflowWebhookStepCount: webhookStepCount,
+  });
+
+  if (mode === "creator_infra_required") {
+    return {
+      detail: "L’exécution dépendra d’un endpoint creator approuvé et appelé côté serveur.",
+      fallbackRequired: true,
+      label: "Fallback infra créateur",
+      mode,
+    };
+  }
+
+  if (mode === "hybrid_creator_infra") {
+    return {
+      detail: "AgentHub orchestre le workflow, avec au moins un webhook creator approuvé.",
+      fallbackRequired: true,
+      label: "Workspace hybride",
+      mode,
+    };
+  }
+
+  if (input.runtimeType === "document_file") {
+    return {
+      detail: "Workspace document AgentHub avec fichier privé et extraction texte beta.",
+      fallbackRequired: false,
+      label: "Workspace document",
+      mode,
+    };
+  }
+
+  if (input.runtimeType === "workflow_automation") {
+    return {
+      detail: "Workflow orchestré par AgentHub sans webhook creator détecté.",
+      fallbackRequired: false,
+      label: "Workspace AgentHub",
+      mode,
+    };
+  }
+
+  return {
+    detail: "Workspace AgentHub standard avec historique et avis vérifié.",
+    fallbackRequired: false,
+    label: "Workspace AgentHub",
+    mode,
+  };
+}
+
+async function buildCreatorWorkspaceReadiness(input: {
+  agent: CreatorAgentRow;
+  version: CreatorAgentDetailItem["version"];
+}) {
+  const serviceSupabase = createSupabaseServiceClient();
+
+  if (!serviceSupabase || !input.agent.active_version_id || !input.version) {
+    return null;
+  }
+
+  const runtimeType = input.version.runtimeType;
+  const documentInputMode =
+    runtimeType === "document_file" ||
+    (runtimeType === "llm_prompt" && (input.version.dataPolicy.requires_files || input.version.workspaceMode === "document_required"));
+  const [runtimeSettingResult, workflowResult, endpointResult, securityReviewResult] = await Promise.all([
+    serviceSupabase
+      .from("agent_runtime_settings")
+      .select("enabled,run_enabled")
+      .eq("runtime_type", runtimeType)
+      .maybeSingle<RuntimeSettingReadinessRow>(),
+    runtimeType === "workflow_automation"
+      ? serviceSupabase
+          .from("agent_version_workflows")
+          .select("status,definition")
+          .eq("agent_version_id", input.agent.active_version_id)
+          .eq("agent_id", input.agent.id)
+          .maybeSingle<WorkflowReadinessRow>()
+      : Promise.resolve({ data: null, error: null }),
+    runtimeType === "creator_endpoint"
+      ? serviceSupabase
+          .from("agent_version_creator_endpoints")
+          .select("status,creator_api_endpoints!agent_version_creator_endpoints_endpoint_id_fkey(status)")
+          .eq("agent_version_id", input.agent.active_version_id)
+          .eq("agent_id", input.agent.id)
+          .maybeSingle<EndpointReadinessRow>()
+      : Promise.resolve({ data: null, error: null }),
+    serviceSupabase
+      .from("security_reviews")
+      .select("status")
+      .eq("agent_version_id", input.agent.active_version_id)
+      .eq("runtime_type", runtimeType)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<SecurityReviewReadinessRow>(),
+  ]);
+  const workflowDefinition = normalizeWorkflowDefinition(workflowResult.data?.definition);
+  const workflowWebhookStepCount = workflowDefinition?.steps.filter((step) => step.type === "webhook_step").length ?? 0;
+  const endpoint = readSingle(endpointResult.data?.creator_api_endpoints ?? null);
+  const securityReviewStatus = securityReviewResult.data?.status ?? null;
+  const securityReviewWaived = securityReviewStatus === "waived";
+  const assetApproved =
+    runtimeType === "workflow_automation"
+      ? Boolean(workflowResult.data?.status === "approved" && workflowDefinition)
+      : runtimeType === "creator_endpoint"
+        ? Boolean(endpointResult.data?.status === "approved" && endpoint?.status === "approved")
+        : true;
+
+  return {
+    blueprint: buildAgentWorkspaceBlueprint({
+      actions: [],
+      agent: {
+        capabilities: input.version.capabilities,
+        deliverables: input.version.deliverables,
+        limitations: input.version.limitations,
+        requiredInputsList: input.version.requiredInputs,
+      },
+      contract: input.version,
+      documentInputMode,
+      locale: "fr",
+    }),
+    compatibility: buildWorkspaceCompatibilityDiagnostic({
+      agentStatus: input.agent.status,
+      assetApproved,
+      endpointHealth: null,
+      runtimeSetting: runtimeSettingResult.error ? null : runtimeSettingResult.data,
+      runtimeType,
+      securityReviewStatus,
+      securityReviewWaived,
+      workflowWebhookHealth: null,
+      workflowWebhookStepCount,
+    }),
+  };
 }
 
 export async function getAgentCategoryOptions(): Promise<AgentCategoryOption[]> {
@@ -346,6 +648,8 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
   const versionIds = agentRows.map((agent) => agent.active_version_id).filter((id): id is string => Boolean(id));
   const latestReviewsByAgent = new Map<string, CreatorAgentListItem["latestAdminReview"]>();
   const versionsById = new Map<string, AgentVersionListRow>();
+  const workflowDefinitionsByVersion = new Map<string, unknown>();
+  const prechecksByVersion = new Map<string, CreatorSecurityPrecheckSummary>();
   const reviewStatsByAgent = new Map<string, { rating: number; reviews: number }>();
   const recentRuns: CreatorAgentRunSummary[] = [];
 
@@ -385,14 +689,46 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
   }
 
   if (versionIds.length > 0) {
-    const { data: versions } = await supabase
-      .from("agent_versions")
-      .select("id,workspace_mode,execution_mode,runtime_type")
-      .in("id", versionIds)
-      .returns<AgentVersionListRow[]>();
+    const serviceSupabase = createSupabaseServiceClient();
+    const [versionsResult, workflowsResult, prechecksResult] = await Promise.all([
+      supabase
+        .from("agent_versions")
+        .select("id,workspace_mode,execution_mode,runtime_type")
+        .in("id", versionIds)
+        .returns<AgentVersionListRow[]>(),
+      supabase
+        .from("agent_version_workflows")
+        .select("agent_version_id,definition")
+        .in("agent_version_id", versionIds)
+        .returns<WorkflowListRow[]>(),
+      serviceSupabase
+        ? serviceSupabase
+            .from("agent_security_prechecks")
+            .select("agent_version_id,status,risk_score,risk_level_suggested,recommended_action,summary,findings,created_at")
+            .in("agent_version_id", versionIds)
+            .order("created_at", { ascending: false })
+            .returns<CreatorSecurityPrecheckRow[]>()
+        : Promise.resolve({ data: [] as CreatorSecurityPrecheckRow[], error: null }),
+    ]);
 
-    for (const version of versions ?? []) {
+    for (const version of versionsResult.data ?? []) {
       versionsById.set(version.id, version);
+    }
+
+    for (const workflow of workflowsResult.data ?? []) {
+      if (!workflowDefinitionsByVersion.has(workflow.agent_version_id)) {
+        workflowDefinitionsByVersion.set(workflow.agent_version_id, workflow.definition);
+      }
+    }
+
+    for (const precheck of prechecksResult.data ?? []) {
+      if (!prechecksByVersion.has(precheck.agent_version_id)) {
+        const mapped = mapCreatorSecurityPrecheck(precheck);
+
+        if (mapped) {
+          prechecksByVersion.set(precheck.agent_version_id, mapped);
+        }
+      }
     }
   }
 
@@ -406,6 +742,17 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
         runtimeType: activeVersion?.runtime_type ?? null,
         workspaceMode: activeVersion?.workspace_mode ?? null,
       });
+      const workspaceSignal = activeVersion
+        ? buildCreatorWorkspaceSignal({
+            runtimeType: normalizedContract.runtimeType,
+            workflowDefinition: workflowDefinitionsByVersion.get(activeVersion.id),
+          })
+        : null;
+      const securityPrecheck = activeVersion ? prechecksByVersion.get(activeVersion.id) ?? null : null;
+      const shouldExpectPrecheck =
+        Boolean(activeVersion) &&
+        (["document_file", "workflow_automation", "creator_endpoint"].includes(normalizedContract.runtimeType) ||
+          ["submitted", "in_review"].includes(agent.status));
 
       return {
         id: agent.id,
@@ -429,6 +776,22 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
               workspaceMode: normalizedContract.workspaceMode,
             }
           : null,
+        workspaceSignal,
+        securityPrecheckSignal: securityPrecheck
+          ? {
+              label: securityPrecheck.label,
+              recommendedAction: securityPrecheck.recommendedAction,
+              riskLevel: securityPrecheck.riskLevel,
+              status: securityPrecheck.status,
+            }
+          : shouldExpectPrecheck
+            ? {
+                label: "Précheck non généré",
+                recommendedAction: "wait_precheck",
+                riskLevel: "unknown",
+                status: "not_started",
+              }
+            : null,
         latestAdminReview: latestAdminReview
           ? {
               ...latestAdminReview,
@@ -587,6 +950,8 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
 
   let version: CreatorAgentDetailItem["version"] = null;
   let latestAdminReview: CreatorAgentDetailItem["latestAdminReview"] = null;
+  let securityPrecheck: CreatorSecurityPrecheckSummary | null = null;
+  let workspaceReadiness: CreatorWorkspaceReadiness | null = null;
   let rating = 0;
   let reviews = 0;
   const recentRuns: CreatorAgentRunSummary[] = [];
@@ -654,6 +1019,29 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
     }
   }
 
+  workspaceReadiness = await buildCreatorWorkspaceReadiness({
+    agent,
+    version,
+  });
+
+  if (agent.active_version_id) {
+    const serviceSupabase = createSupabaseServiceClient();
+
+    if (serviceSupabase) {
+      const { data: precheckRow } = await serviceSupabase
+        .from("agent_security_prechecks")
+        .select("agent_version_id,status,risk_score,risk_level_suggested,recommended_action,summary,findings,created_at")
+        .eq("agent_version_id", agent.active_version_id)
+        .eq("agent_id", agent.id)
+        .eq("creator_id", creatorProfileLookup.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<CreatorSecurityPrecheckRow>();
+
+      securityPrecheck = mapCreatorSecurityPrecheck(precheckRow);
+    }
+  }
+
   return {
     agent: {
       id: agent.id,
@@ -673,6 +1061,24 @@ export async function getCreatorAgentForCodeDetail(agentId: string): Promise<{
       rating,
       reviews,
       version,
+      workspaceSignal: workspaceReadiness
+        ? {
+            detail: workspaceReadiness.compatibility.detail,
+            fallbackRequired: workspaceReadiness.compatibility.decision.fallbackRequired,
+            label: workspaceReadiness.compatibility.label,
+            mode: workspaceReadiness.compatibility.mode,
+          }
+        : null,
+      securityPrecheck,
+      securityPrecheckSignal: securityPrecheck
+        ? {
+            label: securityPrecheck.label,
+            recommendedAction: securityPrecheck.recommendedAction,
+            riskLevel: securityPrecheck.riskLevel,
+            status: securityPrecheck.status,
+          }
+        : null,
+      workspaceReadiness,
       latestAdminReview,
       accessStats,
       recentRuns,

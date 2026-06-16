@@ -63,6 +63,22 @@ const runStatusLabels = {
   failed: 'Échec',
 };
 
+const executionModeDisplayLabels = {
+  creator_endpoint: 'Proxy API creator',
+  document_file: 'Extraction document + IA',
+  llm_prompt: 'Assistant texte',
+  static_guided: 'Workspace guidé statique',
+  workflow_automation: 'Workflow AgentHub',
+};
+
+function getExecutionModeDisplayLabel(version) {
+  if (!version) {
+    return 'Non défini';
+  }
+
+  return executionModeDisplayLabels[version.runtimeType] || executionModeDisplayLabels[version.executionMode] || version.executionMode || 'Non défini';
+}
+
 function DetailMetric({ label, value }) {
   return (
     <CodePanel className="bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-4">
@@ -114,7 +130,7 @@ function RuntimeReadiness({ version }) {
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
           <p className="font-label mb-2 text-xs text-[#6B7280]">Mode d’exécution</p>
-          <p className="font-semibold text-[#111827]">{version?.executionMode || 'Non défini'}</p>
+          <p className="font-semibold text-[#111827]">{getExecutionModeDisplayLabel(version)}</p>
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
           <p className="font-label mb-2 text-xs text-[#6B7280]">Workspace</p>
@@ -132,6 +148,194 @@ function RuntimeReadiness({ version }) {
           <BulletList items={readiness.blocked} />
         </div>
       </div>
+    </CodePanel>
+  );
+}
+
+function workspaceCompatibilityTone(status) {
+  if (status === 'ready') {
+    return 'approved';
+  }
+
+  if (status === 'review_required') {
+    return 'in_review';
+  }
+
+  return 'failed';
+}
+
+function precheckTone(precheck) {
+  if (!precheck) {
+    return 'in_review';
+  }
+
+  if (precheck.status === 'passed') {
+    return 'approved';
+  }
+
+  if (precheck.status === 'failed' || precheck.riskLevel === 'blocked') {
+    return 'failed';
+  }
+
+  return 'in_review';
+}
+
+const precheckActionLabels = {
+  block_publication: 'Bloquer avant publication',
+  manual_review: 'Review manuelle',
+  reject_candidate: 'Rejet recommandé',
+  request_changes: 'Demander des modifications',
+  require_security_review: 'Security review requise',
+  standard_review: 'Review standard',
+};
+
+function WorkspaceBlueprintReadiness({ readiness }) {
+  if (!readiness) {
+    return null;
+  }
+
+  const { blueprint, compatibility } = readiness;
+  const decision = compatibility.decision;
+
+  return (
+    <CodePanel className="border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)]">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-label mb-1 text-xs text-[#6B3FA0]">Workspace prévu</p>
+          <h2 className="font-display text-xl font-bold text-[#111827]">Ce que le client devra préparer et vérifier</h2>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Ce blueprint est dérivé du contrat agent. Il aide à repérer si l’agent peut tourner dans AgentHub ou s’il dépend d’une infrastructure créateur.
+          </p>
+        </div>
+        <StatusBadge status={workspaceCompatibilityTone(compatibility.status)} label={compatibility.label} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.05fr]">
+        <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="font-label text-xs text-[#6B3FA0]">Compatibilité</p>
+            <StatusBadge status={workspaceCompatibilityTone(compatibility.status)} label={compatibility.status === 'ready' ? 'Prêt workspace' : compatibility.status === 'review_required' ? 'Review requise' : 'Bloqué'} />
+          </div>
+          <p className="text-sm leading-6 text-[#4B5563]">{compatibility.detail}</p>
+          {decision && (
+            <div className="mt-4 rounded-xl border border-[#E9D5FF] bg-[#FAF7FF] p-3">
+              <p className="font-label text-[10px] text-[#6B3FA0]">Décision workspace</p>
+              <p className="mt-1 text-sm font-bold text-[#111827]">
+                {decision.fallbackRequired ? 'Fallback infra créateur requis' : 'Workspace AgentHub compatible'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[#64748B]">{decision.adminAction}</p>
+              <p className="mt-2 text-xs leading-5 text-[#6B3FA0]">{decision.userDisclosure}</p>
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {compatibility.checks.map((check) => (
+              <StatusBadge key={check.key} status={check.ok ? 'approved' : 'failed'} label={`${check.label}: ${check.ok ? 'OK' : 'KO'}`} />
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
+            <p className="font-label mb-3 text-xs text-[#6B3FA0]">Inputs client</p>
+            {blueprint.inputSchema.fields.length > 0 ? (
+              <ul className="space-y-3">
+                {blueprint.inputSchema.fields.slice(0, 4).map((field) => (
+                  <li key={field.key} className="text-sm leading-5 text-[#374151]">
+                    <span className="font-semibold text-[#111827]">{field.label}</span>
+                    <span className="ml-2 rounded-full bg-[#F3E8FF] px-2 py-0.5 text-[10px] font-semibold text-[#6B21A8]">
+                      {field.required ? 'requis' : 'optionnel'}
+                    </span>
+                    <p className="mt-1 text-xs text-[#64748B]">{field.helper}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[#64748B]">Aucun input spécifique détecté.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
+            <p className="font-label mb-3 text-xs text-[#6B3FA0]">Sortie attendue</p>
+            {blueprint.outputSchema.sections.length > 0 ? (
+              <ul className="space-y-3">
+                {blueprint.outputSchema.sections.slice(0, 4).map((section) => (
+                  <li key={section.key} className="text-sm leading-5 text-[#374151]">
+                    <span className="font-semibold text-[#111827]">{section.label}</span>
+                    <p className="mt-1 text-xs text-[#64748B]">{section.expectedContent}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[#64748B]">Aucune section de sortie détectée.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">À vérifier après run</p>
+          <BulletList items={blueprint.successCriteria.slice(0, 4)} />
+        </div>
+        <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">Données AgentHub</p>
+          <BulletList items={blueprint.trustBoundary.dataSentToAgentHub.slice(0, 3)} />
+        </div>
+        <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">Infra créateur</p>
+          <BulletList emptyText="Aucun transfert infra créateur prévu." items={blueprint.trustBoundary.dataSentToCreatorInfra.slice(0, 3)} />
+        </div>
+      </div>
+    </CodePanel>
+  );
+}
+
+function CreatorSecurityPrecheckPanel({ precheck }) {
+  return (
+    <CodePanel>
+      <div className="mb-4 flex items-center gap-3">
+        <ShieldCheck className="h-5 w-5 text-[#6B3FA0]" />
+        <h2 className="font-display text-lg font-bold text-[#111827]">Précheck sécurité</h2>
+      </div>
+      {!precheck ? (
+        <p className="text-sm leading-6 text-[#6B7280]">
+          Aucun précheck enregistré pour cette version. Il sera généré à la soumission ou par l’admin.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge status={precheckTone(precheck)} label={precheck.label} />
+            <StatusBadge status="in_review" label={`Risque ${precheck.riskLevel}`} />
+            <StatusBadge status="in_review" label={`${precheck.riskScore}/100`} />
+          </div>
+          <p className="text-sm leading-6 text-[#4B5563]">{precheck.summary}</p>
+          <div className="rounded-2xl border border-[#DDD6FE] bg-[#FAF7FF] p-3">
+            <p className="font-label text-[10px] text-[#6B3FA0]">Action suggérée</p>
+            <p className="mt-1 text-sm font-semibold text-[#111827]">
+              {precheckActionLabels[precheck.recommendedAction] || precheck.recommendedAction}
+            </p>
+          </div>
+          {precheck.findings.length > 0 && (
+            <div>
+              <p className="font-label mb-2 text-xs text-[#6B3FA0]">Points à reprendre</p>
+              <ul className="space-y-2">
+                {precheck.findings.map((finding) => (
+                  <li key={`${finding.severity}-${finding.title}`} className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={finding.severity === 'blocker' ? 'failed' : 'in_review'} label={finding.severity === 'blocker' ? 'Bloquant' : 'À surveiller'} />
+                      <p className="text-sm font-semibold text-[#111827]">{finding.title}</p>
+                    </div>
+                    <p className="text-xs leading-5 text-[#64748B]">{finding.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-xs leading-5 text-[#64748B]">
+            Ce précheck accélère la review, mais ne remplace pas la décision finale de l’admin.
+          </p>
+        </div>
+      )}
     </CodePanel>
   );
 }
@@ -247,6 +451,8 @@ export default function CodeAgentDetailContent({ agentResult }) {
 
           <RuntimeReadiness version={agent.version} />
 
+          <WorkspaceBlueprintReadiness readiness={agent.workspaceReadiness} />
+
           <CodePanel>
             <p className="font-label mb-2 text-xs text-[#6B3FA0]">Agent Contract</p>
             <h2 className="font-display text-xl font-bold text-[#111827]">Promesse et cadre d’utilisation</h2>
@@ -286,6 +492,8 @@ export default function CodeAgentDetailContent({ agentResult }) {
         </div>
 
         <aside className="space-y-6">
+          <CreatorSecurityPrecheckPanel precheck={agent.securityPrecheck} />
+
           <CodePanel>
             <div className="mb-4 flex items-center gap-3">
               <PlayCircle className="h-5 w-5 text-[#6B3FA0]" />

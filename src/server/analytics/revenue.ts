@@ -2,10 +2,8 @@ import "server-only";
 
 import type { AgentRuntimeType } from "@/lib/agent-contract";
 import { AGENT_RUNTIME_TYPE_LABELS } from "@/lib/agent-contract";
-import { publicEnv } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCreatorProfileForUser } from "@/server/agents/creator-agents";
-import { createClient } from "@supabase/supabase-js";
 
 export type RevenuePeriod = "30d" | "all";
 
@@ -34,6 +32,8 @@ export type RevenueAnalytics = {
   ledger: {
     blockedCount: number;
     blockedCents: number;
+    cancelledCount: number;
+    cancelledCents: number;
     earnedCount: number;
     earnedCents: number;
     eventCount: number;
@@ -141,6 +141,7 @@ type CategoryRow = {
 type RevenueLedgerRow = {
   creator_gross_cents: number | null;
   gross_amount_cents: number;
+  payment_id: string | null;
   status: string;
 };
 
@@ -161,6 +162,8 @@ function getPeriodStart(period: RevenuePeriod) {
 export function normalizeRevenuePeriod(value?: string | null): RevenuePeriod {
   return value === "all" ? "all" : "30d";
 }
+
+type RevenueServiceClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
 function addBucket(map: Map<string, RevenueAnalyticsBucket>, key: string, label: string, amountCents: number) {
   const current = map.get(key) ?? {
@@ -281,6 +284,8 @@ function emptyLedgerSummary(): RevenueAnalytics["ledger"] {
   return {
     blockedCount: 0,
     blockedCents: 0,
+    cancelledCount: 0,
+    cancelledCents: 0,
     earnedCount: 0,
     earnedCents: 0,
     eventCount: 0,
@@ -526,7 +531,7 @@ function buildPayoutPath(input: {
 async function loadLedgerSummary(input: {
   creatorId?: string | null;
   period: RevenuePeriod;
-  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
+  supabase: RevenueServiceClient;
 }): Promise<RevenueAnalytics["ledger"]> {
   const periodStart = getPeriodStart(input.period);
   const rows: RevenueLedgerRow[] = [];
@@ -534,7 +539,7 @@ async function loadLedgerSummary(input: {
   for (let from = 0; ; from += REVENUE_PAGE_SIZE) {
     let query = input.supabase
       .from("creator_revenue_ledger")
-      .select("status,gross_amount_cents,creator_gross_cents")
+      .select("status,gross_amount_cents,creator_gross_cents,payment_id")
       .order("created_at", { ascending: false })
       .range(from, from + REVENUE_PAGE_SIZE - 1);
 
@@ -562,16 +567,22 @@ async function loadLedgerSummary(input: {
 
   const summary = emptyLedgerSummary();
   summary.eventCount = rows.length;
+  const earnedPaymentIds = new Set(
+    rows
+      .filter((row) => row.status === "earned" && row.payment_id)
+      .map((row) => row.payment_id as string),
+  );
 
   for (const row of rows) {
     const amount = row.creator_gross_cents ?? row.gross_amount_cents ?? 0;
+    const grossAmount = row.gross_amount_cents ?? 0;
 
     if (row.status === "earned") {
       summary.earnedCount += 1;
       summary.earnedCents += amount;
     } else if (row.status === "blocked") {
       summary.blockedCount += 1;
-      summary.blockedCents += amount;
+      summary.blockedCents += grossAmount;
     } else if (row.status === "hold") {
       summary.holdCount += 1;
       summary.holdCents += amount;
@@ -579,15 +590,20 @@ async function loadLedgerSummary(input: {
       summary.payoutReadyCount += 1;
       summary.payoutReadyCents += amount;
     } else if (row.status === "pending_access") {
-      summary.pendingAccessCount += 1;
-      summary.pendingAccessCents += amount;
+      if (!row.payment_id || !earnedPaymentIds.has(row.payment_id)) {
+        summary.pendingAccessCount += 1;
+        summary.pendingAccessCents += amount;
+      }
+    } else if (row.status === "cancelled") {
+      summary.cancelledCount += 1;
+      summary.cancelledCents += amount;
     }
   }
 
   return summary;
 }
 
-async function loadCategoryMap(rows: PaymentRevenueRow[]): Promise<CategoryMap> {
+async function loadCategoryMap(rows: PaymentRevenueRow[], supabase: RevenueServiceClient): Promise<CategoryMap> {
   const categoryIds = Array.from(
     new Set(
       rows
@@ -596,16 +612,9 @@ async function loadCategoryMap(rows: PaymentRevenueRow[]): Promise<CategoryMap> 
     ),
   );
 
-  if (categoryIds.length === 0 || !publicEnv.supabaseUrl || !publicEnv.supabaseAnonKey) {
+  if (categoryIds.length === 0) {
     return new Map();
   }
-
-  const supabase = createClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 
   const { data, error } = await supabase
     .from("agent_categories")
@@ -671,7 +680,7 @@ async function loadRevenueRows(period: RevenuePeriod, creatorId?: string | null)
   }
 
   const [categoryMap, ledger] = await Promise.all([
-    loadCategoryMap(rows),
+    loadCategoryMap(rows, supabase),
     loadLedgerSummary({
       creatorId,
       period,

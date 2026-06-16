@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { isAgentRuntimeType, type AgentRuntimeType } from "@/lib/agent-contract";
 import { getUserHomePath, requireAuth } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/env.server";
 import { localizedPath, type Locale } from "@/lib/i18n/config";
@@ -27,12 +28,42 @@ type AgentRentalRow = {
   currency: string;
 };
 
+type AgentVersionRuntimeRow = {
+  execution_mode: string | null;
+  runtime_type: string | null;
+};
+
+type RuntimeSettingRow = {
+  enabled: boolean;
+  run_enabled: boolean;
+};
+
 function redirectWithAgentError(locale: Locale, slug: string, error: string): never {
   redirect(`${localizedPath(`/agents/${slug}`, locale)}?error=${encodeURIComponent(error)}`);
 }
 
 function redirectWithAgentOrder(locale: Locale, slug: string, order: string): never {
   redirect(`${localizedPath(`/agents/${slug}`, locale)}?order=${encodeURIComponent(order)}`);
+}
+
+function revalidateAccessAndRevenueSurfaces(locale: Locale, rentalId?: string | null, agentSlug?: string | null) {
+  revalidatePath(getUserHomePath(locale));
+  revalidatePath(localizedPath("/workspace", locale));
+  revalidatePath("/code");
+  revalidatePath("/code/dashboard");
+  revalidatePath("/code/admin");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/payments");
+
+  if (rentalId) {
+    revalidatePath(localizedPath(`/workspace/${rentalId}`, locale));
+  }
+
+  if (agentSlug) {
+    revalidatePath(localizedPath(`/agents/${agentSlug}`, locale));
+    revalidatePath(`/agenthub/agents/${agentSlug}`);
+    revalidatePath(`/agents/${agentSlug}`);
+  }
 }
 
 async function redirectToPendingCheckout(locale: Locale, slug: string, checkoutSessionId: string | null) {
@@ -61,6 +92,51 @@ async function redirectToPendingCheckout(locale: Locale, slug: string, checkoutS
   }
 
   redirectWithAgentOrder(locale, slug, "payment-pending");
+}
+
+function resolveRuntimeType(version: AgentVersionRuntimeRow): AgentRuntimeType {
+  if (version.runtime_type && isAgentRuntimeType(version.runtime_type)) {
+    return version.runtime_type;
+  }
+
+  return version.execution_mode === "llm_prompt" ? "llm_prompt" : "static_guided";
+}
+
+async function assertAgentRuntimeCanBeActivated(input: {
+  agentVersionId: string;
+  locale: Locale;
+  slug: string;
+}) {
+  const serviceClient = createSupabaseServiceClient();
+
+  if (!serviceClient) {
+    redirectWithAgentError(input.locale, input.slug, "agent-runtime-unavailable");
+  }
+
+  const { data: version, error: versionError } = await serviceClient
+    .from("agent_versions")
+    .select("execution_mode,runtime_type")
+    .eq("id", input.agentVersionId)
+    .maybeSingle<AgentVersionRuntimeRow>();
+
+  if (versionError || !version) {
+    redirectWithAgentError(input.locale, input.slug, "agent-runtime-unavailable");
+  }
+
+  const runtimeType = resolveRuntimeType(version);
+  const { data: runtimeSetting, error: runtimeError } = await serviceClient
+    .from("agent_runtime_settings")
+    .select("enabled,run_enabled")
+    .eq("runtime_type", runtimeType)
+    .maybeSingle<RuntimeSettingRow>();
+
+  if (runtimeError || !runtimeSetting?.enabled) {
+    redirectWithAgentError(input.locale, input.slug, "agent-runtime-unavailable");
+  }
+
+  if (runtimeType !== "static_guided" && !runtimeSetting.run_enabled) {
+    redirectWithAgentError(input.locale, input.slug, "agent-runtime-unavailable");
+  }
 }
 
 export async function createBetaRentalAction(locale: Locale, formData: FormData) {
@@ -105,6 +181,12 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
   if (!agent.active_version_id) {
     redirectWithAgentError(locale, slug, "agent-unavailable");
   }
+
+  await assertAgentRuntimeCanBeActivated({
+    agentVersionId: agent.active_version_id,
+    locale,
+    slug,
+  });
 
   const creatorProfile = await getCreatorProfileForUser();
 
@@ -217,7 +299,13 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirectWithAgentError(locale, slug, "stripe-not-configured");
   }
 
-  const { data: access, error: insertError } = await supabase
+  const serviceClient = createSupabaseServiceClient();
+
+  if (!serviceClient) {
+    redirectWithAgentError(locale, slug, "payment-service-unavailable");
+  }
+
+  const { data: access, error: insertError } = await serviceClient
     .from("rental_requests")
     .insert({
       agent_id: agent.id,
@@ -249,8 +337,7 @@ export async function createAgentAccessAction(locale: Locale, formData: FormData
     redirectWithAgentError(locale, slug, "rental-create-failed");
   }
 
-  revalidatePath(getUserHomePath(locale));
-  revalidatePath(localizedPath("/workspace", locale));
+  revalidateAccessAndRevenueSurfaces(locale, access.id, agent.slug);
   redirect(`${localizedPath(`/workspace/${access.id}`, locale)}?access=created`);
 }
 
@@ -313,13 +400,7 @@ export async function stopAgentAccessAction(locale: Locale, formData: FormData) 
 
   const agent = Array.isArray(rental.agents) ? rental.agents[0] : rental.agents;
 
-  revalidatePath(getUserHomePath(locale));
-  revalidatePath(localizedPath("/workspace", locale));
-  revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
-
-  if (agent?.slug) {
-    revalidatePath(localizedPath(`/agents/${agent.slug}`, locale));
-  }
+  revalidateAccessAndRevenueSurfaces(locale, rental.id, agent?.slug);
 
   redirect(`${localizedPath("/workspace", locale)}?accessStop=stopped`);
 }

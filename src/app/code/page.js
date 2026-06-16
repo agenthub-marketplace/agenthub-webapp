@@ -19,6 +19,7 @@ export default async function AgentHubCodePage({ searchParams }) {
       creatorAgentsResult={creatorAgentsResult}
       creatorRentalsResult={creatorRentalsResult}
       revenueAnalyticsResult={revenueAnalyticsResult}
+      precheckStatus={typeof params?.precheck === 'string' ? params.precheck : null}
       submittedSlug={typeof params?.submitted === 'string' ? params.submitted : null}
     />
   );

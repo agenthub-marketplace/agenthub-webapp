@@ -14,6 +14,18 @@ export type WorkspaceCompatibilityCheck = {
 
 export type WorkspaceCompatibilityDiagnostic = {
   checks: WorkspaceCompatibilityCheck[];
+  decision: {
+    adminAction: string;
+    fallbackRequired: boolean;
+    key:
+      | "agenthub_document_workspace"
+      | "agenthub_native_workspace"
+      | "agenthub_workflow_workspace"
+      | "creator_endpoint_fallback"
+      | "hybrid_creator_webhook";
+    runtimeOwner: "agenthub" | "creator" | "hybrid";
+    userDisclosure: string;
+  };
   detail: string;
   label: string;
   mode: WorkspaceCompatibilityMode;
@@ -53,6 +65,67 @@ export function workspaceCompatibilityMode(input: {
   }
 
   return "agenthub_hosted";
+}
+
+function buildCompatibilityDecision(input: {
+  mode: WorkspaceCompatibilityMode;
+  runtimeType: AgentRuntimeType;
+  status: WorkspaceCompatibilityStatus;
+}): WorkspaceCompatibilityDiagnostic["decision"] {
+  const statusPrefix =
+    input.status === "ready"
+      ? "Compatible beta."
+      : input.status === "review_required"
+        ? "Review admin requise avant beta."
+        : "Bloquer avant test utilisateur.";
+
+  if (input.mode === "creator_infra_required") {
+    return {
+      adminAction: `${statusPrefix} Confirmer endpoint HTTPS approuvé, signature HMAC, health check, security review et message utilisateur.`,
+      fallbackRequired: true,
+      key: "creator_endpoint_fallback",
+      runtimeOwner: "creator",
+      userDisclosure: "L’exécution dépend d’une infrastructure créateur approuvée, appelée côté serveur par AgentHub.",
+    };
+  }
+
+  if (input.mode === "hybrid_creator_infra") {
+    return {
+      adminAction: `${statusPrefix} Valider chaque webhook creator, les limites de payload, la security review et le comportement d’erreur.`,
+      fallbackRequired: true,
+      key: "hybrid_creator_webhook",
+      runtimeOwner: "hybrid",
+      userDisclosure: "AgentHub orchestre le workflow, mais certaines étapes peuvent appeler une infrastructure créateur approuvée.",
+    };
+  }
+
+  if (input.runtimeType === "document_file") {
+    return {
+      adminAction: `${statusPrefix} Vérifier bucket privé, extraction texte, limites PDF/DOCX, absence d’OCR et politique de rétention.`,
+      fallbackRequired: false,
+      key: "agenthub_document_workspace",
+      runtimeOwner: "agenthub",
+      userDisclosure: "AgentHub traite le document dans un workspace privé avec extraction texte beta.",
+    };
+  }
+
+  if (input.runtimeType === "workflow_automation") {
+    return {
+      adminAction: `${statusPrefix} Vérifier worker workflow, étapes LLM, décision visible et historique de run.`,
+      fallbackRequired: false,
+      key: "agenthub_workflow_workspace",
+      runtimeOwner: "agenthub",
+      userDisclosure: "AgentHub orchestre les étapes du workflow dans le workspace et stocke le résultat.",
+    };
+  }
+
+  return {
+    adminAction: `${statusPrefix} Review standard : setup, promesse, limites et résultat attendu.`,
+    fallbackRequired: false,
+    key: "agenthub_native_workspace",
+    runtimeOwner: "agenthub",
+    userDisclosure: "AgentHub héberge l’exécution et conserve l’historique dans le workspace.",
+  };
 }
 
 export function buildWorkspaceCompatibilityDiagnostic(input: {
@@ -161,6 +234,11 @@ export function buildWorkspaceCompatibilityDiagnostic(input: {
 
   return {
     checks,
+    decision: buildCompatibilityDecision({
+      mode,
+      runtimeType: input.runtimeType,
+      status,
+    }),
     detail,
     label,
     mode,

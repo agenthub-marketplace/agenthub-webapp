@@ -129,7 +129,7 @@ export function AdminRevenueOverview({ result }) {
               {analytics?.ledger?.eventCount ?? 0} événement(s)
             </p>
             <p className="mt-2 text-sm leading-6 text-[#4B5563]">
-              {formatMoney(analytics?.ledger?.earnedCents ?? 0, currency)} attribué beta · {formatMoney(analytics?.ledger?.blockedCents ?? 0, currency)} bloqué
+              {formatMoney(analytics?.ledger?.earnedCents ?? 0, currency)} attribué beta · {formatMoney(analytics?.ledger?.blockedCents ?? 0, currency)} bloqué · {analytics?.ledger?.cancelledCount ?? 0} accès arrêté(s)
             </p>
           </div>
         </div>

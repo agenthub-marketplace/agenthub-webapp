@@ -500,6 +500,10 @@ function buildAdminDecisionChecklist(agent) {
     items.push('Vérifier le runtime global : il est désactivé pour ce type d’agent.');
   }
 
+  if (runtimeType !== 'static_guided' && agent.runtimeSetting?.enabled && !agent.runtimeSetting?.runEnabled) {
+    items.push('Activer l’exécution du runtime avant publication : sinon l’agent serait visible mais inutilisable.');
+  }
+
   if (agent.workflow && agent.workflow.status !== 'approved') {
     items.push('Approuver ou refuser les assets workflow avant publication.');
   }
@@ -519,6 +523,10 @@ function buildAdminDecisionChecklist(agent) {
     items.push('Confirmer le fallback infra creator : endpoint approuvé, HMAC, health check et disclosure user.');
   } else if (workspaceCompatibility?.mode === 'hybrid_creator_infra') {
     items.push('Confirmer le mode hybride : webhooks approuvés, health checks et comportement d’erreur lisible.');
+  }
+
+  if (workspaceCompatibility?.decision?.adminAction) {
+    items.push(workspaceCompatibility.decision.adminAction);
   }
 
   if (!['llm_prompt', 'static_guided'].includes(runtimeType) && !['passed', 'waived'].includes(agent.securityReview?.status)) {
@@ -601,9 +609,13 @@ function buildPrecheckInterventionPlan(agent) {
     `Stratégie workspace : ${strategy?.label ?? 'À dériver'}`,
     `Runtime : ${AGENT_RUNTIME_TYPE_LABELS[runtimeType] || runtimeType || 'Non défini'}`,
     agent.runtimeSetting?.enabled ? 'Runtime global activé' : 'Runtime global à vérifier',
+    runtimeType !== 'static_guided' && agent.runtimeSetting?.runEnabled === false ? 'Exécution runtime désactivée' : null,
     agent.workflow ? `Workflow ${agent.workflow.status}` : null,
     agent.creatorEndpoint ? `Endpoint config ${agent.creatorEndpoint.status}` : null,
     workspaceCompatibility ? `Compatibilité workspace ${workspaceCompatibility.status}` : null,
+    workspaceCompatibility?.decision
+      ? `Décision workspace : ${workspaceCompatibility.decision.fallbackRequired ? 'fallback creator requis' : 'AgentHub compatible'}`
+      : null,
     ...(workspaceCompatibility?.checks ?? [])
       .filter((check) => !check.ok)
       .slice(0, 3)
@@ -756,6 +768,7 @@ function PrecheckNextAction({ agent }) {
 function getApprovalBlocker(agent) {
   const status = getPrecheckStatus(agent);
   const precheck = getPrecheck(agent);
+  const runtimeType = agent.contract?.runtimeType ?? agent.manifest?.runtimeType ?? 'static_guided';
 
   if (!precheck) {
     return 'Enregistrez un précheck sécurité finalisé avant approbation.';
@@ -783,6 +796,10 @@ function getApprovalBlocker(agent) {
 
   if (!agent.runtimeSetting?.enabled) {
     return 'Runtime désactivé : activez-le côté admin avant approbation.';
+  }
+
+  if (runtimeType !== 'static_guided' && !agent.runtimeSetting?.runEnabled) {
+    return 'Exécution runtime désactivée : l’agent serait publié mais impossible à lancer.';
   }
 
   return null;
@@ -1083,6 +1100,98 @@ export default async function AdminReviewPage({ searchParams }) {
                                 {check.detail && <p className="mt-2 text-xs leading-5 text-[#64748B]">{check.detail}</p>}
                               </div>
                             ))}
+                          </div>
+                          {agent.manifest.workspaceCompatibility.decision && (
+                            <div className="mt-3 rounded-xl border border-[#DDD6FE] bg-[#FAF7FF] p-3">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-label text-[10px] text-[#6B3FA0]">Décision workspace</p>
+                                  <p className="mt-1 text-sm font-semibold text-[#111827]">
+                                    {agent.manifest.workspaceCompatibility.decision.fallbackRequired
+                                      ? 'Fallback infra créateur requis'
+                                      : 'Workspace AgentHub compatible'}
+                                  </p>
+                                  <p className="mt-2 text-xs leading-5 text-[#475569]">
+                                    {agent.manifest.workspaceCompatibility.decision.adminAction}
+                                  </p>
+                                  <p className="mt-2 text-xs leading-5 text-[#6B7280]">
+                                    Disclosure user : {agent.manifest.workspaceCompatibility.decision.userDisclosure}
+                                  </p>
+                                </div>
+                                <StatusBadge
+                                  status={agent.manifest.workspaceCompatibility.decision.fallbackRequired ? 'in_review' : 'approved'}
+                                  label={
+                                    agent.manifest.workspaceCompatibility.decision.runtimeOwner === 'creator'
+                                      ? 'Creator-owned'
+                                      : agent.manifest.workspaceCompatibility.decision.runtimeOwner === 'hybrid'
+                                        ? 'Hybrid'
+                                        : 'AgentHub-owned'
+                                  }
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {agent.manifest.workspaceBlueprint && (
+                        <div className="rounded-xl border border-[#C4B5FD] bg-white p-3 md:col-span-2 xl:col-span-4">
+                          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="font-label text-[10px] text-[#6B3FA0]">Blueprint workspace agent</p>
+                              <p className="mt-1 text-sm font-semibold text-[#111827]">
+                                Inputs, sorties attendues et frontière de confiance dérivés côté serveur
+                              </p>
+                              <p className="mt-2 text-xs leading-5 text-[#64748B]">
+                                Ce signal prépare les workspaces spécifiques par agent et aide le précheck sécurité à repérer les fiches trop vagues.
+                              </p>
+                            </div>
+                            <StatusBadge
+                              status={
+                                agent.manifest.workspaceBlueprint.inputSchema.fields.length > 0 &&
+                                agent.manifest.workspaceBlueprint.outputSchema.sections.length > 0
+                                  ? 'approved'
+                                  : 'in_review'
+                              }
+                              label={`${agent.manifest.workspaceBlueprint.inputSchema.fields.length} input(s) · ${agent.manifest.workspaceBlueprint.outputSchema.sections.length} sortie(s)`}
+                            />
+                          </div>
+                          <div className="grid gap-3 lg:grid-cols-3">
+                            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                              <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Inputs utilisateur</p>
+                              <ul className="space-y-2 text-xs leading-5 text-[#475569]">
+                                {agent.manifest.workspaceBlueprint.inputSchema.fields.slice(0, 4).map((field) => (
+                                  <li key={field.key}>
+                                    <span className="font-bold text-[#111827]">{field.label}</span>
+                                    <br />
+                                    {field.helper}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                              <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Sortie attendue</p>
+                              <ul className="space-y-2 text-xs leading-5 text-[#475569]">
+                                {agent.manifest.workspaceBlueprint.outputSchema.sections.slice(0, 4).map((section) => (
+                                  <li key={section.key}>
+                                    <span className="font-bold text-[#111827]">{section.label}</span>
+                                    <br />
+                                    {section.expectedContent}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                              <p className="font-label mb-2 text-[10px] text-[#6B3FA0]">Confiance / support</p>
+                              <ul className="space-y-2 text-xs leading-5 text-[#475569]">
+                                {[
+                                  ...agent.manifest.workspaceBlueprint.trustBoundary.dataSentToAgentHub,
+                                  ...agent.manifest.workspaceBlueprint.trustBoundary.dataSentToCreatorInfra,
+                                  ...agent.manifest.workspaceBlueprint.supportHints,
+                                ].slice(0, 4).map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
                           </div>
                         </div>
                       )}

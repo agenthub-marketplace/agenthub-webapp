@@ -5,6 +5,7 @@ import { serverEnv } from "@/lib/env.server";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callCreatorEndpoint, loadCreatorEndpointRuntimeContext } from "@/server/endpoints/runtime";
+import { revalidateWorkspaceRunSurfaces } from "@/server/workspace/revalidation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -316,6 +317,12 @@ export async function POST(request: Request) {
       .eq("id", createdRun.id)
       .eq("status", "running");
 
+    revalidateWorkspaceRunSurfaces({
+      agentSlug: context.agent.slug,
+      locale,
+      rentalId: context.rental.id,
+    });
+
     return jsonError(502, "failed", endpointResponse.error ?? "creator-endpoint-failed");
   }
 
@@ -338,6 +345,12 @@ export async function POST(request: Request) {
     })
     .eq("id", createdRun.id)
     .eq("status", "running");
+
+  revalidateWorkspaceRunSurfaces({
+    agentSlug: context.agent.slug,
+    locale,
+    rentalId: context.rental.id,
+  });
 
   return NextResponse.json({
     outputText: endpointResponse.outputText,

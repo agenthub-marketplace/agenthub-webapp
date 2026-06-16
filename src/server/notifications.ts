@@ -116,7 +116,7 @@ export async function getCurrentUserNotifications(): Promise<AppNotification[]> 
       supabase.from("agent_version_workflows").select("id", { count: "exact", head: true }).eq("status", "submitted"),
       supabase.from("agent_version_creator_endpoints").select("id", { count: "exact", head: true }).eq("status", "submitted"),
       supabase.from("security_reviews").select("id", { count: "exact", head: true }).in("status", ["pending", "in_review"]),
-      supabase.from("payments").select("id", { count: "exact", head: true }).in("status", ["pending", "checkout_opened"]),
+      supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "paid_blocked"),
     ]);
 

@@ -24,6 +24,31 @@ function appendReviewQuery(path: string, params: Record<string, string>) {
   return `${path}${separator}${query}`;
 }
 
+function agentDetailPath(locale: Locale, slug: string) {
+  return locale === "en" ? `/en/agents/${slug}` : `/agenthub/agents/${slug}`;
+}
+
+function revalidateReviewPublicationSurfaces(locale: Locale, rentalId: string, agentSlug: string) {
+  revalidatePath(getUserHomePath(locale));
+  revalidatePath(localizedPath(`/workspace/${rentalId}`, locale));
+  revalidatePath("/agenthub/workspace");
+  revalidatePath("/en/workspace");
+  revalidatePath("/workspace");
+  revalidatePath("/agenthub/search");
+  revalidatePath("/search");
+  revalidatePath("/marketplace");
+  revalidatePath("/en/marketplace");
+  revalidatePath("/leaderboard");
+
+  if (agentSlug) {
+    revalidatePath(agentDetailPath(locale, agentSlug));
+    revalidatePath(localizedPath(`/agents/${agentSlug}`, locale));
+    revalidatePath(`/agenthub/agents/${agentSlug}`);
+    revalidatePath(`/agents/${agentSlug}`);
+    revalidatePath(`/en/agents/${agentSlug}`);
+  }
+}
+
 function normalizeReviewReturnPath(locale: Locale, value: FormDataEntryValue | null, rentalId: string) {
   const dashboardPath = getUserHomePath(locale);
 
@@ -124,6 +149,21 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     redirectWithReviewError(locale, rentalId, "self-review-not-allowed", returnPath);
   }
 
+  const { count: succeededRunCount, error: runCountError } = await supabase
+    .from("agent_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", profile.id)
+    .eq("rental_request_id", rental.id)
+    .eq("status", "succeeded");
+
+  if (runCountError) {
+    redirectWithReviewError(locale, rentalId, "review-run-check-failed", returnPath);
+  }
+
+  if (!runCountError && (succeededRunCount ?? 0) < 1) {
+    redirectWithReviewError(locale, rentalId, "review-run-required", returnPath);
+  }
+
   const normalizedTitle = typeof title === "string" ? title.trim().slice(0, 200) : null;
 
   const { error } = await supabase.from("agent_reviews").insert({
@@ -143,13 +183,9 @@ export async function submitRentalReviewAction(locale: Locale, formData: FormDat
     redirectWithReviewError(locale, rentalId, "review-create-failed", returnPath);
   }
 
-  revalidatePath(getUserHomePath(locale));
-  revalidatePath(localizedPath(`/workspace/${rental.id}`, locale));
-  if (rentalAgentSlug) {
-    revalidatePath(localizedPath(`/agents/${rentalAgentSlug}`, locale));
-  }
+  revalidateReviewPublicationSurfaces(locale, rental.id, rentalAgentSlug);
 
-  const successPath = rentalAgentSlug ? localizedPath(`/agents/${rentalAgentSlug}`, locale) : returnPath;
+  const successPath = rentalAgentSlug ? agentDetailPath(locale, rentalAgentSlug) : returnPath;
 
   redirect(
     appendReviewQuery(successPath, {

@@ -464,6 +464,54 @@ un agent API creator ne peut être publié que si l'admin voit les gates et sait
 quel gate bloque la mise en vente.
 ```
 
+Statut :
+
+```text
+Première implémentation livrée :
+- helper server-only `workspace-compatibility.ts` ;
+- compatibilité workspace affichée dans l'admin review ;
+- manifest/security precheck alignés sur le même signal ;
+- creator preview expose la stratégie AgentHub, hybride ou infra creator ;
+- docs mises à jour pour éviter des matrices divergentes.
+
+La suite est de brancher ce signal dans le workspace user comme readiness
+opérationnel, puis de l'enrichir avec un blueprint propre à chaque agent.
+```
+
+### Ticket G - Agent-Specific Workspace Blueprint
+
+Rendre le workspace différent pour deux agents du même runtime.
+
+Critère :
+
+```text
+Support Triage Agent, Lead Qualification Agent et CRM Enrichment API Agent ont
+chacun leurs inputs attendus, sorties attendues, critères de succès et
+frontière de confiance visibles dans le workspace.
+```
+
+À faire :
+
+- dériver un blueprint v0 depuis les champs `agent_versions` existants ;
+- ne pas ajouter de migration tant que le dérivé suffit ;
+- intégrer le blueprint à `WorkspaceManifestV1` ou `WorkspaceRecipeV1` ;
+- afficher les sections utiles dans setup/use/review ;
+- réutiliser le même blueprint dans creator preview et admin review.
+
+Statut :
+
+```text
+V0 implémentée :
+- spec dans `docs/agent-specific-workspace-blueprint.md` ;
+- helper server-only `workspace-blueprint.ts` ;
+- blueprint remonté dans `WorkspaceManifestV1` et `WorkspaceRecipeV1` ;
+- workspace user affiche inputs spécifiques, rappel de lancement, sortie
+  attendue, rappel avant avis et support hints ;
+- creator wizard et écran de resoumission affichent une preview blueprint ;
+- admin review affiche inputs, sorties et frontière de confiance ;
+- security precheck ajoute les signaux `workspace_blueprint_*`.
+```
+
 ## Priorité Immédiate
 
 La prochaine meilleure étape n'est plus le Ticket A, déjà en première version.
@@ -475,6 +523,7 @@ Ticket C -> Endpoint Health Check Admin
 Ticket D -> Revenue Ledger MVP
 Ticket E -> Advanced Agent Smoke Pack
 Ticket F -> Creator Infra Compatibility Matrix
+Ticket G -> Agent-Specific Workspace Blueprint
 ```
 
 Raison :
@@ -490,6 +539,8 @@ Raison :
   improvisés.
 - le fallback infra creator doit devenir une décision inspectable, pas seulement
   une option runtime.
+- les workspaces doivent devenir spécifiques à chaque agent, pas uniquement à
+  chaque famille runtime.
 
 ## Prochaine Release - Plan D'Exécution
 
@@ -643,7 +694,41 @@ Chaque fiche smoke doit contenir :
   - historique visible après reload ;
   - avis vérifié possible.
 
-### 5. Idées À Préparer Ensuite
+### 5. Agent-Specific Workspace Blueprint
+
+But :
+
+```text
+Un agent loué affiche une mise en place, une sortie attendue et une checklist
+de réussite propres à sa promesse.
+```
+
+À faire :
+
+- créer un helper server-only qui dérive `AgentWorkspaceBlueprintV1` ;
+- commencer sans migration, à partir de l'Agent Contract et des assets runtime ;
+- exposer :
+  - input schema simple ;
+  - output schema simple ;
+  - run checklist ;
+  - success criteria ;
+  - support hints ;
+  - trust boundary ;
+- brancher progressivement dans :
+  - workspace user ;
+  - creator preview ;
+  - admin review ;
+  - security precheck.
+
+Preuve attendue :
+
+```text
+Support Triage et Lead Qualification utilisent tous deux `workflow_automation`,
+mais leur workspace ne demande pas les mêmes inputs et ne présente pas les
+mêmes critères de succès.
+```
+
+### 6. Idées À Préparer Ensuite
 
 Ces idées ne doivent pas devancer les quatre tickets ci-dessus, mais elles
 servent la vision "tout type d'agent" :
@@ -652,6 +737,9 @@ servent la vision "tout type d'agent" :
   avant que le user clique.
 - Agent compatibility matrix : montre quels runtimes/features sont supportés
   par AgentHub infra, par creator infra, ou non supportés.
+- Agent-specific workspace blueprint : décrit les inputs, outputs, critères de
+  réussite et frontière de confiance propres à chaque agent, pas seulement à
+  chaque runtime.
 - Creator infra SLA beta : dernier test endpoint, taux d'échec, latence
   médiane, erreurs récentes.
 - Admin review assistant LLM : résumé narratif du precheck déterministe, sans

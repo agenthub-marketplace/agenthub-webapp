@@ -71,6 +71,14 @@ function unavailableRentalCopy(rental) {
 }
 
 function paymentStateCopy(payment) {
+  if (payment.status === 'pending') {
+    return {
+      label: 'Payment pending',
+      text: 'A checkout is open for this agent. Complete payment or wait for it to expire.',
+      tone: 'warning',
+    };
+  }
+
   if (payment.status === 'paid_blocked') {
     return {
       label: 'Activation blocked',
@@ -119,7 +127,11 @@ export default async function WorkspacePage({ searchParams }) {
     (rental) => !rental.accessOpen && !['stopped', 'expired', 'delivered', 'cancelled'].includes(rental.status),
   );
   const paymentStateOrders = paymentOrders.filter(
-    (payment) => payment.status === 'paid_blocked' || payment.status === 'cancelled' || (payment.status === 'paid' && !payment.rentalRequestId),
+    (payment) =>
+      payment.status === 'pending' ||
+      payment.status === 'paid_blocked' ||
+      payment.status === 'cancelled' ||
+      (payment.status === 'paid' && !payment.rentalRequestId),
   );
   const stopMessage = accessStopMessage(typeof query?.accessStop === 'string' ? query.accessStop : null);
   const stopAction = stopAgentAccessAction.bind(null, 'en');

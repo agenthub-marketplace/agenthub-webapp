@@ -46,6 +46,7 @@ export type WorkspaceRecipeNextStep = {
 };
 
 export type WorkspaceRecipeV1 = {
+  blueprint: WorkspaceManifestV1["blueprint"];
   blocks: WorkspaceRecipeBlock[];
   disabledReason: string | null;
   fallbackPath: string[];
@@ -646,7 +647,7 @@ function buildNextStep(
   if (!hasHistory) {
     return {
       detail: labels.nextStep.runDetail,
-      label: labels.nextStep.runLabel,
+      label: input.workspaceManifest.runner.primaryActionLabel || labels.nextStep.runLabel,
       tab: "use",
     };
   }
@@ -683,7 +684,7 @@ function buildSetupChecklist(
   hasHistory: boolean,
   hasSetup: boolean,
 ) {
-  const items = [labels.setupChecklist.baseActive];
+  const items = [labels.setupChecklist.baseActive, ...input.workspaceManifest.blueprint.runChecklist];
 
   if (hasSetup) {
     items.push(labels.setupChecklist.requiredInputs.replace("{items}", input.workspaceManifest.setup.requiredInputs.join(" · ")));
@@ -865,7 +866,7 @@ function buildOutcomeChecklist(
   labels: ReturnType<typeof recipeLabels>,
   lastRun: AgentRunSummary | null,
 ) {
-  const items: string[] = [];
+  const items: string[] = [...input.workspaceManifest.blueprint.successCriteria];
   const summary = input.outputPromise.summary.trim();
   const example = input.outputPromise.examples.find((item) => item.trim().length > 0)?.trim();
 
@@ -897,7 +898,7 @@ function buildSuccessCriteria(
   panel: WorkspaceRecipeRuntimePanel,
   lastRun: AgentRunSummary | null,
 ) {
-  const items: string[] = [];
+  const items: string[] = [...input.workspaceManifest.blueprint.successCriteria];
   const summary = input.outputPromise.summary.trim();
   const example = input.outputPromise.examples.find((item) => item.trim().length > 0)?.trim();
 
@@ -1077,6 +1078,7 @@ export function buildWorkspaceRecipe(input: WorkspaceRecipeInput): WorkspaceReci
   }
 
   return {
+    blueprint: input.workspaceManifest.blueprint,
     blocks,
     disabledReason: input.enabled ? null : input.runner.disabledMessage,
     fallbackPath: buildFallbackPath(input, labels),

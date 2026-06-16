@@ -242,6 +242,18 @@ function DashboardPage({
         : 'Vous ne pouvez pas noter un accès à votre propre agent.';
     }
 
+    if (reviewError === 'review-run-required') {
+      return lang === 'en'
+        ? 'Run this agent once from the workspace before leaving a verified review.'
+        : 'Lancez cet agent une fois depuis le workspace avant de laisser un avis vérifié.';
+    }
+
+    if (reviewError === 'review-run-check-failed') {
+      return lang === 'en'
+        ? 'Unable to verify the execution history for this review right now.'
+        : 'Impossible de vérifier l’historique d’exécution pour cet avis pour le moment.';
+    }
+
     if (reviewError === 'review-create-failed') {
       return lang === 'en'
         ? 'Unable to save your review right now.'
@@ -391,6 +403,25 @@ function DashboardPage({
                       )}
 
                       {['active', 'stopped', 'expired', 'delivered'].includes(rental.status) && !rental.review && (
+                        rental.accessOpen ? (
+                          <div className="mt-4 rounded-xl border border-[#6B3FA0]/40 bg-[#1A152F] p-3 text-xs leading-5 text-[#C8B1E4]">
+                            <p className="font-label mb-1 text-[10px] text-[#B794F4]">
+                              {lang === 'en' ? 'REVIEW FROM WORKSPACE' : 'AVIS DEPUIS LE WORKSPACE'}
+                            </p>
+                            <p>
+                              {rental.hasSuccessfulRun
+                                ? lang === 'en'
+                                  ? 'A successful run is recorded. Publish your verified review from the workspace review tab.'
+                                  : 'Une exécution réussie est enregistrée. Publiez votre avis vérifié depuis l’onglet avis du workspace.'
+                                : lang === 'en'
+                                  ? 'Run the agent first, then publish your verified review from the workspace history.'
+                                  : 'Lancez d’abord l’agent, puis publiez votre avis vérifié depuis l’historique du workspace.'}
+                            </p>
+                            <Link href={`${workspacePath}/${rental.id}?tab=review`} className="mt-2 inline-flex text-[#D8B4FE] hover:text-white">
+                              {lang === 'en' ? 'Open workspace review tab' : 'Ouvrir l’onglet avis du workspace'}
+                            </Link>
+                          </div>
+                        ) : rental.hasSuccessfulRun ? (
                         <form action={reviewAction} className="mt-4 space-y-2">
                           <input type="hidden" name="rental_id" value={rental.id} />
                           <div>
@@ -430,6 +461,18 @@ function DashboardPage({
                             {lang === 'en' ? 'Send review' : 'Publier l’avis'}
                           </Button>
                         </form>
+                        ) : (
+                          <div className="mt-4 rounded-xl border border-[#6B3FA0]/40 bg-[#1A152F] p-3 text-xs leading-5 text-[#C8B1E4]">
+                            <p className="font-label mb-1 text-[10px] text-[#B794F4]">
+                              {lang === 'en' ? 'REVIEW UNAVAILABLE' : 'AVIS INDISPONIBLE'}
+                            </p>
+                            <p>
+                              {lang === 'en'
+                                ? 'A verified review requires at least one successful workspace execution for this access.'
+                                : 'Un avis vérifié nécessite au moins une exécution réussie dans le workspace pour cet accès.'}
+                            </p>
+                          </div>
+                        )
                       )}
 
                       {rental.review && (

@@ -338,10 +338,11 @@ function RevenueBetaSection({ result }) {
                 </div>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricCard icon={TrendingUp} tone="green" label="Attribué beta" value={formatMoney(analytics?.ledger?.earnedCents ?? 0, currency)} detail={`${analytics?.ledger?.earnedCount ?? 0} événement(s) earned`} />
               <MetricCard icon={Clock3} tone="amber" label="Accès en attente" value={formatMoney(analytics?.ledger?.pendingAccessCents ?? 0, currency)} detail={`${analytics?.ledger?.pendingAccessCount ?? 0} paiement(s)`} />
               <MetricCard icon={ShieldAlert} tone="blue" label="Bloqué" value={formatMoney(analytics?.ledger?.blockedCents ?? 0, currency)} detail={`${analytics?.ledger?.blockedCount ?? 0} événement(s)`} />
+              <MetricCard icon={Clock3} tone="slate" label="Accès arrêtés" value={analytics?.ledger?.cancelledCount ?? 0} detail="événements stopped, revenu nul en beta" />
               <MetricCard icon={CreditCard} tone="slate" label="Payout-ready" value={formatMoney(analytics?.ledger?.payoutReadyCents ?? 0, currency)} detail="toujours 0 en beta sauf release future" />
             </div>
           </CodePanel>
@@ -414,7 +415,9 @@ function creatorActionForAgent(agent) {
     return {
       detail: cleanAdminNotes(agent.latestAdminReview.notes) || 'Un retour admin nécessite une correction avant publication.',
       href: `/code/agents/${agent.id}/edit`,
+      key: `status-changes-${agent.id}`,
       label: 'Corriger',
+      priority: 10,
       title: agent.name,
       tone: 'rejected',
     };
@@ -424,7 +427,9 @@ function creatorActionForAgent(agent) {
     return {
       detail: 'Compléter la fiche, le contrat agent, les limites et les exemples avant soumission.',
       href: `/code/agents/${agent.id}/edit`,
+      key: `status-draft-${agent.id}`,
       label: 'Finaliser',
+      priority: 40,
       title: agent.name,
       tone: 'draft',
     };
@@ -434,7 +439,9 @@ function creatorActionForAgent(agent) {
     return {
       detail: 'Agent soumis. Attendre la prise en review ou préparer les réponses aux questions admin.',
       href: `/code/agents/${agent.id}`,
+      key: `status-submitted-${agent.id}`,
       label: 'Voir',
+      priority: 50,
       title: agent.name,
       tone: 'submitted',
     };
@@ -444,7 +451,9 @@ function creatorActionForAgent(agent) {
     return {
       detail: 'Validation admin en cours. Garder la promesse, les limites et le workspace cohérents.',
       href: `/code/agents/${agent.id}`,
+      key: `status-review-${agent.id}`,
       label: 'Suivre',
+      priority: 60,
       title: agent.name,
       tone: 'in_review',
     };
@@ -454,7 +463,9 @@ function creatorActionForAgent(agent) {
     return {
       detail: 'Agent publié. Surveiller les achats sandbox, les runs réussis et les avis vérifiés.',
       href: `/code/agents/${agent.id}`,
+      key: `status-approved-${agent.id}`,
       label: 'Piloter',
+      priority: 90,
       title: agent.name,
       tone: 'approved',
     };
@@ -463,18 +474,69 @@ function creatorActionForAgent(agent) {
   return null;
 }
 
+const precheckActionLabels = {
+  approve_candidate: 'Prêt pour review admin',
+  fix_before_publish: 'Corriger avant publication',
+  manual_review: 'Revue manuelle',
+  wait_precheck: 'Attendre le précheck',
+};
+
+function creatorSignalActionsForAgent(agent) {
+  const actions = [];
+
+  if (agent.securityPrecheckSignal && agent.securityPrecheckSignal.status !== 'passed') {
+    const isBlocking =
+      agent.securityPrecheckSignal.status === 'failed' ||
+      agent.securityPrecheckSignal.riskLevel === 'blocked' ||
+      agent.securityPrecheckSignal.recommendedAction === 'fix_before_publish';
+
+    actions.push({
+      key: `precheck-${agent.id}`,
+      detail: `${agent.securityPrecheckSignal.label}. Action suggérée : ${
+        precheckActionLabels[agent.securityPrecheckSignal.recommendedAction] ||
+        agent.securityPrecheckSignal.recommendedAction
+      }.`,
+      href: `/code/agents/${agent.id}`,
+      label: 'Précheck',
+      priority: isBlocking ? 15 : 25,
+      title: agent.name,
+      tone: isBlocking ? 'failed' : 'in_review',
+    });
+  }
+
+  if (agent.workspaceSignal?.fallbackRequired) {
+    actions.push({
+      key: `workspace-${agent.id}`,
+      detail: `${agent.workspaceSignal.detail} Vérifiez l’infra creator et les informations affichées à l’utilisateur avant publication.`,
+      href: `/code/agents/${agent.id}`,
+      label: 'Workspace',
+      priority: 20,
+      title: agent.name,
+      tone: 'in_review',
+    });
+  }
+
+  return actions;
+}
+
 function CreatorPublicationPath({ agents, revenueAnalyticsResult }) {
   const actions = agents
-    .map(creatorActionForAgent)
+    .flatMap((agent) => [...creatorSignalActionsForAgent(agent), creatorActionForAgent(agent)])
     .filter(Boolean)
     .sort((left, right) => {
-      const order = { rejected: 0, draft: 1, submitted: 2, in_review: 3, approved: 4 };
+      if (left.priority !== right.priority) {
+        return left.priority - right.priority;
+      }
 
-      return (order[left.tone] ?? 9) - (order[right.tone] ?? 9);
+      return left.title.localeCompare(right.title);
     })
     .slice(0, 5);
   const revenueReadiness = revenueAnalyticsResult?.analytics?.revenueReadiness ?? null;
   const revenueNeedsAction = revenueReadiness && ['blocked', 'attention', 'empty'].includes(revenueReadiness.status);
+  const fallbackCount = agents.filter((agent) => agent.workspaceSignal?.fallbackRequired).length;
+  const precheckCount = agents.filter(
+    (agent) => agent.securityPrecheckSignal && agent.securityPrecheckSignal.status !== 'passed',
+  ).length;
 
   return (
     <CodePanel tone="violet">
@@ -486,14 +548,21 @@ function CreatorPublicationPath({ agents, revenueAnalyticsResult }) {
         <ArrowRight className="h-5 w-5 text-[#6B3FA0]" />
       </div>
 
+      {(fallbackCount > 0 || precheckCount > 0) && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {precheckCount > 0 && <StatusBadge status="in_review" label={`${precheckCount} précheck à suivre`} />}
+          {fallbackCount > 0 && <StatusBadge status="in_review" label={`${fallbackCount} fallback infra`} />}
+        </div>
+      )}
+
       {actions.length === 0 ? (
         <p className="text-sm leading-6 text-[#4B5563]">
           Créez un agent depuis un template pour démarrer le parcours publication → marketplace → revenus beta.
         </p>
       ) : (
         <div className="space-y-3">
-          {actions.map((action) => (
-            <article key={`${action.title}-${action.href}`} className="rounded-2xl border border-[#E3E7F2] bg-white p-3">
+          {actions.map((action, index) => (
+            <article key={action.key ?? `${action.title}-${action.href}-${index}`} className="rounded-2xl border border-[#E3E7F2] bg-white p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-bold text-[#111827]">{action.title}</p>
                 <StatusBadge status={action.tone} label={action.label} />
@@ -522,6 +591,7 @@ function CreatorPublicationPath({ agents, revenueAnalyticsResult }) {
 export default function CodeDashboardContent({
   creatorAgentsResult,
   creatorRentalsResult,
+  precheckStatus,
   revenueAnalyticsResult,
   submittedSlug,
 }) {
@@ -588,7 +658,13 @@ export default function CodeDashboardContent({
       />
 
         <div className="mb-6 space-y-4">
-          {submittedSlug && (
+          {submittedSlug && precheckStatus === 'failed' && (
+            <CodeAlert tone="warning" title="Agent soumis, précheck à relancer">
+              La publication est bien partie en validation, mais le précheck sécurité n’a pas pu être enregistré automatiquement.
+              L’admin devra le relancer depuis la file de review avant publication.
+            </CodeAlert>
+          )}
+          {submittedSlug && precheckStatus !== 'failed' && (
             <CodeAlert tone="success">
               Agent soumis pour validation. Il apparaît maintenant dans votre console AgentHub Code.
             </CodeAlert>
@@ -620,8 +696,8 @@ export default function CodeDashboardContent({
             icon={Activity}
             tone="slate"
             label="Activations"
-            value={rentals.length}
-            detail={usageAnalyticsLimited ? "masquées en beta" : "accès utilisateurs"}
+            value={usageAnalyticsLimited ? "Masquées" : rentals.length}
+            detail={usageAnalyticsLimited ? "voir GMV sandbox agrégé" : "accès utilisateurs"}
           />
         </div>
 
@@ -675,7 +751,7 @@ export default function CodeDashboardContent({
                   <h2 className="font-display text-xl font-bold text-[#111827]">Accès utilisateurs</h2>
                   <p className="mt-1 text-xs text-[#6B7280]">
                     {usageAnalyticsLimited
-                      ? "Les accès utilisateurs ne sont pas exposés côté créateur dans cette beta."
+                      ? "Les accès individuels ne sont pas exposés côté créateur dans cette beta. Utilisez les revenus beta pour suivre les agrégats."
                       : "Activations et accès ouverts sur vos agents publiés."}
                   </p>
                 </div>
@@ -689,7 +765,7 @@ export default function CodeDashboardContent({
                     title="Aucune activité client"
                     text={
                       usageAnalyticsLimited
-                        ? "Les accès utilisateurs sont masqués côté créateur pendant la beta."
+                        ? "Les accès utilisateurs restent privés. Les totaux disponibles sont regroupés dans Revenus beta, sans email, rental ID, input ou output utilisateur."
                         : "Les accès apparaîtront ici dès qu’un utilisateur activera un de vos agents publiés."
                     }
                   />

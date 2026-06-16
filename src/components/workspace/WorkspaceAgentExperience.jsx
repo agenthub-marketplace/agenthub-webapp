@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Check, ClipboardList, History, Layers, Play, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, ClipboardList, History, Layers, Play, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { polishFrenchCopy, polishFrenchList } from '@/lib/french-copy';
 
 function DetailList({ emptyText, icon: Icon = Check, items = [], tone = 'success' }) {
@@ -81,6 +81,231 @@ function RecipeBlocks({ blocks = [], requiredText, title }) {
   );
 }
 
+function BlueprintFieldGrid({ emptyText, exampleLabel, fields = [], optionalLabel, requiredLabel, title }) {
+  if (!fields.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+      <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{title}</h3>
+      <div className="grid gap-3 md:grid-cols-2">
+        {fields.map((field) => (
+          <div key={field.key} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-bold text-[#F4EFFA]">{field.label}</p>
+              <span className={`font-label rounded-full border px-2 py-1 text-[10px] ${
+                field.required
+                  ? 'border-[#F59E0B]/35 bg-[#1A1208] text-[#F6C177]'
+                  : 'border-[#2F184B] bg-[#0F0A1E] text-[#9B72CF]'
+              }`}>
+                {field.required ? requiredLabel : optionalLabel}
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#C8B1E4]">{field.helper}</p>
+            {field.example && (
+              <p className="mt-3 rounded-xl border border-[#2F184B] bg-[#0F0A1E] p-3 text-xs leading-5 text-[#9B72CF]">
+                <span className="font-semibold text-[#B794F4]">{exampleLabel}</span> {field.example}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      {!fields.length && <p className="text-sm text-[#9B72CF]">{emptyText}</p>}
+    </div>
+  );
+}
+
+function SetupBriefCard({ blueprint, labels, primaryActionLabel }) {
+  const fields = blueprint?.inputSchema?.fields ?? [];
+  const sections = blueprint?.outputSchema?.sections ?? [];
+
+  if (!fields.length && !sections.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#7C3AED]/55 bg-[#160D2C] p-5 md:col-span-2">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#C4B5FD]">{labels.setupBriefEyebrow}</p>
+          <h3 className="font-display mt-1 text-lg font-bold text-[#F4EFFA]">{labels.setupBriefTitle}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#C8B1E4]">{labels.setupBriefDetail}</p>
+        </div>
+        {primaryActionLabel && (
+          <span className="font-label w-fit rounded-full border border-[#7C3AED]/45 bg-[#251A40] px-3 py-1.5 text-[10px] text-[#E9D5FF]">
+            {primaryActionLabel}
+          </span>
+        )}
+      </div>
+
+      {fields.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {fields.slice(0, 6).map((field, index) => (
+            <div key={field.key} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+              <div className="mb-2 flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#7C3AED] text-xs font-bold text-white">
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#F4EFFA]">{field.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#C8B1E4]">{field.helper}</p>
+                </div>
+              </div>
+              {field.example && (
+                <p className="mt-3 rounded-xl border border-[#2F184B] bg-[#0F0A1E] p-3 text-xs leading-5 text-[#B794F4]">
+                  <span className="font-semibold text-[#E9D5FF]">{labels.blueprintExample}</span> {field.example}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+          <p className="font-label mb-2 text-xs text-[#C4B5FD]">{labels.setupBriefOutput}</p>
+          <ul className="grid gap-2 text-sm leading-6 text-[#D6C5E8] md:grid-cols-2">
+            {sections.slice(0, 4).map((section) => (
+              <li key={section.key} className="flex gap-2">
+                <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-[#A78BFA]" />
+                <span>{section.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlueprintSectionGrid({ emptyText, sections = [], title }) {
+  if (!sections.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+      <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{title}</h3>
+      <div className="grid gap-3 md:grid-cols-2">
+        {sections.map((section) => (
+          <div key={section.key} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+            <p className="text-sm font-bold text-[#F4EFFA]">{section.label}</p>
+            <p className="mt-2 text-xs leading-5 text-[#C8B1E4]">{section.expectedContent}</p>
+          </div>
+        ))}
+      </div>
+      {!sections.length && <p className="text-sm text-[#9B72CF]">{emptyText}</p>}
+    </div>
+  );
+}
+
+function LaunchGuidance({ blueprint, labels }) {
+  const checklist = blueprint?.runChecklist ?? [];
+  const inputFields = blueprint?.inputSchema?.fields ?? [];
+  const warnings = blueprint?.trustBoundary?.userWarnings ?? [];
+
+  if (!checklist.length && !inputFields.length && !warnings.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="font-label mb-2 text-xs text-[#B794F4]">{labels.launchBriefEyebrow}</p>
+          <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{labels.launchBriefTitle}</h3>
+          <p className="mt-1 text-sm leading-6 text-[#C8B1E4]">{labels.launchBriefDetail}</p>
+        </div>
+        <ShieldCheck className="h-5 w-5 shrink-0 text-[#10B981]" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {checklist.length > 0 && (
+          <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+            <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.launchChecklist}</h4>
+            <DetailList items={checklist.slice(0, 5)} emptyText={labels.setupChecklistEmpty} />
+          </div>
+        )}
+        {inputFields.length > 0 && (
+          <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+            <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.launchInputs}</h4>
+            <DetailList items={inputFields.slice(0, 4).map((field) => field.label)} emptyText={labels.blueprintEmpty} />
+          </div>
+        )}
+        {warnings.length > 0 && (
+          <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-4 md:col-span-2">
+            <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.trustWarnings}</h4>
+            <DetailList icon={AlertTriangle} items={warnings} emptyText="" tone="warning" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrustBoundaryGrid({ blueprint, labels, trustDisclosure, usesCreatorInfra }) {
+  const agentHubItems = blueprint?.trustBoundary?.dataSentToAgentHub ?? [];
+  const creatorInfraItems = blueprint?.trustBoundary?.dataSentToCreatorInfra ?? [];
+  const userWarnings = blueprint?.trustBoundary?.userWarnings ?? [];
+  const creatorItems = creatorInfraItems.length > 0
+    ? creatorInfraItems
+    : usesCreatorInfra && trustDisclosure
+      ? [trustDisclosure]
+      : [];
+
+  if (!agentHubItems.length && !creatorItems.length && !userWarnings.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#B794F4]">{labels.trustBoundaryEyebrow}</p>
+          <h3 className="font-display mt-1 text-lg font-bold text-[#F4EFFA]">{labels.trustBoundaryTitle}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#C8B1E4]">{labels.trustBoundaryDetail}</p>
+        </div>
+        <ShieldCheck className={`h-5 w-5 shrink-0 ${usesCreatorInfra ? 'text-[#F59E0B]' : 'text-[#10B981]'}`} />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+          <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.trustAgentHub}</h4>
+          <DetailList items={agentHubItems} emptyText={labels.blueprintEmpty} />
+        </div>
+        <div className={`rounded-2xl border p-4 ${
+          creatorItems.length > 0
+            ? 'border-[#F59E0B]/35 bg-[#1A1208]'
+            : 'border-[#2F184B] bg-[#080612]'
+        }`}>
+          <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.trustCreatorInfra}</h4>
+          <DetailList icon={creatorItems.length > 0 ? AlertTriangle : Check} items={creatorItems} emptyText={labels.trustCreatorInfraEmpty} tone={creatorItems.length > 0 ? 'warning' : 'success'} />
+        </div>
+        <div className="rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-4">
+          <h4 className="font-display mb-3 text-sm font-bold text-[#F4EFFA]">{labels.trustUserWarnings}</h4>
+          <DetailList icon={AlertTriangle} items={userWarnings} emptyText={labels.trustWarningsEmpty} tone="warning" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FallbackOverviewCard({ items = [], labels }) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-[#F59E0B]" />
+        <h3 className="font-display text-lg font-bold text-[#F4EFFA]">{labels.fallbackPathTitle}</h3>
+      </div>
+      <p className="mb-4 text-sm leading-6 text-[#F6C177]">{labels.fallbackOverviewDetail}</p>
+      <DetailList icon={AlertTriangle} items={items} emptyText={labels.fallbackPathEmpty} tone="warning" />
+    </div>
+  );
+}
+
 function tabRecipeStatus(blocks = []) {
   const visibleBlocks = blocks.filter((item) => item.status !== 'hidden');
 
@@ -108,6 +333,18 @@ function formatWorkspaceDate(value, locale) {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+}
+
+function workspaceActionText(item) {
+  if (typeof item === 'string') {
+    return item;
+  }
+
+  if (item && typeof item === 'object') {
+    return item.label || item.title || item.text || item.key || '';
+  }
+
+  return '';
 }
 
 function StartupPlan({ labels, steps = [] }) {
@@ -152,6 +389,7 @@ function RecipeSummary({ baseHref, labels, workspaceRecipe }) {
     return null;
   }
 
+  const expectedOutputSections = workspaceRecipe.blueprint?.outputSchema?.sections ?? [];
   const runtimeLabel = labels.runtimePanels[workspaceRecipe.runtimePanel] ?? workspaceRecipe.runtimePanel;
   const infraLabel = labels.infraModes[workspaceRecipe.readiness?.infraMode] ?? workspaceRecipe.readiness?.infraMode ?? labels.unknownInfra;
   const stateStyle = workspaceRecipe.disabledReason ? recipeStatusStyles.disabled : recipeStatusStyles.ready;
@@ -290,6 +528,19 @@ function RecipeSummary({ baseHref, labels, workspaceRecipe }) {
               </div>
             )}
           </div>
+          {expectedOutputSections.length > 0 && (
+            <div className="mt-3 rounded-xl border border-[#6B3FA0]/35 bg-[#080612] p-3">
+              <p className="font-label text-[10px] text-[#9B72CF]">{labels.historyOutputReviewTitle}</p>
+              <ul className="mt-2 grid gap-2 text-xs leading-5 text-[#D6C5E8] md:grid-cols-2">
+                {expectedOutputSections.slice(0, 4).map((section) => (
+                  <li key={section.key} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#9B72CF]" />
+                    <span>{section.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       <StartupPlan labels={labels} steps={workspaceRecipe.startupPlan ?? []} />
@@ -323,14 +574,14 @@ function RecipeSummary({ baseHref, labels, workspaceRecipe }) {
         <div className="mt-4 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-4">
           <p className="font-label mb-2 text-xs text-[#B794F4]">{labels.nextActions}</p>
           <ol className="space-y-2 text-sm text-[#D6C5E8]">
-            {workspaceRecipe.nextActions.map((action, index) => (
-              <li key={action} className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#251A40] text-xs font-bold text-[#C4B5FD]">
-                  {index + 1}
-                </span>
-                <span className="leading-6">{action}</span>
-              </li>
-            ))}
+            {workspaceRecipe.nextActions.map(workspaceActionText).filter(Boolean).map((action, index) => (
+                <li key={`${action}-${index}`} className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#251A40] text-xs font-bold text-[#C4B5FD]">
+                    {index + 1}
+                  </span>
+                  <span className="leading-6">{action}</span>
+                </li>
+              ))}
           </ol>
         </div>
       )}
@@ -363,6 +614,10 @@ export default function WorkspaceAgentExperience({
   const labels = isEnglish
     ? {
         agentReady: 'Agent ready',
+        blueprintInputs: 'Agent-specific inputs',
+        blueprintOutputs: 'Expected output structure',
+        blueprintEmpty: 'No agent-specific blueprint yet.',
+        blueprintExample: 'Example:',
         continueToUse: 'Continue to use',
         detailsEyebrow: 'Usage frame',
         detailsTitle: 'Useful details',
@@ -371,6 +626,7 @@ export default function WorkspaceAgentExperience({
         examples: 'Usage examples',
         examplesEmpty: 'No example yet.',
         fallbackPathEmpty: 'No fallback path is required for this workspace.',
+        fallbackOverviewDetail: 'This agent can rely on approved creator infrastructure. AgentHub keeps access, server-side proxying, audit and history in the workspace.',
         fallbackPathTitle: 'Fallback path',
         limitations: 'Important limitations',
         limitationsEmpty: 'No published limitation.',
@@ -379,20 +635,31 @@ export default function WorkspaceAgentExperience({
         objective: 'Objective',
         outcomeChecklistEmpty: 'Run this agent once before judging the result.',
         outcomeChecklistTitle: 'Before leaving feedback',
+        optional: 'Optional',
         overviewEyebrow: 'At a glance',
         overviewTitle: 'What this agent provides',
         prepare: 'Set up',
         requiredInputs: 'Inputs to prepare',
         requiredInputsEmpty: 'No specific input was provided.',
+        required: 'Required',
         review: 'Review',
         reviewEyebrow: 'Verified feedback',
         reviewTitle: 'Review after use',
         historyDetail: 'Stored runs visible for this access.',
+        historyOutputReviewTitle: 'Compare the latest result against',
         historyState: 'Run history',
         inputChars: 'input characters',
         lastRunState: 'Latest run',
         latestInput: 'Latest input',
         latestOutput: 'Latest output',
+        latestRunReviewDetail: 'Base your review on the stored result, not only on the listing promise.',
+        latestRunReviewTitle: 'Latest result to evaluate',
+        launchBriefDetail: 'Use this as the final check before sending user context to the runtime.',
+        launchBriefEyebrow: 'Before running',
+        launchBriefTitle: 'Launch this agent correctly',
+        launchChecklist: 'Launch checklist',
+        launchInputs: 'Context to include',
+        reviewOutputTitle: 'Expected result to check',
         lastRunStatuses: {
           failed: 'Failed',
           running: 'Running',
@@ -433,6 +700,10 @@ export default function WorkspaceAgentExperience({
         setup: 'Setup',
         setupChecklistEmpty: 'No launch checklist is required.',
         setupChecklistTitle: 'Launch checklist',
+        setupBriefDetail: 'Use this short brief to gather the right context before opening the execution tab.',
+        setupBriefEyebrow: 'Agent setup brief',
+        setupBriefOutput: 'Expected result should include',
+        setupBriefTitle: 'Prepare the first useful run',
         setupEmpty: 'No extra setup is required before use.',
         setupEyebrow: 'Preparation',
         setupTitle: 'Set up',
@@ -453,6 +724,14 @@ export default function WorkspaceAgentExperience({
         useNow: 'Use now',
         recipeRequired: 'Required check',
         recipeTitle: 'Workspace checklist',
+        trustAgentHub: 'Kept in AgentHub',
+        trustBoundaryDetail: 'This clarifies which parts of the run stay inside AgentHub and which parts may depend on approved creator infrastructure.',
+        trustBoundaryEyebrow: 'Trust boundary',
+        trustBoundaryTitle: 'Where your data goes',
+        trustCreatorInfra: 'Creator infrastructure',
+        trustCreatorInfraEmpty: 'No creator infrastructure is required for this workspace.',
+        trustUserWarnings: 'User warnings',
+        trustWarningsEmpty: 'No specific warning for this workspace.',
         trustWarnings: 'Trust warnings',
         unknownInfra: 'Unknown infrastructure',
         workspaceBlocked: 'Execution blocked',
@@ -460,6 +739,10 @@ export default function WorkspaceAgentExperience({
       }
     : {
         agentReady: 'Agent prêt',
+        blueprintInputs: 'Inputs spécifiques à cet agent',
+        blueprintOutputs: 'Structure de sortie attendue',
+        blueprintEmpty: 'Aucun blueprint spécifique disponible pour le moment.',
+        blueprintExample: 'Exemple :',
         continueToUse: 'Continuer vers l’utilisation',
         detailsEyebrow: 'Cadre d’usage',
         detailsTitle: 'Détails utiles',
@@ -468,6 +751,7 @@ export default function WorkspaceAgentExperience({
         examples: 'Exemples d’usage',
         examplesEmpty: 'Aucun exemple fourni pour le moment.',
         fallbackPathEmpty: 'Aucun parcours de fallback requis pour ce workspace.',
+        fallbackOverviewDetail: 'Cet agent peut s’appuyer sur une infrastructure créateur approuvée. AgentHub conserve l’accès, le proxy serveur, l’audit et l’historique dans le workspace.',
         fallbackPathTitle: 'Parcours de fallback',
         limitations: 'Limites importantes',
         limitationsEmpty: 'Aucune limite publiée.',
@@ -476,20 +760,31 @@ export default function WorkspaceAgentExperience({
         objective: 'Objectif',
         outcomeChecklistEmpty: 'Lancez cet agent au moins une fois avant de juger le résultat.',
         outcomeChecklistTitle: 'Avant de laisser un avis',
+        optional: 'Optionnel',
         overviewEyebrow: 'En bref',
         overviewTitle: 'Ce que cet agent apporte',
         prepare: 'Mettre en place',
         requiredInputs: 'À préparer',
         requiredInputsEmpty: 'Aucun input spécifique n’a été renseigné.',
+        required: 'Requis',
         review: 'Avis',
         reviewEyebrow: 'Retour vérifié',
         reviewTitle: 'Avis après utilisation',
         historyDetail: 'Exécutions stockées et visibles pour cet accès.',
+        historyOutputReviewTitle: 'Comparer le dernier résultat avec',
         historyState: 'Historique d’exécution',
         inputChars: 'caractères input',
         lastRunState: 'Dernière exécution',
         latestInput: 'Dernier input',
         latestOutput: 'Dernière sortie',
+        latestRunReviewDetail: 'Basez votre avis sur le résultat stocké, pas seulement sur la promesse de la fiche.',
+        latestRunReviewTitle: 'Dernier résultat à évaluer',
+        launchBriefDetail: 'Utilisez ce rappel comme dernier contrôle avant d’envoyer le contexte utilisateur au runtime.',
+        launchBriefEyebrow: 'Avant lancement',
+        launchBriefTitle: 'Lancer cet agent correctement',
+        launchChecklist: 'Checklist de lancement',
+        launchInputs: 'Contexte à inclure',
+        reviewOutputTitle: 'Résultat attendu à vérifier',
         lastRunStatuses: {
           failed: 'Échec',
           running: 'En cours',
@@ -530,6 +825,10 @@ export default function WorkspaceAgentExperience({
         setup: 'Setup',
         setupChecklistEmpty: 'Aucune checklist de lancement requise.',
         setupChecklistTitle: 'Checklist de lancement',
+        setupBriefDetail: 'Utilisez ce brief court pour rassembler le bon contexte avant d’ouvrir l’onglet d’exécution.',
+        setupBriefEyebrow: 'Brief de mise en place',
+        setupBriefOutput: 'Le résultat attendu doit inclure',
+        setupBriefTitle: 'Préparer la première exécution utile',
         setupEmpty: 'Aucun setup supplémentaire n’est requis avant utilisation.',
         setupEyebrow: 'Préparation',
         setupTitle: 'Mise en place',
@@ -550,6 +849,14 @@ export default function WorkspaceAgentExperience({
         useNow: 'Utiliser maintenant',
         recipeRequired: 'Point requis',
         recipeTitle: 'Checklist workspace',
+        trustAgentHub: 'Conservé dans AgentHub',
+        trustBoundaryDetail: 'Ce bloc clarifie ce qui reste dans AgentHub et ce qui peut dépendre d’une infrastructure créateur approuvée.',
+        trustBoundaryEyebrow: 'Frontière de confiance',
+        trustBoundaryTitle: 'Où vont les données',
+        trustCreatorInfra: 'Infrastructure créateur',
+        trustCreatorInfraEmpty: 'Aucune infrastructure créateur n’est requise pour ce workspace.',
+        trustUserWarnings: 'Avertissements utilisateur',
+        trustWarningsEmpty: 'Aucun avertissement spécifique pour ce workspace.',
         trustWarnings: 'Avertissements confiance',
         unknownInfra: 'Infrastructure inconnue',
         workspaceBlocked: 'Exécution bloquée',
@@ -582,6 +889,7 @@ export default function WorkspaceAgentExperience({
         { id: 'review', label: labels.tabs.review, icon: History },
       ];
   const setupWarnings = workspaceManifest?.setup?.warnings ?? [];
+  const workspaceBlueprint = workspaceRecipe?.blueprint ?? workspaceManifest?.blueprint ?? null;
   const runnerTitle = workspaceManifest?.runner?.title;
   const runnerDescription = workspaceManifest?.runner?.description;
   const trustDisclosure = workspaceManifest?.trust?.creatorInfraDisclosure || workspaceManifest?.trust?.dataDisclosure;
@@ -688,6 +996,13 @@ export default function WorkspaceAgentExperience({
                   <DetailList items={capabilities.slice(0, 4)} emptyText={labels.mainCapabilitiesEmpty} />
                 </div>
               </div>
+              <TrustBoundaryGrid
+                blueprint={workspaceBlueprint}
+                labels={labels}
+                trustDisclosure={trustDisclosure}
+                usesCreatorInfra={usesCreatorInfra}
+              />
+              <FallbackOverviewCard items={workspaceRecipe?.fallbackPath ?? []} labels={labels} />
             </Panel>
           )}
 
@@ -698,9 +1013,24 @@ export default function WorkspaceAgentExperience({
                 <p className="mb-5 text-sm leading-6 text-[#C8B1E4]">{workspaceManifest.setup.description}</p>
               )}
               <div className="grid gap-5 md:grid-cols-2">
+                <SetupBriefCard
+                  blueprint={workspaceBlueprint}
+                  labels={labels}
+                  primaryActionLabel={workspaceRecipe?.primaryActionLabel}
+                />
                 <div className="rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5 md:col-span-2">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.setupChecklistTitle}</h3>
                   <DetailList items={workspaceRecipe?.setupChecklist ?? []} emptyText={labels.setupChecklistEmpty} />
+                </div>
+                <div className="md:col-span-2">
+                  <BlueprintFieldGrid
+                    emptyText={labels.blueprintEmpty}
+                    exampleLabel={labels.blueprintExample}
+                    fields={workspaceBlueprint?.inputSchema?.fields ?? []}
+                    optionalLabel={labels.optional}
+                    requiredLabel={labels.required}
+                    title={labels.blueprintInputs}
+                  />
                 </div>
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.requiredInputs}</h3>
@@ -782,6 +1112,7 @@ export default function WorkspaceAgentExperience({
                   )}
                 </Panel>
               )}
+              <LaunchGuidance blueprint={workspaceBlueprint} labels={labels} />
               {runnerSlot}
             </div>
           )}
@@ -790,6 +1121,13 @@ export default function WorkspaceAgentExperience({
             <Panel eyebrow={labels.detailsEyebrow} title={labels.detailsTitle}>
               <RecipeBlocks blocks={recipeBlocksForTab('details')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
               <div className="grid gap-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <BlueprintSectionGrid
+                    emptyText={labels.blueprintEmpty}
+                    sections={workspaceBlueprint?.outputSchema?.sections ?? []}
+                    title={labels.blueprintOutputs}
+                  />
+                </div>
                 <div className="rounded-2xl border border-[#2F184B] bg-[#080612] p-5">
                   <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.deliverables}</h3>
                   <DetailList items={deliverables} emptyText={labels.deliverablesEmpty} />
@@ -817,6 +1155,41 @@ export default function WorkspaceAgentExperience({
                 <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.outcomeChecklistTitle}</h3>
                 <DetailList items={workspaceRecipe?.outcomeChecklist ?? []} emptyText={labels.outcomeChecklistEmpty} />
               </div>
+              {workspaceBlueprint?.outputSchema?.sections?.length > 0 && (
+                <div className="mb-5 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+                  <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.reviewOutputTitle}</h3>
+                  <DetailList
+                    items={workspaceBlueprint.outputSchema.sections.slice(0, 5).map((section) => section.label)}
+                    emptyText={labels.blueprintEmpty}
+                  />
+                </div>
+              )}
+              {workspaceRecipe?.historyPreview && (
+                <div className="mb-5 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+                  <p className="font-label mb-2 text-xs text-[#B794F4]">{labels.latestRunReviewTitle}</p>
+                  <p className="mb-4 text-sm leading-6 text-[#C8B1E4]">{labels.latestRunReviewDetail}</p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {workspaceRecipe.historyPreview.inputPreview && (
+                      <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                        <p className="font-label text-[10px] text-[#9B72CF]">{labels.latestInput}</p>
+                        <p className="mt-1 text-xs leading-5 text-[#D6C5E8]">{workspaceRecipe.historyPreview.inputPreview}</p>
+                      </div>
+                    )}
+                    {workspaceRecipe.historyPreview.outputPreview && (
+                      <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-3">
+                        <p className="font-label text-[10px] text-[#9B72CF]">{labels.latestOutput}</p>
+                        <p className="mt-1 text-xs leading-5 text-[#D6C5E8]">{workspaceRecipe.historyPreview.outputPreview}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {workspaceBlueprint?.supportHints?.length > 0 && (
+                <div className="mb-5 rounded-2xl border border-[#F59E0B]/35 bg-[#1A1208] p-5">
+                  <h3 className="font-display mb-3 text-lg font-bold text-[#F4EFFA]">{labels.trustWarnings}</h3>
+                  <DetailList icon={AlertTriangle} items={workspaceBlueprint.supportHints} emptyText="" tone="warning" />
+                </div>
+              )}
               {reviewSlot}
             </Panel>
           )}

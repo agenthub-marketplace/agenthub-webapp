@@ -20,6 +20,59 @@ function compactText(value, maxLength = 74) {
   return `${text.slice(0, maxLength - 1).trim()}…`;
 }
 
+function marketplaceInfraSignal(agent, lang) {
+  const runtimeType = agent.contract?.runtimeType;
+  const externalTools = agent.contract?.dataPolicy?.external_tools ?? [];
+
+  if (runtimeType === 'creator_endpoint') {
+    return {
+      detail: lang === 'en'
+        ? 'AgentHub proxies the approved creator endpoint server-side.'
+        : 'AgentHub proxifie l’endpoint créateur approuvé côté serveur.',
+      label: lang === 'en' ? 'Creator infrastructure' : 'Infra créateur',
+      tone: 'warning',
+    };
+  }
+
+  if (runtimeType === 'workflow_automation' && externalTools.length > 0) {
+    return {
+      detail: lang === 'en'
+        ? 'AgentHub orchestrates the workflow with approved creator steps.'
+        : 'AgentHub orchestre le workflow avec des étapes créateur approuvées.',
+      label: lang === 'en' ? 'Hybrid workspace' : 'Workspace hybride',
+      tone: 'warning',
+    };
+  }
+
+  if (runtimeType === 'workflow_automation') {
+    return {
+      detail: lang === 'en'
+        ? 'Workflow executed and tracked inside AgentHub.'
+        : 'Workflow exécuté et suivi dans AgentHub.',
+      label: lang === 'en' ? 'AgentHub workflow' : 'Workflow AgentHub',
+      tone: 'success',
+    };
+  }
+
+  if (runtimeType === 'document_file') {
+    return {
+      detail: lang === 'en'
+        ? 'Private PDF/DOCX text extraction in the workspace.'
+        : 'Extraction texte PDF/DOCX privée dans le workspace.',
+      label: lang === 'en' ? 'Private document' : 'Document privé',
+      tone: 'success',
+    };
+  }
+
+  return {
+    detail: lang === 'en'
+      ? 'Execution and history stay inside AgentHub.'
+      : 'Exécution et historique restent dans AgentHub.',
+    label: lang === 'en' ? 'AgentHub hosted' : 'Hébergé AgentHub',
+    tone: 'success',
+  };
+}
+
 export default function AgentCard({ agent, variant = 'dark' }) {
   const { t, lang } = useT();
   const ratingLabel = agent.reviews > 0 ? Number(agent.rating).toFixed(1) : 'New';
@@ -30,6 +83,7 @@ export default function AgentCard({ agent, variant = 'dark' }) {
     : (lang === 'en' ? 'Agent rental' : 'Agent à la location');
   const workspaceLabel = WORKSPACE_MODE_LABELS[agent.contract?.workspaceMode] || null;
   const runtimeLabel = AGENT_RUNTIME_TYPE_LABELS[agent.contract?.runtimeType] || null;
+  const infraSignal = marketplaceInfraSignal(agent, lang);
   const primaryInput = agent.requiredInputs?.find((item) => item?.trim()) || '';
   const primaryDeliverable = agent.deliverables?.find((item) => item?.trim()) || agent.contract?.outputPromise?.summary || '';
   const isLight = variant === 'light';
@@ -43,6 +97,13 @@ export default function AgentCard({ agent, variant = 'dark' }) {
   const divider = isLight ? 'border-[#E8DFCB]' : 'border-[#251A40]';
   const fitBox = isLight ? 'border-[#E8DFCB] bg-[#FAF7FF]' : 'border-[#251A40] bg-[#080612]';
   const fitLabel = isLight ? 'text-[#6B3FA0]' : 'text-[#B794F4]';
+  const infraBox = infraSignal.tone === 'warning'
+    ? isLight
+      ? 'border-[#F59E0B]/30 bg-[#FFFBEB] text-[#92400E]'
+      : 'border-[#F59E0B]/30 bg-[#1A1208] text-[#F6C177]'
+    : isLight
+      ? 'border-[#10B981]/25 bg-[#ECFDF5] text-[#047857]'
+      : 'border-[#10B981]/20 bg-[#071611] text-[#6EE7B7]';
   return (
     <Link href={`/agenthub/agents/${agent.slug}`} className="block group">
       <div className={`card-hover ${card} flex h-full flex-col rounded-2xl p-5`}>
@@ -85,6 +146,12 @@ export default function AgentCard({ agent, variant = 'dark' }) {
             </div>
           </div>
         )}
+
+        <div className={`mb-4 rounded-2xl border p-3 text-xs ${infraBox}`}>
+          <p className="font-label mb-1 text-[10px]">{lang === 'en' ? 'Infrastructure' : 'Infrastructure'}</p>
+          <p className="font-semibold">{infraSignal.label}</p>
+          <p className="mt-1 leading-5 opacity-90">{infraSignal.detail}</p>
+        </div>
 
         <div className={`mt-auto border-t pt-4 ${divider}`}>
           <div className="mb-4 flex items-center justify-between gap-3">

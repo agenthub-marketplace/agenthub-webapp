@@ -1,12 +1,17 @@
 import "server-only";
 
 import type { AgentContract, AgentRuntimeType } from "@/lib/agent-contract";
+import {
+  buildAgentWorkspaceBlueprint,
+  type AgentWorkspaceBlueprintV1,
+} from "@/server/agents/workspace-blueprint";
 
 type WorkspaceManifestLocale = "en" | "fr";
 type WorkspaceRuntimeKind = "assistant" | "document" | "workflow" | "creator_endpoint";
 type WorkspaceInfraMode = "agenthub_hosted" | "creator_hosted" | "hybrid";
 
 export type WorkspaceManifestV1 = {
+  blueprint: AgentWorkspaceBlueprintV1;
   history: {
     emptyText: string;
     showMoreLabel: string;
@@ -44,6 +49,8 @@ export type WorkspaceManifestV1 = {
 type WorkspaceManifestInput = {
   actions?: string[];
   agent: {
+    capabilities?: string[] | null;
+    deliverables?: string[] | null;
     limitations?: string[] | null;
     requiredInputsList?: string[] | null;
     workspaceActions?: string[] | null;
@@ -250,6 +257,13 @@ export function buildWorkspaceManifest(input: WorkspaceManifestInput): Workspace
   const setupInputs = input.agent?.requiredInputsList?.length
     ? input.agent.requiredInputsList
     : input.contract.setupRequirements.items;
+  const blueprint = buildAgentWorkspaceBlueprint({
+    actions: input.actions,
+    agent: input.agent,
+    contract: input.contract,
+    documentInputMode: input.documentInputMode,
+    locale,
+  });
   const tabs =
     kind === "document"
       ? [
@@ -284,6 +298,7 @@ export function buildWorkspaceManifest(input: WorkspaceManifestInput): Workspace
             ];
 
   return {
+    blueprint,
     history: {
       emptyText: labels.emptyHistory,
       showMoreLabel: labels.showMore,

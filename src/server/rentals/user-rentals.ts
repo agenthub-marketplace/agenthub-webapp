@@ -3,6 +3,7 @@ import "server-only";
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { getAgentTemplateByLabel } from "@/lib/agent-templates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isMissingAgentRunsSchemaError } from "@/server/llm/runs";
 import { ACCESS_OPEN_STATUSES } from "@/server/payments/state";
 
 export type UserRental = {
@@ -39,6 +40,7 @@ export type UserRental = {
     contract: AgentContract;
   } | null;
   accessOpen: boolean;
+  hasSuccessfulRun: boolean;
   result: {
     summary: string;
     deliveredAt: string | null;
@@ -320,7 +322,7 @@ function dedupeOpenAccessRentals(rentals: UserRental[]) {
   return deduped;
 }
 
-function mapUserRental(rental: UserRentalRow): UserRental {
+function mapUserRental(rental: UserRentalRow, successfulRunRentalIds = new Set<string>()): UserRental {
   const agent = readSingle(rental.agents);
   const version = readSingle(agent?.agent_versions ?? null);
   const template = getAgentTemplateByLabel(agent?.name ?? "");
@@ -366,6 +368,7 @@ function mapUserRental(rental: UserRentalRow): UserRental {
     createdAt: rental.created_at,
     agent: mappedAgent,
     accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && mappedAgent?.status === "approved",
+    hasSuccessfulRun: successfulRunRentalIds.has(rental.id),
     result: result
       ? {
           summary: result.summary,
@@ -550,7 +553,27 @@ export async function getUserRentals(userId: string) {
     return { rentals: [], error: "rentals-load-failed" };
   }
 
-  const rentals = (data ?? []).map(mapUserRental);
+  const rentalRows = data ?? [];
+  const rentalIds = rentalRows.map((rental) => rental.id);
+  let successfulRunRentalIds = new Set<string>();
+
+  if (rentalIds.length > 0) {
+    const { data: runRows, error: runRowsError } = await supabase
+      .from("agent_runs")
+      .select("rental_request_id")
+      .eq("user_id", userId)
+      .eq("status", "succeeded")
+      .in("rental_request_id", rentalIds)
+      .returns<{ rental_request_id: string | null }[]>();
+
+    if (runRowsError && !isMissingAgentRunsSchemaError(runRowsError)) {
+      return { rentals: [], error: "rentals-load-failed" };
+    }
+
+    successfulRunRentalIds = new Set((runRows ?? []).map((run) => run.rental_request_id).filter((id): id is string => Boolean(id)));
+  }
+
+  const rentals = rentalRows.map((rental) => mapUserRental(rental, successfulRunRentalIds));
 
   return {
     rentals: dedupeOpenAccessRentals(rentals),

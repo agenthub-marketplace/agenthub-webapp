@@ -253,6 +253,20 @@ The signal checks:
 - endpoint health for `creator_endpoint`;
 - webhook health for workflow steps that call creator webhooks.
 
+The signal now also returns a `decision` object for admin triage:
+
+| Field | Meaning |
+| --- | --- |
+| `fallbackRequired` | Whether the workspace depends on approved creator infrastructure. |
+| `runtimeOwner` | `agenthub`, `creator`, or `hybrid`. |
+| `adminAction` | Human-readable checklist item for the admin before approval. |
+| `userDisclosure` | Short explanation that can be shown before/after rental. |
+| `key` | Stable product route such as `creator_endpoint_fallback` or `agenthub_workflow_workspace`. |
+
+This object is not a replacement for runtime/API checks. It is a shared decision
+summary used by admin review, ops, future security-agent triage, and workspace
+UX copy.
+
 The canonical implementation is now server-side in:
 
 ```text

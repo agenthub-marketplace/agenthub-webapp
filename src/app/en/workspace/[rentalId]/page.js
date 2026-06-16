@@ -10,13 +10,14 @@ import CreatorEndpointWorkspaceActions from '@/components/workspace/CreatorEndpo
 import WorkspaceAgentExperience from '@/components/workspace/WorkspaceAgentExperience';
 import { Button } from '@/components/ui/button';
 import { requireAuth } from '@/lib/auth/session';
+import { formatCreditsFromCents } from '@/lib/format-credits';
 import { getWorkspaceActionLabels } from '@/lib/workspace-actions';
 import { buildWorkspaceRuntimeContract } from '@/server/agents/workspace-runtime-contract';
 import { getUserRentalById } from '@/server/rentals/user-rentals';
 import { getUserAgentRuns } from '@/server/llm/runs';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
-import { ArrowLeft, Check, Clock, Euro, ShieldCheck, Star } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Coins, ShieldCheck, Star } from 'lucide-react';
 
 const WORKSPACE_MODE_LABELS = {
   instant: 'Instant access',
@@ -34,17 +35,8 @@ function optionLabel(labels, value) {
   return labels[value] ?? value;
 }
 
-function formatPrice(cents, currency = 'eur') {
-  if (typeof cents !== 'number' || cents <= 0) {
-    return 'Price not configured';
-  }
-
-  return new Intl.NumberFormat('en-US', {
-    currency: currency.toUpperCase(),
-    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
-    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
-    style: 'currency',
-  }).format(cents / 100);
+function formatPrice(cents) {
+  return formatCreditsFromCents(cents);
 }
 
 function unavailableCopy(rental) {
@@ -107,7 +99,7 @@ function WorkspaceUnavailable({ eyebrow = 'AGENT WORKSPACE', message, profile, t
             <Link href="/en/workspace">
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">My agents</Button>
             </Link>
-            <Link href="/en/search">
+            <Link href="/en/marketplace">
               <Button variant="outline" className="border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
                 Browse agents
               </Button>
@@ -156,6 +148,12 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const accessCreated = query?.access === 'created';
   const reviewSubmitted = query?.reviewSubmitted === rental.id;
   const reviewError = typeof query?.reviewError === 'string' ? query.reviewError : null;
+  const reviewErrorMessage =
+    reviewError === 'review-run-required'
+      ? 'Run this agent once from the workspace before leaving a verified review.'
+      : reviewError === 'review-run-check-failed'
+        ? 'Unable to verify the execution history for this review right now.'
+        : 'Unable to publish this review right now.';
   const contract = rental.agent.contract;
   const accessLabel = optionLabel(WORKSPACE_MODE_LABELS, contract.workspaceMode) || 'Instant access';
   const setupLabel = optionLabel(SETUP_REQUIREMENT_LABELS, contract.setupRequirements.type);
@@ -166,6 +164,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
     workspaceMode: contract.workspaceMode,
   });
   const { runs: agentRuns } = await getUserAgentRuns(profile.id, rental.id);
+  const hasSuccessfulRun = agentRuns.some((run) => run.status === 'succeeded');
   const runtimeContract = await buildWorkspaceRuntimeContract({
     actions,
     agentRuns,
@@ -249,7 +248,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       )}
       {reviewError && (
         <div className="mb-4 rounded-2xl border border-[#EF4444]/35 bg-[#EF4444]/10 p-4 text-sm text-[#FCA5A5]">
-          Unable to publish this review right now.
+          {reviewErrorMessage}
         </div>
       )}
       {rental.review ? (
@@ -261,6 +260,17 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
           </div>
           {rental.review.title && <p className="font-display font-bold text-[#F4EFFA]">{rental.review.title}</p>}
           {rental.review.body && <p className="mt-2 text-sm text-[#C8B1E4]">{rental.review.body}</p>}
+        </div>
+      ) : !hasSuccessfulRun ? (
+        <div className="rounded-2xl border border-[#6B3FA0]/40 bg-[#120C24] p-4 text-sm leading-6 text-[#C8B1E4]">
+          <p className="font-label mb-2 text-xs text-[#B794F4]">REVIEW AFTER USE</p>
+          <p>Run this agent at least once and check the stored result in history before publishing a verified review.</p>
+          <Link
+            href={`/en/workspace/${rental.id}?tab=use`}
+            className="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-[#532B88] px-4 text-sm font-bold text-white transition-colors hover:bg-[#7C3AED]"
+          >
+            Run agent
+          </Link>
         </div>
       ) : (
         <form action={reviewAction} className="space-y-3">
@@ -294,8 +304,14 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
         </Link>
 
         {accessCreated && (
-          <div className="mb-6 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7]">
-            Your access is active. You can find this agent from your workspace.
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#10B981]/35 bg-[#10B981]/10 p-4 text-sm text-[#6EE7B7] sm:flex-row sm:items-center sm:justify-between">
+            <p>Your access is active. You can find this agent from your workspace.</p>
+            <Link
+              href={`/en/workspace/${rental.id}?tab=use`}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#10B981] px-4 text-sm font-bold text-[#07130F] transition-colors hover:bg-[#34D399]"
+            >
+              Use now
+            </Link>
           </div>
         )}
 
@@ -321,7 +337,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
                 Activated on {new Date(rental.createdAt).toLocaleDateString('en-US')}
               </div>
               <div className="flex items-center gap-2">
-                <Euro className="h-4 w-4 text-[#9B72CF]" />
+                <Coins className="h-4 w-4 text-[#9B72CF]" />
                 {formatPrice(rental.priceCents, rental.currency)}
               </div>
               <div className="flex items-center gap-2">

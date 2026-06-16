@@ -9,6 +9,7 @@ import { getWorkspaceActionLabels, type WorkspaceAction } from "@/lib/workspace-
 import { loadDocumentRuntimeContext } from "@/server/documents/runtime";
 import { buildDocumentRunPrompt } from "@/server/llm/document-prompt";
 import { runOpenAIText } from "@/server/llm/openai";
+import { revalidateWorkspaceRunSurfaces } from "@/server/workspace/revalidation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -370,6 +371,12 @@ export async function POST(request: Request) {
       return jsonError(500, "failed", "run-update-failed");
     }
 
+    revalidateWorkspaceRunSurfaces({
+      agentSlug: context.agent.slug,
+      locale,
+      rentalId: context.rental.id,
+    });
+
     return NextResponse.json({
       outputText,
       run: responseRun({
@@ -398,6 +405,12 @@ export async function POST(request: Request) {
       })
       .eq("id", createdRun.id)
       .eq("status", "running");
+
+    revalidateWorkspaceRunSurfaces({
+      agentSlug: context.agent.slug,
+      locale,
+      rentalId: context.rental.id,
+    });
 
     return NextResponse.json(
       {

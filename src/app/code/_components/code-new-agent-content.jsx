@@ -20,6 +20,7 @@ import { AGENT_TEMPLATES, templateToCreatorFormValues } from '@/lib/agent-templa
 import { submitAgentForReviewAction } from '@/server/agents/actions';
 import { CodeAlert, CodePanel } from './code-console-ui';
 import CreatorGuardrailPreview from './creator-guardrail-preview';
+import WorkspaceBlueprintPreview from './workspace-blueprint-preview';
 
 const steps = [
   { id: 'template', label: 'Template', title: 'Choisir un template' },
@@ -225,6 +226,84 @@ function WorkspacePreview({ values }) {
             </li>
           ))}
         </ul>
+      </div>
+    </CodePanel>
+  );
+}
+
+function SubmissionReadinessPanel({ values }) {
+  const isWorkflow = values.runtime_type === 'workflow_automation';
+  const isCreatorEndpoint = values.runtime_type === 'creator_endpoint';
+  const isAdvancedRuntime = isWorkflow || isCreatorEndpoint;
+  const runtimeLabel = isWorkflow ? 'Agent workflow' : isCreatorEndpoint ? 'Agent API' : 'Assistant IA guidé';
+  const revenueLabel = values.starting_price_eur ? `${values.starting_price_eur} € · GMV sandbox` : 'GMV sandbox après activation';
+  const checks = [
+    {
+      title: 'Précheck sécurité',
+      text: isAdvancedRuntime
+        ? 'Un précheck et une security review manuelle sont requis avant publication.'
+        : 'Un précheck automatique vérifie la fiche, les limites et les garde-fous avant review admin.',
+    },
+    {
+      title: 'Review admin',
+      text: isAdvancedRuntime
+        ? 'L’admin doit approuver la fiche, les assets runtime et la décision de sécurité.'
+        : 'L’admin valide la fiche publique, le contrat agent et la promesse de résultat.',
+    },
+    {
+      title: 'Workspace',
+      text: 'Le workspace sera généré depuis le blueprint affiché ici : inputs, actions, livrables et limites.',
+    },
+    {
+      title: 'Revenus beta',
+      text: `${revenueLabel}. Aucun payout réel n’est déclenché pendant la beta Stripe sandbox.`,
+    },
+  ];
+  const advancedNotes = isWorkflow
+    ? ['Workflow 2 à 5 étapes', 'Décision LLM obligatoire', 'Webhook optionnel approuvé si présent']
+    : isCreatorEndpoint
+      ? ['Endpoint HTTPS public requis', 'Appel serveur signé', 'Endpoint approuvé avant publication']
+      : ['Ouvert aux creators', 'Réponse texte server-side', 'Pas d’outil externe libre'];
+
+  return (
+    <CodePanel className="lg:col-span-2 border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div>
+          <p className="font-label mb-3 text-xs text-[#6B3FA0]">AVANT SOUMISSION</p>
+          <h2 className="font-display text-2xl font-bold text-[#111827]">Chaîne de publication vérifiée</h2>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Cette publication ne va pas directement en marketplace. AgentHub vérifie le niveau runtime, le workspace attendu,
+            les limites affichées et les validations nécessaires avant que les utilisateurs puissent louer l’agent.
+          </p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {checks.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-[#E9D5FF] bg-white p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Check className="h-4 w-4 text-[#10B981]" />
+                  <h3 className="font-label text-xs text-[#5B21B6]">{item.title}</h3>
+                </div>
+                <p className="text-sm leading-6 text-[#4B5563]">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[#C4B5FD] bg-white p-4 shadow-[0_14px_34px_rgba(109,64,160,0.10)]">
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">TYPE DE PUBLICATION</p>
+          <h3 className="font-display text-xl font-bold text-[#111827]">{runtimeLabel}</h3>
+          <div className="mt-4 space-y-2">
+            {advancedNotes.map((item) => (
+              <div key={item} className="flex items-start gap-2 text-sm text-[#4B5563]">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8B5CF6]" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          {isAdvancedRuntime && (
+            <div className="mt-4 rounded-xl border border-[#FBBF24]/40 bg-[#FFFBEB] p-3 text-xs leading-5 text-[#92400E]">
+              Agent avancé beta : publication bloquée tant que les assets runtime et la security review ne sont pas validés.
+            </div>
+          )}
+        </div>
       </div>
     </CodePanel>
   );
@@ -703,7 +782,9 @@ export default function CodeNewAgentContent({
           <section className={currentStep === 4 ? 'grid gap-6 lg:grid-cols-2' : 'hidden'}>
             <PublicListingPreview values={values} />
             <WorkspacePreview values={values} />
+            <WorkspaceBlueprintPreview className="lg:col-span-2" values={values} />
             <CreatorGuardrailPreview values={values} />
+            <SubmissionReadinessPanel values={values} />
             <CodePanel className="lg:col-span-2">
               <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
                 <div>

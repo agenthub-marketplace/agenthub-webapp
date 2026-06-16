@@ -42,6 +42,19 @@ values
     '{"name":"Beta Admin","role":"admin"}'::jsonb,
     now(),
     now()
+  ),
+  (
+    '10000000-0000-4000-8000-000000000003',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'user@example.com',
+    crypt('password', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"name":"Beta User","role":"user"}'::jsonb,
+    now(),
+    now()
   )
 on conflict (id) do nothing;
 
@@ -57,7 +70,7 @@ set
   phone_change_token = coalesce(phone_change_token, ''),
   email_change_token_current = coalesce(email_change_token_current, ''),
   reauthentication_token = coalesce(reauthentication_token, '')
-where email in ('creator@example.com', 'admin@example.com');
+where email in ('creator@example.com', 'admin@example.com', 'user@example.com');
 
 insert into public.profiles (id, email, display_name, role)
 values
@@ -72,6 +85,12 @@ values
     'admin@example.com',
     'Beta Admin',
     'admin'
+  ),
+  (
+    '10000000-0000-4000-8000-000000000003',
+    'user@example.com',
+    'Beta User',
+    'user'
   )
 on conflict (id) do update set
   email = excluded.email,

@@ -32,7 +32,17 @@ function CountPill({ label, tone = 'violet', value }) {
   );
 }
 
-export default function CodeAgentsContent({ creatorAgentsResult }) {
+const precheckActionLabels = {
+  block_publication: 'Bloquer avant publication',
+  manual_review: 'Review manuelle',
+  reject_candidate: 'Rejet recommandé',
+  request_changes: 'Modifications à prévoir',
+  require_security_review: 'Security review requise',
+  standard_review: 'Review standard',
+  wait_precheck: 'Attendre le précheck',
+};
+
+export default function CodeAgentsContent({ creatorAgentsResult, precheckStatus, submittedSlug }) {
   const agents = creatorAgentsResult?.agents ?? [];
   const hasProfile = !creatorAgentsResult?.creatorProfileMissing;
   const counts = {
@@ -40,6 +50,7 @@ export default function CodeAgentsContent({ creatorAgentsResult }) {
     published: agents.filter((agent) => agent.status === 'approved').length,
     review: agents.filter((agent) => agent.status === 'in_review').length,
     changes: agents.filter((agent) => agent.status === 'in_review' && (agent.latestAdminReview?.isChangesRequest || Boolean(agent.latestAdminReview?.notes?.trim()))).length,
+    fallback: agents.filter((agent) => agent.workspaceSignal?.fallbackRequired).length,
   };
 
   return (
@@ -74,13 +85,25 @@ export default function CodeAgentsContent({ creatorAgentsResult }) {
           {creatorAgentsResult?.error && (
             <CodeAlert tone="error">Impossible de charger vos agents pour le moment.</CodeAlert>
           )}
+          {submittedSlug && precheckStatus === 'completed' && (
+            <CodeAlert tone="success" title="Agent soumis">
+              La publication est partie en validation et le précheck sécurité a été enregistré.
+            </CodeAlert>
+          )}
+          {submittedSlug && precheckStatus === 'failed' && (
+            <CodeAlert tone="warning" title="Agent soumis, précheck à relancer">
+              La publication est bien partie en validation, mais le précheck sécurité n’a pas pu être enregistré automatiquement.
+              L’admin devra le relancer depuis la file de review avant publication.
+            </CodeAlert>
+          )}
         </div>
 
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <CountPill label="Total" tone="blue" value={counts.all} />
           <CountPill label="Publiés" tone="green" value={counts.published} />
           <CountPill label="En validation" tone="violet" value={counts.review} />
           <CountPill label="À corriger" tone="amber" value={counts.changes} />
+          <CountPill label="Fallback infra" tone={counts.fallback > 0 ? 'amber' : 'green'} value={counts.fallback} />
         </div>
 
         {agents.length === 0 ? (
@@ -131,6 +154,32 @@ export default function CodeAgentsContent({ creatorAgentsResult }) {
                         </span>
                         <span>{riskLabels[agent.riskLevel] || agent.riskLevel}</span>
                       </div>
+                      {agent.workspaceSignal && (
+                        <div className="mt-4 rounded-2xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_100%)] p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-label text-[10px] text-[#6B3FA0]">Workspace</p>
+                            <StatusBadge
+                              status={agent.workspaceSignal.fallbackRequired ? 'in_review' : 'approved'}
+                              label={agent.workspaceSignal.label}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-[#64748B]">{agent.workspaceSignal.detail}</p>
+                        </div>
+                      )}
+                      {agent.securityPrecheckSignal && (
+                        <div className="mt-3 rounded-2xl border border-[#BFDBFE] bg-[linear-gradient(135deg,#FFFFFF_0%,#EFF6FF_100%)] p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-label text-[10px] text-[#1D4ED8]">Précheck sécurité</p>
+                            <StatusBadge
+                              status={agent.securityPrecheckSignal.status === 'passed' ? 'approved' : agent.securityPrecheckSignal.status === 'failed' || agent.securityPrecheckSignal.riskLevel === 'blocked' ? 'failed' : 'in_review'}
+                              label={agent.securityPrecheckSignal.label}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-[#64748B]">
+                            Action suggérée : {precheckActionLabels[agent.securityPrecheckSignal.recommendedAction] || agent.securityPrecheckSignal.recommendedAction}
+                          </p>
+                        </div>
+                      )}
                       {agent.latestAdminReview && (
                           <CodePanel tone="violet" className="mt-4 p-3">
                           <p className="font-label mb-1 text-[10px] text-[#6B3FA0]">Retour admin</p>

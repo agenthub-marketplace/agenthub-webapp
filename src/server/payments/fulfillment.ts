@@ -1,5 +1,8 @@
 import "server-only";
 
+import { revalidatePath } from "next/cache";
+
+import { isAgentRuntimeType, type AgentRuntimeType } from "@/lib/agent-contract";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { recordCreatorRevenueLedgerEvent } from "@/server/payments/revenue-ledger";
 import type { ActivationError, PaymentStatus } from "@/server/payments/state";
@@ -27,6 +30,21 @@ type AgentRow = {
   currency: string;
 };
 
+type AgentVersionRuntimeRow = {
+  execution_mode: string | null;
+  runtime_type: string | null;
+};
+
+type RuntimeSettingRow = {
+  enabled: boolean;
+  run_enabled: boolean;
+};
+
+type PaymentActivationSurfaceRow = {
+  agent_id: string;
+  rental_request_id: string | null;
+};
+
 export type CheckoutSessionForFulfillment = {
   id: string;
   amount_total?: number | null;
@@ -35,6 +53,100 @@ export type CheckoutSessionForFulfillment = {
   payment_status?: string;
 };
 
+function revalidatePaymentActivationSurfaces(agentSlug?: string | null, rentalRequestId?: string | null) {
+  revalidatePath("/agenthub/workspace");
+  revalidatePath("/en/workspace");
+  revalidatePath("/workspace");
+  revalidatePath("/dashboard");
+  revalidatePath("/agenthub/dashboard");
+  revalidatePath("/en/dashboard");
+  revalidatePath("/code");
+  revalidatePath("/code/dashboard");
+  revalidatePath("/code/admin");
+  revalidatePath("/code/admin/ops");
+  revalidatePath("/code/admin/payments");
+
+  if (rentalRequestId) {
+    revalidatePath(`/agenthub/workspace/${rentalRequestId}`);
+    revalidatePath(`/en/workspace/${rentalRequestId}`);
+    revalidatePath(`/workspace/${rentalRequestId}`);
+  }
+
+  if (agentSlug) {
+    revalidatePath(`/agenthub/agents/${agentSlug}`);
+    revalidatePath(`/agents/${agentSlug}`);
+    revalidatePath(`/en/agents/${agentSlug}`);
+  }
+}
+
+function resolveRuntimeType(version: AgentVersionRuntimeRow): AgentRuntimeType {
+  if (version.runtime_type && isAgentRuntimeType(version.runtime_type)) {
+    return version.runtime_type;
+  }
+
+  return version.execution_mode === "llm_prompt" ? "llm_prompt" : "static_guided";
+}
+
+async function isAgentRuntimeActivable(
+  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
+  agentVersionId: string,
+) {
+  const { data: version, error: versionError } = await supabase
+    .from("agent_versions")
+    .select("execution_mode,runtime_type")
+    .eq("id", agentVersionId)
+    .maybeSingle<AgentVersionRuntimeRow>();
+
+  if (versionError || !version) {
+    return false;
+  }
+
+  const runtimeType = resolveRuntimeType(version);
+  const { data: runtimeSetting, error: runtimeError } = await supabase
+    .from("agent_runtime_settings")
+    .select("enabled,run_enabled")
+    .eq("runtime_type", runtimeType)
+    .maybeSingle<RuntimeSettingRow>();
+
+  if (runtimeError || !runtimeSetting?.enabled) {
+    return false;
+  }
+
+  return runtimeType === "static_guided" || runtimeSetting.run_enabled;
+}
+
+async function loadPaymentActivationSurface(
+  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
+  input: { paymentId?: string; sessionId?: string },
+) {
+  let query = supabase.from("payments").select("agent_id,rental_request_id");
+
+  if (input.paymentId) {
+    query = query.eq("id", input.paymentId);
+  } else if (input.sessionId) {
+    query = query.eq("stripe_checkout_session_id", input.sessionId);
+  } else {
+    return { agentSlug: null, rentalRequestId: null };
+  }
+
+  const { data: payment } = await query.maybeSingle<PaymentActivationSurfaceRow>();
+
+  if (!payment) {
+    return { agentSlug: null, rentalRequestId: null };
+  }
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("slug")
+    .eq("id", payment.agent_id)
+    .maybeSingle<{ slug: string | null }>();
+
+  return {
+    agentSlug: agent?.slug ?? null,
+    rentalRequestId: payment.rental_request_id ?? null,
+  };
+}
+
 export async function markPaymentCancelled(sessionId: string) {
   const supabase = createSupabaseServiceClient();
 
@@ -42,11 +154,14 @@ export async function markPaymentCancelled(sessionId: string) {
     return;
   }
 
+  const surface = await loadPaymentActivationSurface(supabase, { sessionId });
+
   await supabase
     .from("payments")
     .update({ status: "cancelled" })
     .eq("stripe_checkout_session_id", sessionId)
     .eq("status", "pending");
+  revalidatePaymentActivationSurfaces(surface.agentSlug, surface.rentalRequestId);
 }
 
 export async function markPaymentFailed(paymentId: string) {
@@ -56,7 +171,10 @@ export async function markPaymentFailed(paymentId: string) {
     return;
   }
 
+  const surface = await loadPaymentActivationSurface(supabase, { paymentId });
+
   await supabase.from("payments").update({ status: "failed" }).eq("id", paymentId).eq("status", "pending");
+  revalidatePaymentActivationSurfaces(surface.agentSlug, surface.rentalRequestId);
 }
 
 export async function markPaymentBlocked(paymentId: string, activationError: ActivationError) {
@@ -66,14 +184,23 @@ export async function markPaymentBlocked(paymentId: string, activationError: Act
     return;
   }
 
-  await supabase
+  const surface = await loadPaymentActivationSurface(supabase, { paymentId });
+
+  const { data: blockedPayment, error: blockedPaymentError } = await supabase
     .from("payments")
     .update({
       status: "paid_blocked",
       activation_error: activationError,
     })
     .eq("id", paymentId)
-    .in("status", ["pending", "cancelled", "failed"]);
+    .in("status", ["pending", "cancelled", "failed"])
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (blockedPaymentError || !blockedPayment) {
+    revalidatePaymentActivationSurfaces(surface.agentSlug, surface.rentalRequestId);
+    return;
+  }
 
   await recordCreatorRevenueLedgerEvent({
     eventType: "activation_blocked",
@@ -83,6 +210,7 @@ export async function markPaymentBlocked(paymentId: string, activationError: Act
     paymentId,
     supabase,
   });
+  revalidatePaymentActivationSurfaces(surface.agentSlug, surface.rentalRequestId);
 }
 
 export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillment) {
@@ -118,6 +246,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
       rentalRequestId: payment.rental_request_id,
       supabase,
     });
+    revalidatePaymentActivationSurfaces(null, payment.rental_request_id);
     return;
   }
 
@@ -130,6 +259,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
       paymentId: payment.id,
       supabase,
     });
+    revalidatePaymentActivationSurfaces();
     return;
   }
 
@@ -170,6 +300,11 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     return;
   }
 
+  if (!(await isAgentRuntimeActivable(supabase, agentVersionId))) {
+    await markPaymentBlocked(payment.id, "unknown_error");
+    return;
+  }
+
   const { data: existingAccess } = await supabase
     .from("rental_requests")
     .select("id")
@@ -201,6 +336,7 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
       rentalRequestId: existingAccess.id,
       supabase,
     });
+    revalidatePaymentActivationSurfaces(agent.slug, existingAccess.id);
 
     return;
   }
@@ -290,4 +426,5 @@ export async function fulfillCheckoutSession(session: CheckoutSessionForFulfillm
     rentalRequestId: access.id,
     supabase,
   });
+  revalidatePaymentActivationSurfaces(agent.slug, access.id);
 }

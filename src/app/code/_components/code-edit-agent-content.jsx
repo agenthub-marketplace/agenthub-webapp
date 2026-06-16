@@ -8,6 +8,7 @@ import { resubmitAgentChangesAction } from '@/server/agents/actions';
 import { ArrowLeft, Send, ShieldAlert } from 'lucide-react';
 import { CodeAlert, cleanAdminNotes } from './code-console-ui';
 import CreatorGuardrailPreview from './creator-guardrail-preview';
+import WorkspaceBlueprintPreview from './workspace-blueprint-preview';
 
 const inputClass =
   'w-full rounded-xl border border-[#D8DDEE] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#7C3AED] focus:ring-2 focus:ring-[#7C3AED]/15';
@@ -254,6 +255,8 @@ export default function CodeEditAgentContent({ agentResult, categories = [], err
                 </Field>
               </div>
             </section>
+
+            <WorkspaceBlueprintPreview values={values} />
 
             <CreatorGuardrailPreview values={values} />
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Workflow } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -218,10 +218,12 @@ export default function WorkflowWorkspaceActions({
   const [expandedRunIds, setExpandedRunIds] = useState([]);
   const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittedInputRef = useRef('');
   const remainingChars = maxInputChars - inputText.length;
   const runningRun = runs.find((run) => ['queued', 'running'].includes(run.status));
-  const activeRunId = workflowRun?.agentRunId ?? runningRun?.id;
-  const activeStatus = workflowRun?.status ?? runningRun?.status;
+  const activeWorkflowRun = workflowRun && ['queued', 'running'].includes(workflowRun.status) ? workflowRun : null;
+  const activeRunId = activeWorkflowRun?.agentRunId ?? runningRun?.id;
+  const activeStatus = activeWorkflowRun?.status ?? runningRun?.status;
   const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting && !activeRunId;
   const visibleRuns = runs.slice(0, visibleRunCount);
 
@@ -244,6 +246,7 @@ export default function WorkflowWorkspaceActions({
         setWorkflowRun(data.workflowRun);
 
         if (data.workflowRun.status === 'succeeded') {
+          const completedRunInput = submittedInputRef.current || runningRun?.inputText || '';
           setResult(data.workflowRun.finalOutput);
           setRuns((current) =>
             [
@@ -253,7 +256,7 @@ export default function WorkflowWorkspaceActions({
                 createdAt: data.workflowRun.createdAt,
                 errorCode: null,
                 id: data.workflowRun.agentRunId,
-                inputText,
+                inputText: completedRunInput,
                 outputText: data.workflowRun.finalOutput,
                 status: 'succeeded',
               },
@@ -263,6 +266,7 @@ export default function WorkflowWorkspaceActions({
         }
 
         if (data.workflowRun.status === 'failed') {
+          const failedRunInput = submittedInputRef.current || runningRun?.inputText || '';
           setError(errorLabel(data.workflowRun.errorCode, t));
           setRuns((current) =>
             [
@@ -272,7 +276,7 @@ export default function WorkflowWorkspaceActions({
                 createdAt: data.workflowRun.createdAt,
                 errorCode: data.workflowRun.errorCode,
                 id: data.workflowRun.agentRunId,
-                inputText,
+                inputText: failedRunInput,
                 outputText: null,
                 status: 'failed',
               },
@@ -289,7 +293,7 @@ export default function WorkflowWorkspaceActions({
     const timer = setInterval(pollWorkflowRun, 2500);
 
     return () => clearInterval(timer);
-  }, [activeRunId, activeStatus, inputText, t]);
+  }, [activeRunId, activeStatus, runningRun?.inputText, t]);
 
   async function submitRun(event) {
     event.preventDefault();
@@ -302,11 +306,13 @@ export default function WorkflowWorkspaceActions({
     setResult(null);
     setWorkflowRun(null);
     setIsSubmitting(true);
+    const submittedInput = inputText.trim();
+    submittedInputRef.current = submittedInput;
 
     try {
       const response = await fetch('/api/agent-runs/workflow', {
         body: JSON.stringify({
-          inputText,
+          inputText: submittedInput,
           locale,
           rentalId,
         }),
@@ -326,6 +332,21 @@ export default function WorkflowWorkspaceActions({
 
       if (data.workflowRun.status === 'succeeded') {
         setResult(data.workflowRun.finalOutput);
+        setRuns((current) =>
+          [
+            {
+              actionLabel: 'Agent workflow',
+              completedAt: data.workflowRun.completedAt,
+              createdAt: data.workflowRun.createdAt,
+              errorCode: null,
+              id: data.workflowRun.agentRunId,
+              inputText: submittedInput,
+              outputText: data.workflowRun.finalOutput,
+              status: 'succeeded',
+            },
+            ...current.filter((run) => run.id !== data.workflowRun.agentRunId),
+          ],
+        );
         setInputText('');
       }
     } catch {

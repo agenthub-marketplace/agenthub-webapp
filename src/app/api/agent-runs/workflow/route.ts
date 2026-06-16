@@ -5,6 +5,7 @@ import { serverEnv } from "@/lib/env.server";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadWorkflowRuntimeContext, triggerWorkflowWorker } from "@/server/workflows/runtime";
+import { revalidateWorkspaceRunSurfaces } from "@/server/workspace/revalidation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,6 +32,11 @@ type WorkflowStepRow = {
   step_key: string;
   step_label: string;
   step_type: "llm_step" | "webhook_step";
+};
+
+type RunSurfaceRow = {
+  agent_id: string | null;
+  rental_request_id: string | null;
 };
 
 function jsonError(statusCode: number, status: string, error: string) {
@@ -138,6 +144,27 @@ async function loadWorkflowStatus(
     .returns<WorkflowStepRow[]>();
 
   return responseWorkflowRun(workflowRun, steps ?? []);
+}
+
+async function loadRunSurface(
+  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
+  input: { profileId: string; runId: string },
+) {
+  const { data } = await supabase
+    .from("agent_runs")
+    .select("agent_id,rental_request_id")
+    .eq("id", input.runId)
+    .eq("user_id", input.profileId)
+    .maybeSingle<RunSurfaceRow>();
+
+  const { data: agent } = data?.agent_id
+    ? await supabase.from("agents").select("slug").eq("id", data.agent_id).maybeSingle<{ slug: string | null }>()
+    : { data: null };
+
+  return {
+    agentSlug: agent?.slug ?? null,
+    rentalId: data?.rental_request_id ?? null,
+  };
 }
 
 export async function POST(request: Request) {
@@ -364,6 +391,12 @@ export async function POST(request: Request) {
     profileId: profile.id,
   });
 
+  revalidateWorkspaceRunSurfaces({
+    agentSlug: context.agent.slug,
+    locale,
+    rentalId: context.rental.id,
+  });
+
   return NextResponse.json({
     runId: createdRun.id,
     status: status?.status ?? "queued",
@@ -402,6 +435,18 @@ export async function GET(request: Request) {
 
   if ((status.status === "queued" || status.status === "running") && serverEnv.workflowRunsEnabled) {
     await triggerWorkflowWorker(runId);
+  }
+
+  if (["succeeded", "failed", "cancelled"].includes(status.status)) {
+    const surface = await loadRunSurface(supabase, {
+      profileId: profile.id,
+      runId,
+    });
+
+    revalidateWorkspaceRunSurfaces({
+      agentSlug: surface.agentSlug,
+      rentalId: surface.rentalId,
+    });
   }
 
   return NextResponse.json({

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type MarketplaceAgent = {
@@ -110,6 +111,12 @@ type AgentRow = {
         created_at: string;
       }[]
     | null;
+};
+
+type RuntimeSettingRow = {
+  enabled: boolean;
+  run_enabled: boolean;
+  runtime_type: string;
 };
 
 const MARKETPLACE_SELECT_WITH_CONTRACT =
@@ -258,6 +265,39 @@ function mapAgent(row: AgentRow, index: number): MarketplaceAgent {
   };
 }
 
+async function loadRuntimeSettings() {
+  const supabase = createSupabaseServiceClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("agent_runtime_settings")
+    .select("runtime_type,enabled,run_enabled")
+    .returns<RuntimeSettingRow[]>();
+
+  if (error) {
+    return null;
+  }
+
+  return new Map((data ?? []).map((setting) => [setting.runtime_type, setting]));
+}
+
+function isMarketplaceUsableAgent(agent: MarketplaceAgent, runtimeSettings: Map<string, RuntimeSettingRow> | null) {
+  if (!runtimeSettings) {
+    return false;
+  }
+
+  const setting = runtimeSettings.get(agent.contract.runtimeType);
+
+  if (!setting?.enabled) {
+    return false;
+  }
+
+  return agent.contract.runtimeType === "static_guided" || setting.run_enabled;
+}
+
 export async function getMarketplaceAgents() {
   let { data, error } = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_WITH_CONTRACT);
 
@@ -271,7 +311,8 @@ export async function getMarketplaceAgents() {
     return { agents: [], categories: [], error: "marketplace-load-failed" };
   }
 
-  const agents = (data ?? []).map(mapAgent);
+  const runtimeSettings = await loadRuntimeSettings();
+  const agents = (data ?? []).map(mapAgent).filter((agent) => isMarketplaceUsableAgent(agent, runtimeSettings));
   const categoryCounts = new Map<string, MarketplaceCategory>();
 
   for (const agent of agents) {
@@ -310,8 +351,11 @@ export async function getMarketplaceAgentBySlug(slug: string) {
     return { agent: null, error: "marketplace-load-failed" };
   }
 
+  const runtimeSettings = await loadRuntimeSettings();
+  const agent = data?.[0] ? mapAgent(data[0], 0) : null;
+
   return {
-    agent: data?.[0] ? mapAgent(data[0], 0) : null,
+    agent: agent && isMarketplaceUsableAgent(agent, runtimeSettings) ? agent : null,
     error: null,
   };
 }

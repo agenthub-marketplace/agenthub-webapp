@@ -7,6 +7,7 @@ import { AGENT_RUNTIME_TYPE_LABELS, SETUP_REQUIREMENT_OPTIONS, WORKSPACE_MODE_LA
 import { getCurrentProfile } from '@/lib/auth/session';
 import { euroLabelToCredits, formatCredits, formatCreditsFromCents } from '@/lib/format-credits';
 import { polishFrenchCopy, polishFrenchList } from '@/lib/french-copy';
+import { buildAgentWorkspaceBlueprint } from '@/server/agents/workspace-blueprint';
 import { getMarketplaceAgentBySlug } from '@/server/marketplace/agents';
 import { createAgentAccessAction } from '@/server/rentals/actions';
 import { getUserAgentOrderState } from '@/server/rentals/user-rentals';
@@ -69,6 +70,68 @@ function ReviewSection({ reviews }) {
   );
 }
 
+function AgentBlueprintSection({ blueprint }) {
+  const inputFields = blueprint.inputSchema.fields ?? [];
+  const outputSections = blueprint.outputSchema.sections ?? [];
+  const trustItems = [
+    ...(blueprint.trustBoundary.dataSentToAgentHub ?? []),
+    ...(blueprint.trustBoundary.dataSentToCreatorInfra ?? []),
+    ...(blueprint.trustBoundary.userWarnings ?? []),
+  ];
+
+  return (
+    <div className="my-6 rounded-2xl border border-[#6B3FA0]/45 bg-[#120C24] p-5">
+      <p className="font-label mb-2 text-xs text-[#B794F4]">WORKSPACE PRÉVU</p>
+      <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-xl font-bold text-[#F4EFFA]">Comment cet agent sera utilisé</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#C8B1E4]">
+            Ce résumé annonce ce que vous devrez fournir, ce que le workspace doit produire, et les données qui restent dans AgentHub.
+          </p>
+        </div>
+        <span className="w-fit rounded-full border border-[#6B3FA0]/45 bg-[#1A1130] px-3 py-1 text-[10px] font-label text-[#C4B5FD]">
+          Blueprint agent
+        </span>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-4">
+          <h3 className="font-display mb-3 text-base font-bold text-[#F4EFFA]">À préparer</h3>
+          <div className="space-y-3">
+            {inputFields.slice(0, 4).map((field) => (
+              <div key={field.key} className="text-sm">
+                <p className="font-semibold text-[#F4EFFA]">{field.label}</p>
+                <p className="mt-1 text-xs leading-5 text-[#9B72CF]">{field.helper}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-[#2F184B] bg-[#080612] p-4">
+          <h3 className="font-display mb-3 text-base font-bold text-[#F4EFFA]">Résultat attendu</h3>
+          <div className="space-y-3">
+            {outputSections.slice(0, 4).map((section) => (
+              <div key={section.key} className="text-sm">
+                <p className="font-semibold text-[#F4EFFA]">{section.label}</p>
+                <p className="mt-1 text-xs leading-5 text-[#9B72CF]">{section.expectedContent}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-[#F59E0B]/25 bg-[#1A1208] p-4">
+          <h3 className="font-display mb-3 text-base font-bold text-[#F4EFFA]">Confiance et limites</h3>
+          <div className="space-y-2">
+            {trustItems.slice(0, 4).map((item, index) => (
+              <div key={`${item}-${index}`} className="flex gap-2 text-sm text-[#F6C177]">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function optionLabel(options, value) {
   return options.find((option) => option.value === value)?.label ?? value;
 }
@@ -88,6 +151,7 @@ function formatOrderDate(value) {
 const rentalErrors = {
   'agent-load-failed': 'Impossible de charger cet agent pour le moment.',
   'agent-unavailable': 'Cet agent n’est plus disponible à l’accès beta.',
+  'agent-runtime-unavailable': 'Cet agent est approuvé, mais son runtime est temporairement désactivé. Réessayez après validation AgentHub.',
   'rental-create-failed': 'Impossible d’activer cet accès beta pour le moment.',
   'price-not-configured': 'Cet agent doit avoir un nombre de crédits fixe avant d’être loué.',
   'self-rental-not-allowed': 'Vous ne pouvez pas louer votre propre agent en beta.',
@@ -254,6 +318,18 @@ export default async function Page({ params, searchParams }) {
   const outputPromiseSummary = polishFrenchCopy(agent.contract.outputPromise.summary);
   const outputPromiseExamples = polishFrenchList(agent.contract.outputPromise.examples);
   const setupItems = polishFrenchList(agent.contract.setupRequirements.items);
+  const workspaceBlueprint = buildAgentWorkspaceBlueprint({
+    actions: [],
+    agent: {
+      capabilities: agent.capabilities,
+      deliverables: agent.deliverables,
+      limitations: agent.limitations,
+      requiredInputsList: agent.requiredInputs,
+    },
+    contract: agent.contract,
+    documentInputMode: agent.contract.runtimeType === 'document_file',
+    locale: 'fr',
+  });
   const rentChecklist = beforeRentChecklist({
     agent,
     hasPrice,
@@ -322,6 +398,8 @@ export default async function Page({ params, searchParams }) {
               <p className="font-label text-xs text-[#9B72CF] mb-3">DESCRIPTION</p>
               <p className="text-[#C8B1E4] leading-relaxed">{description}</p>
             </div>
+
+            <AgentBlueprintSection blueprint={workspaceBlueprint} />
 
             <div className="grid md:grid-cols-2 gap-5 mb-6">
               <ListSection title="Ce que l’agent fait" items={capabilities} icon={Check} />

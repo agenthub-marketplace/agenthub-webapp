@@ -17,6 +17,10 @@ import {
   buildWorkspaceCompatibilityDiagnostic,
   type WorkspaceCompatibilityDiagnostic,
 } from "@/server/agents/workspace-compatibility";
+import {
+  buildAgentWorkspaceBlueprint,
+  type AgentWorkspaceBlueprintV1,
+} from "@/server/agents/workspace-blueprint";
 import { normalizeWorkflowDefinition } from "@/server/workflows/runtime";
 
 export type AgentPublicationType = "guided_assistant" | "advanced_agent";
@@ -139,6 +143,7 @@ export type AgentManifestV1 = {
     setupType: AgentContract["setupRequirements"]["type"];
   };
   workspaceBlocks: string[];
+  workspaceBlueprint: AgentWorkspaceBlueprintV1;
   workspaceCompatibility: WorkspaceCompatibilityDiagnostic;
   workspaceMode: WorkspaceMode;
   workflow: {
@@ -161,7 +166,17 @@ type AgentVersionManifestRow = {
   agent_id: string;
   agents:
     | {
-        agent_categories: { name: string | null; slug: string | null } | { name: string | null; slug: string | null }[] | null;
+        category_id: string | null;
+        agent_categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | {
+              name: string | null;
+              slug: string | null;
+            }[]
+          | null;
         creator_id: string;
         description: string;
         id: string;
@@ -174,7 +189,17 @@ type AgentVersionManifestRow = {
         target_user?: string | null;
       }
     | {
-        agent_categories: { name: string | null; slug: string | null } | { name: string | null; slug: string | null }[] | null;
+        category_id: string | null;
+        agent_categories:
+          | {
+              name: string | null;
+              slug: string | null;
+            }
+          | {
+              name: string | null;
+              slug: string | null;
+            }[]
+          | null;
         creator_id: string;
         description: string;
         id: string;
@@ -343,6 +368,18 @@ export function buildReviewRouting(input: {
     }
 
     if (
+      blockerCodes.has("workspace_compatibility_blocked")
+    ) {
+      return {
+        blocksApproval: true,
+        nextAction: "block_publication",
+        owner: "admin",
+        priority: "P0",
+        reason: "Le workspace n’est pas exécutable en beta. L’admin doit traiter les gates workspace, demander corrections ou rejeter.",
+      };
+    }
+
+    if (
       blockerCodes.has("workflow_not_approved") ||
       blockerCodes.has("workflow_missing") ||
       blockerCodes.has("creator_endpoint_config_not_approved") ||
@@ -436,6 +473,7 @@ function buildSecurityPrecheck(input: {
   runtimeSetting: RuntimeSettingManifestRow | null;
   securityReviewStatus: AgentManifestV1["securityProfile"]["securityReviewStatus"];
   type: AgentPublicationType;
+  workspaceBlueprint: AgentWorkspaceBlueprintV1;
   workspaceCompatibility: WorkspaceCompatibilityDiagnostic;
   workflowDefinition: ReturnType<typeof normalizeWorkflowDefinition>;
   workflowRow: WorkflowManifestRow | null | undefined;
@@ -546,10 +584,58 @@ function buildSecurityPrecheck(input: {
     title: `Stratégie workspace : ${input.workspaceCompatibility.label}`,
   };
 
-  if (input.workspaceCompatibility.mode === "agenthub_hosted" && input.workspaceCompatibility.status === "ready") {
+  if (input.workspaceCompatibility.status === "blocked") {
+    addBlocker({
+      code: "workspace_compatibility_blocked",
+      detail: `${input.workspaceCompatibility.label} · ${input.workspaceCompatibility.detail}`,
+      suggestedAdminAction: input.workspaceCompatibility.decision.adminAction,
+      title: "Workspace non exécutable en beta",
+    });
+  } else if (input.workspaceCompatibility.mode === "agenthub_hosted" && input.workspaceCompatibility.status === "ready") {
     addPass(workspaceFinding);
   } else {
     addWarning(workspaceFinding);
+  }
+
+  if (input.workspaceBlueprint.inputSchema.fields.length === 0) {
+    addWarning({
+      code: "workspace_blueprint_inputs_missing",
+      detail: "Le blueprint workspace ne décrit aucun input utilisateur exploitable.",
+      suggestedAdminAction: "Demander au créateur de préciser les informations à fournir avant exécution.",
+      title: "Inputs workspace absents",
+    });
+  } else {
+    addPass({
+      code: "workspace_blueprint_inputs_ready",
+      detail: `${input.workspaceBlueprint.inputSchema.fields.length} input(s) dérivés pour guider le setup utilisateur.`,
+      suggestedAdminAction: "Vérifier que ces inputs correspondent au besoin métier annoncé.",
+      title: "Inputs workspace exploitables",
+    });
+  }
+
+  if (input.workspaceBlueprint.outputSchema.sections.length === 0) {
+    addWarning({
+      code: "workspace_blueprint_outputs_missing",
+      detail: "Le blueprint workspace ne décrit aucune structure de sortie attendue.",
+      suggestedAdminAction: "Demander des livrables ou exemples plus concrets.",
+      title: "Sortie workspace trop vague",
+    });
+  } else {
+    addPass({
+      code: "workspace_blueprint_outputs_ready",
+      detail: `${input.workspaceBlueprint.outputSchema.sections.length} section(s) de sortie attendue dérivées.`,
+      suggestedAdminAction: "Vérifier que la sortie attendue est testable dans le workspace.",
+      title: "Sortie workspace exploitable",
+    });
+  }
+
+  if (input.contract.runtimeType === "creator_endpoint" && input.workspaceBlueprint.trustBoundary.dataSentToCreatorInfra.length === 0) {
+    addWarning({
+      code: "workspace_blueprint_creator_trust_missing",
+      detail: "Le blueprint ne rend pas explicite les données envoyées à l'infra créateur.",
+      suggestedAdminAction: "Bloquer ou demander une disclosure creator-infra plus claire.",
+      title: "Frontière infra créateur floue",
+    });
   }
 
   if (input.agent.risk_level === "forbidden_beta") {
@@ -769,12 +855,13 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
   const { data: version, error: versionError } = await supabase
     .from("agent_versions")
     .select(
-      "id,agent_id,capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy,agents!inner(id,creator_id,name,slug,summary,description,pricing_type,starting_price_cents,risk_level,agent_categories(name,slug))",
+      "id,agent_id,capabilities,required_inputs,deliverables,limitations,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy,agents!agent_versions_agent_id_fkey!inner(id,creator_id,category_id,name,slug,summary,description,pricing_type,starting_price_cents,risk_level,agent_categories(name,slug))",
     )
     .eq("id", agentVersionId)
     .maybeSingle<AgentVersionManifestRow>();
 
   const agent = readSingle(version?.agents ?? null);
+  const category = readSingle(agent?.agent_categories ?? null);
 
   if (versionError || !version || !agent) {
     return { manifest: null, error: "agent-version-not-found" };
@@ -788,7 +875,6 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     setupRequirements: version.setup_requirements,
     workspaceMode: version.workspace_mode,
   });
-  const category = readSingle(agent.agent_categories);
   const type = publicationType(contract.runtimeType);
   const infra = infraMode(contract.runtimeType);
   const qualityReport = evaluateAgentContractQuality({
@@ -882,6 +968,21 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     workflowWebhookHealth: null,
     workflowWebhookStepCount,
   });
+  const documentInputMode =
+    contract.runtimeType === "document_file" ||
+    (contract.runtimeType === "llm_prompt" && (contract.dataPolicy.requires_files || contract.workspaceMode === "document_required"));
+  const workspaceBlueprint = buildAgentWorkspaceBlueprint({
+    actions: [],
+    agent: {
+      capabilities: version.capabilities,
+      deliverables: version.deliverables,
+      limitations: version.limitations,
+      requiredInputsList: version.required_inputs,
+    },
+    contract,
+    documentInputMode,
+    locale: "fr",
+  });
   const securityPrecheck = buildSecurityPrecheck({
     agent,
     contract,
@@ -894,6 +995,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
     runtimeSetting: runtimeSetting ?? null,
     securityReviewStatus,
     type,
+    workspaceBlueprint,
     workspaceCompatibility,
     workflowDefinition,
     workflowRow,
@@ -983,6 +1085,7 @@ export async function buildAgentManifest(agentVersionId: string): Promise<{ mani
         setupType: contract.setupRequirements.type,
       },
       workspaceBlocks: workspaceBlocksForRuntime(contract.runtimeType, contract),
+      workspaceBlueprint,
       workspaceCompatibility,
       workspaceMode: contract.workspaceMode,
       workflow:

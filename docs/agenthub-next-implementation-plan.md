@@ -18,6 +18,7 @@ It builds on:
 - `docs/agent-manifest-v1.md`
 - `docs/security-precheck-agent.md`
 - `docs/workspace-dynamic-blocks.md`
+- `docs/agent-specific-workspace-blueprint.md`
 - `docs/agent-runtime-roadmap.md`
 - `docs/agenthub-strategic-execution-plan.md`
 
@@ -63,6 +64,12 @@ The first foundation layer is now partially implemented:
 The goal of the next layer is not to add more runtime power immediately. The
 goal is to make the existing advanced runtimes easier to publish, review,
 launch, debug, and monetize without weakening the current gates.
+
+The next workspace layer should use
+`docs/agent-specific-workspace-blueprint.md` as the implementation target: the
+workspace should become specific to the agent promise, expected inputs,
+expected outputs, success criteria, and trust boundary, not only to the runtime
+family.
 
 For the broader sequence toward a fully usable multi-runtime workspace,
 creator revenue readiness, creator-hosted fallback, and security-agent triage,
@@ -346,7 +353,8 @@ This avoids debugging advanced agents across five different screens.
 Status: v0 implemented as `/code/admin/ops/advanced-agents`. The page is
 read-only and shows, per workflow/API agent version, runtime settings,
 creator allowlist, asset approval, security review state, marketplace status,
-latest run state, and the first blocking reason.
+latest run state, workspace compatibility decision, creator-fallback count,
+and the first blocking reason.
 
 ### Ticket 4: Creator Infra Fallback Readiness
 
@@ -364,7 +372,9 @@ marks `creator_endpoint` as creator-hosted and `workflow_automation` as hybrid,
 the user workspace displays the creator-infra disclosure through the shared
 workspace recipe, admin review shows infra mode and endpoint asset status, and
 `/code/admin/ops/advanced-agents` reports endpoint/runtime blockers without
-exposing private payloads or secrets.
+exposing private payloads or secrets. The page now surfaces the canonical
+workspace compatibility decision: fallback required, runtime owner, admin action,
+and user disclosure.
 
 ### Ticket 5: Revenue Ledger Design Before Payouts
 

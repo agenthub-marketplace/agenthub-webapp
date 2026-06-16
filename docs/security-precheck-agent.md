@@ -131,6 +131,14 @@ The admin review page consumes the same signal in its decision checklist and
 intervention plan, so failed compatibility checks become concrete admin actions
 instead of passive diagnostics.
 
+Precheck severity mapping:
+
+| Workspace compatibility status | Finding severity | Review routing |
+| --- | --- | --- |
+| `ready` | `pass` when AgentHub-hosted, or `warning` when fallback/hybrid deserves admin awareness | Continue standard/security review |
+| `review_required` | `warning` | Admin must resolve the listed gates before sending testers |
+| `blocked` | `blocker` with code `workspace_compatibility_blocked` | `P0 / block_publication` until gates are fixed or the agent is rejected |
+
 Each finding:
 
 ```json
