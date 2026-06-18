@@ -12,11 +12,12 @@ export async function GET() {
       authenticated: Boolean(profile),
       profile: profile
         ? {
-            displayName: profile.displayName,
-            email: profile.email,
-            role: profile.role,
-          }
-        : null,
+          displayName: profile.displayName,
+          email: profile.email,
+          id: profile.id,
+          role: profile.role,
+        }
+      : null,
     },
     {
       headers: {

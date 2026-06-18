@@ -99,7 +99,7 @@ function WorkspaceUnavailable({ eyebrow = 'AGENT WORKSPACE', message, profile, t
             <Link href="/en/workspace">
               <Button className="border-0 bg-[#532B88] text-white hover:bg-[#7C3AED]">My agents</Button>
             </Link>
-            <Link href="/en/marketplace">
+            <Link href="/en/search">
               <Button variant="outline" className="border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F]">
                 Browse agents
               </Button>
@@ -150,7 +150,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
   const reviewError = typeof query?.reviewError === 'string' ? query.reviewError : null;
   const reviewErrorMessage =
     reviewError === 'review-run-required'
-      ? 'Run this agent once from the workspace before leaving a verified review.'
+      ? 'Use this workspace once before leaving a verified review.'
       : reviewError === 'review-run-check-failed'
         ? 'Unable to verify the execution history for this review right now.'
         : 'Unable to publish this review right now.';
@@ -180,6 +180,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
       fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
+      hasReview={Boolean(rental.review)}
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -195,6 +196,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
       fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
+      hasReview={Boolean(rental.review)}
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -211,6 +213,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
       fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
+      hasReview={Boolean(rental.review)}
       initialRuns={runtimeContract.history}
       locale="en"
       maxFileBytes={runtimeContract.limits.maxFileBytes}
@@ -228,6 +231,7 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       enabled={runtimeContract.enabled}
       disabledMessage={runtimeContract.runner.disabledMessage}
       fallbackPath={runtimeContract.workspaceRecipe?.fallbackPath ?? []}
+      hasReview={Boolean(rental.review)}
       initialRuns={runtimeContract.history}
       locale="en"
       maxInputChars={runtimeContract.limits.maxInputChars}
@@ -264,12 +268,12 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
       ) : !hasSuccessfulRun ? (
         <div className="rounded-2xl border border-[#6B3FA0]/40 bg-[#120C24] p-4 text-sm leading-6 text-[#C8B1E4]">
           <p className="font-label mb-2 text-xs text-[#B794F4]">REVIEW AFTER USE</p>
-          <p>Run this agent at least once and check the stored result in history before publishing a verified review.</p>
+          <p>Use this workspace at least once and check the stored result in history before publishing a verified review.</p>
           <Link
             href={`/en/workspace/${rental.id}?tab=use`}
             className="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-[#532B88] px-4 text-sm font-bold text-white transition-colors hover:bg-[#7C3AED]"
           >
-            Run agent
+            Use workspace
           </Link>
         </div>
       ) : (
@@ -373,6 +377,10 @@ export default async function WorkspaceRentalPage({ params, searchParams }) {
             locale="en"
             reviewSlot={reviewSlot}
             runnerSlot={runnerSlot}
+            sessionState={{
+              hasReview: Boolean(rental.review),
+              hasSuccessfulRun,
+            }}
             setupLabel={setupLabel}
             workspaceManifest={runtimeContract.workspaceManifest}
             workspaceRecipe={runtimeContract.workspaceRecipe}

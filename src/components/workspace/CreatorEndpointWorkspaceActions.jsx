@@ -1,12 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, PlugZap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
 import WorkspaceRunGuidance from './WorkspaceRunGuidance';
+import CopyTextButton from './CopyTextButton';
+import {
+  focusRunInput,
+  formatRunCount,
+  getLatestSuccessfulRunId,
+  normalizeRunInputForReuse,
+  shouldShowFullResultToggle,
+  WorkspaceReviewCta,
+} from './run-history-display';
 
 const copy = {
   fr: {
@@ -21,7 +30,7 @@ const copy = {
       'creator-endpoint-missing-output': 'L’API créateur n’a pas retourné de résultat exploitable.',
       'creator-endpoint-not-approved': 'L’API créateur n’est pas encore approuvée par l’admin.',
       'creator-endpoint-response-too-large': 'La réponse de l’API créateur dépasse la limite beta.',
-      'creator-endpoint-runtime-disabled': 'L’exécution Agent API est désactivée pour ce runtime.',
+      'creator-endpoint-runtime-disabled': 'L’exécution Agent API est désactivée pour ce type d’agent.',
       'creator-endpoint-signing-secret-missing': 'La signature serveur AgentHub n’est pas configurée.',
       'creator-endpoint-timeout-or-network': 'L’API créateur ne répond pas ou a dépassé le délai beta.',
       'creator-endpoint-url-not-safe': 'L’URL de l’API créateur ne respecte pas les règles de sécurité.',
@@ -34,12 +43,18 @@ const copy = {
     inputLabel: 'Votre demande',
     inputPlaceholder: 'Décrivez le résultat attendu et les contraintes importantes...',
     launch: 'Envoyer à l’agent',
+    latestResult: 'Dernier résultat',
     loading: 'Agent API en cours...',
     nextActions: 'Prochaines actions',
     nextActionNow: 'À faire maintenant',
     running: 'Un appel agent API est déjà en cours...',
     remaining: 'caractères restants',
     result: 'Résultat agent API',
+    reviewCta: 'Comparer et laisser un avis',
+    reviewDoneCta: 'Voir mon avis',
+    reviewDoneHint: 'Avis déjà publié. Vous pouvez le retrouver dans l’onglet avis.',
+    reviewHint: 'Ce résultat API est stocké. Utilisez-le comme base pour un avis vérifié.',
+    reuseInput: 'Réutiliser l’input',
     selectAction: 'Ajoutez votre demande. AgentHub appellera l’API créateur approuvée côté serveur, avec signature et historique conservé ici.',
     setupGuidance: 'À préparer',
     showLess: 'Réduire',
@@ -74,6 +89,7 @@ const copy = {
     inputLabel: 'Your request',
     inputPlaceholder: 'Describe the expected outcome and important constraints...',
     launch: 'Send to agent',
+    latestResult: 'Latest result',
     loading: 'API agent running...',
     nextActions: 'Next actions',
     nextActionNow: 'Do now',
@@ -81,6 +97,11 @@ const copy = {
     queued: 'An API call is queued and waiting to start...',
     remaining: 'characters remaining',
     result: 'API agent result',
+    reviewCta: 'Compare and leave review',
+    reviewDoneCta: 'View my review',
+    reviewDoneHint: 'Review already published. You can find it in the review tab.',
+    reviewHint: 'This API result is stored. Use it as the basis for a verified review.',
+    reuseInput: 'Reuse input',
     selectAction: 'Add your request. AgentHub will call the approved creator API server-side, with signing and history kept here.',
     setupGuidance: 'Prepare',
     showLess: 'Collapse',
@@ -137,6 +158,7 @@ export default function CreatorEndpointWorkspaceActions({
   enabled = false,
   fallbackPath = [],
   disabledMessage,
+  hasReview = false,
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
@@ -155,9 +177,14 @@ export default function CreatorEndpointWorkspaceActions({
   const [expandedRunIds, setExpandedRunIds] = useState([]);
   const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef(null);
+  const submitInFlightRef = useRef(false);
+  const reviewCtaLabel = hasReview ? t.reviewDoneCta : t.reviewCta;
+  const reviewCtaHint = hasReview ? t.reviewDoneHint : t.reviewHint;
   const remainingChars = maxInputChars - inputText.length;
   const activeRunId = runs.find((run) => ['pending', 'queued', 'running'].includes(run.status))?.id;
   const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting && !activeRunId;
+  const latestSuccessfulRunId = getLatestSuccessfulRunId(runs);
   const visibleRuns = runs.slice(0, visibleRunCount);
 
   useEffect(() => {
@@ -200,10 +227,11 @@ export default function CreatorEndpointWorkspaceActions({
   async function submitRun(event) {
     event.preventDefault();
 
-    if (!canSubmit) {
+    if (!canSubmit || submitInFlightRef.current) {
       return;
     }
 
+    submitInFlightRef.current = true;
     setError(null);
     setResult(null);
     setIsSubmitting(true);
@@ -246,6 +274,7 @@ export default function CreatorEndpointWorkspaceActions({
     } catch {
       setError(t.error);
     } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -254,6 +283,15 @@ export default function CreatorEndpointWorkspaceActions({
     setExpandedRunIds((current) =>
       current.includes(runId) ? current.filter((id) => id !== runId) : [...current, runId],
     );
+  }
+
+  function reuseRunInput(runInput) {
+    const normalizedInput = normalizeRunInputForReuse(runInput, maxInputChars);
+
+    if (normalizedInput) {
+      setInputText(normalizedInput);
+      window.requestAnimationFrame(() => focusRunInput(inputRef.current));
+    }
   }
 
   return (
@@ -296,6 +334,7 @@ export default function CreatorEndpointWorkspaceActions({
           <label className="block">
             <span className="mb-1 block text-xs text-[#A78BCF]">{t.inputLabel}</span>
             <textarea
+              ref={inputRef}
               value={inputText}
               onChange={(event) => {
                 const value = event.target.value;
@@ -340,25 +379,49 @@ export default function CreatorEndpointWorkspaceActions({
 
       {result && (
         <div className="mt-5 rounded-2xl border border-[#10B981]/30 bg-[#07130F] p-4">
-          <p className="font-label mb-2 text-xs text-[#6EE7B7]">{t.result}</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="font-label text-xs text-[#6EE7B7]">{t.result}</p>
+            <CopyTextButton
+              copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+              errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+              label={locale === 'en' ? 'Copy' : 'Copier'}
+              text={result}
+            />
+          </div>
           <div className="whitespace-pre-line text-sm leading-relaxed text-[#D6C5E8]">{result}</div>
+          <WorkspaceReviewCta hint={reviewCtaHint} label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
         </div>
       )}
 
       <div className="mt-6 border-t border-[#2F184B] pt-5">
-        <p className="font-label mb-3 text-xs text-[#9B72CF]">{t.history}</p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="font-label text-xs text-[#9B72CF]">{t.history}</p>
+          {runs.length > 0 && (
+            <span className="rounded-full border border-[#2F184B] px-2.5 py-1 text-[10px] font-label text-[#9B72CF]">
+              {formatRunCount(runs.length, locale)}
+            </span>
+          )}
+        </div>
         {runs.length === 0 ? (
           <p className="text-sm text-[#7F6B9C]">{t.emptyHistory}</p>
         ) : (
           <div className="space-y-3">
             {visibleRuns.map((run) => {
               const expanded = expandedRunIds.includes(run.id);
-              const canExpand = run.status === 'succeeded' && run.outputText;
+              const canExpand = run.status === 'succeeded' && shouldShowFullResultToggle(run.outputText);
+              const isLatestSuccessfulRun = run.id === latestSuccessfulRunId;
 
               return (
                 <article key={run.id} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                      {isLatestSuccessfulRun && (
+                        <span className="rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-2 py-1 text-[10px] font-label text-[#6EE7B7]">
+                          {t.latestResult}
+                        </span>
+                      )}
+                    </div>
                     <span className="rounded-full border border-[#2F184B] px-2 py-1 text-[10px] font-label text-[#9B72CF]">
                       {statusLabel(run.status, locale)}
                     </span>
@@ -369,16 +432,36 @@ export default function CreatorEndpointWorkspaceActions({
                       <p className={`${expanded ? '' : 'line-clamp-5'} whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]`}>
                         {run.outputText}
                       </p>
-                      {canExpand && (
-                        <button
-                          type="button"
-                          onClick={() => toggleRun(run.id)}
-                          className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
-                        >
-                          {expanded ? t.showLess : t.showMore}
-                          <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
-                        </button>
-                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {canExpand && (
+                          <button
+                            type="button"
+                            onClick={() => toggleRun(run.id)}
+                            className="inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+                          >
+                            {expanded ? t.showLess : t.showMore}
+                            <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
+                        <CopyTextButton
+                          copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+                          errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+                          label={locale === 'en' ? 'Copy' : 'Copier'}
+                          text={run.outputText}
+                        />
+                        {run.inputText && (
+                          <button
+                            type="button"
+                            onClick={() => reuseRunInput(run.inputText)}
+                            className="inline-flex rounded-full border border-[#2F184B] px-2.5 py-1 text-xs font-label text-[#9B72CF] transition-colors hover:border-[#6B3FA0] hover:text-[#F4EFFA]"
+                          >
+                            {t.reuseInput}
+                          </button>
+                        )}
+                        {isLatestSuccessfulRun && (
+                          <WorkspaceReviewCta compact label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
+                        )}
+                      </div>
                     </>
                   ) : run.status === 'failed' ? (
                     <p className="text-sm text-[#FCA5A5]">{errorLabel(run.errorCode, t)}</p>

@@ -8,6 +8,7 @@ export const statusLabels = {
   approved: 'Approuvé',
   rejected: 'Rejeté',
   suspended: 'Suspendu',
+  archived: 'Archivé',
 };
 
 export const rentalStatusLabels = {
@@ -43,6 +44,7 @@ export const statusTone = {
   approved: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
   rejected: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
   suspended: 'border-[#FCA5A5] bg-[#FEF2F2] text-[#991B1B]',
+  archived: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]',
   pending: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
   accepted: 'border-[#C4B5FD] bg-[#F5F3FF] text-[#5B21B6]',
   in_progress: 'border-[#7DD3FC] bg-[#F0F9FF] text-[#075985]',
@@ -143,9 +145,12 @@ const panelToneClasses = {
   slate: 'border-[#E2E8F0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F8FAFC_100%)]',
 };
 
-export function CodePanel({ children, className = '', tone = 'default' }) {
+export function CodePanel({ children, className = '', tone = 'default', ...props }) {
   return (
-    <div className={`rounded-2xl border p-5 shadow-[0_10px_30px_rgba(109,64,160,0.05)] transition duration-200 hover:brightness-[0.97] hover:shadow-[0_14px_36px_rgba(109,64,160,0.08)] ${panelToneClasses[tone] || panelToneClasses.default} ${className}`}>
+    <div
+      className={`rounded-2xl border p-5 shadow-[0_10px_30px_rgba(109,64,160,0.05)] transition duration-200 hover:brightness-[0.97] hover:shadow-[0_14px_36px_rgba(109,64,160,0.08)] ${panelToneClasses[tone] || panelToneClasses.default} ${className}`}
+      {...props}
+    >
       {children}
     </div>
   );

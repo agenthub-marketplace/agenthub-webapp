@@ -21,8 +21,17 @@
     "agent:creator-guards": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-agent-loop.ps1 docs/agent-loops/creator-submission-guardrails.md",
     "agent:validate": "npm run lint && npm run typecheck && npm run build",
     "smoke:agenthub:db": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content scripts/agenthub-e2e-invariants-smoke.sql | docker exec -i supabase_db_agenthub-webapp psql -U postgres -d postgres -v ON_ERROR_STOP=1\"",
+    "smoke:agenthub:advanced": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content scripts/agenthub-advanced-agents-smoke.sql | docker exec -i supabase_db_agenthub-webapp psql -U postgres -d postgres -v ON_ERROR_STOP=1\"",
+    "smoke:agenthub:prod-readiness": "pwsh -NoProfile -File scripts/agenthub-advanced-prod-readiness.ps1",
+    "smoke:agenthub:prod-readiness:api": "node scripts/agenthub-advanced-prod-readiness.mjs --fail-on-blockers",
+    "smoke:agenthub:advanced-prod:safe": "npm run smoke:agenthub:prod-readiness:api && npm run smoke:agenthub:advanced-ledger:dry-run && npm run smoke:agenthub:advanced-payments:dry-run",
+    "smoke:agenthub:advanced-ledger:dry-run": "node scripts/agenthub-advanced-reconcile-ledger.mjs",
+    "smoke:agenthub:advanced-ledger:apply": "node scripts/agenthub-advanced-reconcile-ledger.mjs --apply",
+    "smoke:agenthub:advanced-payments:dry-run": "node scripts/agenthub-advanced-clean-stale-payments.mjs",
+    "smoke:agenthub:advanced-payments:apply": "node scripts/agenthub-advanced-clean-stale-payments.mjs --apply",
     "smoke:agenthub:http": "pwsh -NoProfile -File scripts/agenthub-http-role-smoke.ps1",
-    "smoke:agenthub:local": "pwsh -NoProfile -File scripts/agenthub-local-e2e-smoke.ps1"
+    "smoke:agenthub:local": "pwsh -NoProfile -File scripts/agenthub-local-e2e-smoke.ps1",
+    "smoke:agenthub:all": "npm run smoke:agenthub:db && npm run smoke:agenthub:advanced && npm run smoke:agenthub:local"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

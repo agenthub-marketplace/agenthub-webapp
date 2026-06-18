@@ -1,15 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AgentHubNavbar from '@/components/AgentHubNavbar';
 import Footer from '@/components/Footer';
 import AgentAvatar from '@/components/AgentAvatar';
 import AgentCard from '@/components/AgentCard';
-import { agentsList, userReviews } from '@/lib/mock-data';
 import { formatCreditsFromCents } from '@/lib/format-credits';
-import { Download, Edit3, Heart, Star, FileText, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock3, Flame, Star, FileText, ArrowRight, Trophy, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useT } from '@/lib/i18n';
+import { translate, useT } from '@/lib/i18n';
+import {
+  formatRecentAgentViewedAt,
+  getLegacyRecentAgentStorageKey,
+  getRecentAgentStorageKey,
+  parseRecentAgentsFromStorage,
+  removeRecentAgentsFromStorage,
+} from '@/lib/recent-agents';
 import { submitRentalReviewAction } from '@/server/reviews/actions';
 import { stopAgentAccessAction } from '@/server/rentals/actions';
 
@@ -35,7 +41,7 @@ function rentalStatusLabel(status, lang) {
       pending: 'En attente',
       accepted: 'Active',
       in_progress: 'En cours',
-      delivered: 'Livrée',
+      delivered: 'Terminée',
       active: 'Active',
       stopped: 'Arrêtée',
       expired: 'Expirée',
@@ -46,7 +52,7 @@ function rentalStatusLabel(status, lang) {
       pending: 'Pending',
       accepted: 'Active',
       in_progress: 'In progress',
-      delivered: 'Delivered',
+      delivered: 'Completed',
       active: 'Active',
       stopped: 'Stopped',
       expired: 'Expired',
@@ -127,31 +133,742 @@ function StructuredBrief({ inputs, lang }) {
   );
 }
 
+function rentalAgentName(rental, fallback) {
+  if (!rental) {
+    return fallback;
+  }
+
+  if (typeof rental.agent === 'string') {
+    return rental.agent;
+  }
+
+  return rental.agent?.name ?? rental.agentName ?? fallback;
+}
+
+function rentalAgentKey(rental) {
+  if (!rental) {
+    return null;
+  }
+
+  if (typeof rental.agent === 'string') {
+    return rental.slug || rental.agent || rental.id;
+  }
+
+  return rental.agent?.slug || rental.slug || rental.agent?.name || rental.id;
+}
+
+function rentalRunSummary(rental) {
+  const summary = rental?.runSummary;
+
+  return {
+    failed: Number.isFinite(summary?.failed) ? summary.failed : 0,
+    lastRunAt: summary?.lastRunAt ?? null,
+    lastStatus: summary?.lastStatus ?? null,
+    succeeded: Number.isFinite(summary?.succeeded) ? summary.succeeded : rental?.hasSuccessfulRun ? 1 : 0,
+    total: Number.isFinite(summary?.total) ? summary.total : rental?.hasSuccessfulRun ? 1 : 0,
+  };
+}
+
+function RentalRunStrip({ lang, summary }) {
+  if (!summary || summary.total <= 0) {
+    return null;
+  }
+
+  const lastStatusLabels = {
+    failed: lang === 'en' ? 'last failed' : 'dernier échec',
+    running: lang === 'en' ? 'running' : 'en cours',
+    succeeded: lang === 'en' ? 'last succeeded' : 'dernier réussi',
+  };
+
+  return (
+    <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-[#2F184B] bg-[#07050F] p-2 text-center">
+      <div>
+        <p className="font-stat text-lg text-[#F5F1FA]">{summary.total}</p>
+        <p className="font-label text-[9px] text-[#7F6B9C]">{lang === 'en' ? 'RUNS' : 'EXÉC.'}</p>
+      </div>
+      <div>
+        <p className="font-stat text-lg text-[#6EE7B7]">{summary.succeeded}</p>
+        <p className="font-label text-[9px] text-[#7F6B9C]">{lang === 'en' ? 'OK' : 'OK'}</p>
+      </div>
+      <div>
+        <p className={summary.failed > 0 ? 'font-stat text-lg text-[#FCA5A5]' : 'font-stat text-lg text-[#C8B1E4]'}>
+          {summary.failed}
+        </p>
+        <p className="font-label text-[9px] text-[#7F6B9C]">
+          {summary.lastStatus ? lastStatusLabels[summary.lastStatus] ?? summary.lastStatus : lang === 'en' ? 'FAILED' : 'ÉCHECS'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function buildUserMomentum({ agentBasePath, betaRentals, historyRows, lang, marketplacePath, paymentOrders, workspacePath }) {
+  const rentals = Array.isArray(betaRentals) ? betaRentals : [];
+  const history = Array.isArray(historyRows) ? historyRows : [];
+  const orders = Array.isArray(paymentOrders) ? paymentOrders : [];
+  const allAccessRows = [...rentals, ...history];
+  const exploredAgentCount = new Set(allAccessRows.map(rentalAgentKey).filter(Boolean)).size;
+  const activeRentals = rentals.filter((rental) => rental.accessOpen);
+  const firstRunnable = activeRentals.find((rental) => !rental.hasSuccessfulRun) ?? activeRentals[0] ?? null;
+  const firstReviewable = activeRentals.find((rental) => rental.hasSuccessfulRun && !rental.review) ?? null;
+  const stoppedRental = history.find((rental) => !rental.accessOpen && rental.slug) ?? null;
+  const blockedPayment = orders.find((payment) => payment.status === 'paid_blocked');
+  const pendingPayment = orders.find((payment) => payment.status === 'pending');
+  const paidActivationPending = orders.find((payment) => payment.status === 'paid' && !payment.rentalRequestId);
+  const successfulRunCount = allAccessRows.filter((rental) => rental.hasSuccessfulRun).length;
+  const reviewCount = allAccessRows.filter((rental) => rental.review).length;
+  const advancedRuntimeCount = allAccessRows.filter((rental) =>
+    ['workflow_automation', 'creator_endpoint'].includes(rental.agent?.contract?.runtimeType),
+  ).length;
+  const milestones = [
+    {
+      done: exploredAgentCount > 0,
+      key: 'first_access',
+      label: lang === 'en' ? 'First agent rented' : 'Premier agent loué',
+    },
+    {
+      done: activeRentals.length > 0,
+      key: 'active_access',
+      label: lang === 'en' ? 'Active workspace' : 'Workspace actif',
+    },
+    {
+      done: successfulRunCount > 0,
+      key: 'first_run',
+      label: lang === 'en' ? 'First run completed' : 'Première exécution',
+    },
+    {
+      done: reviewCount > 0,
+      key: 'review',
+      label: lang === 'en' ? 'Verified review left' : 'Avis vérifié laissé',
+    },
+    {
+      done: exploredAgentCount >= 2,
+      key: 'repeat',
+      label: lang === 'en' ? 'Second agent explored' : 'Deuxième agent testé',
+    },
+    {
+      done: advancedRuntimeCount > 0,
+      key: 'advanced',
+      label: lang === 'en' ? 'Advanced agent tried' : 'Agent avancé testé',
+    },
+  ];
+  const doneCount = milestones.filter((item) => item.done).length;
+  const score = Math.round((doneCount / milestones.length) * 100);
+
+  if (blockedPayment) {
+    return {
+      action: { tab: 'payments', type: 'tab' },
+      actionLabel: lang === 'en' ? 'Open order status' : 'Voir les commandes',
+      detail:
+        lang === 'en'
+          ? 'One activation is blocked and needs attention before the workspace can be used.'
+          : 'Une activation est bloquée et doit être surveillée avant d’utiliser le workspace.',
+      label: lang === 'en' ? 'Activation blocked' : 'Activation bloquée',
+      milestones,
+      score,
+      tone: 'warning',
+    };
+  }
+
+  if (pendingPayment || paidActivationPending) {
+    return {
+      action: { tab: 'payments', type: 'tab' },
+      actionLabel: lang === 'en' ? 'Track activation' : 'Suivre l’activation',
+      detail:
+        lang === 'en'
+          ? 'A checkout is still waiting for confirmation. Keep the order state visible.'
+          : 'Un checkout attend encore confirmation. Gardez l’état de commande sous les yeux.',
+      label: lang === 'en' ? 'Activation in progress' : 'Activation en cours',
+      milestones,
+      score,
+      tone: 'pending',
+    };
+  }
+
+  if (firstRunnable && !firstRunnable.hasSuccessfulRun) {
+    const agentName = rentalAgentName(firstRunnable, lang === 'en' ? 'This agent' : 'Cet agent');
+
+    return {
+      action: { href: `${workspacePath}/${firstRunnable.id}`, type: 'link' },
+      actionLabel: lang === 'en' ? 'Open workspace' : 'Ouvrir le workspace',
+      detail:
+        lang === 'en'
+          ? `${agentName} is active. Use it once to unlock the verified review loop.`
+          : `${agentName} est actif. Utilisez-le une fois pour débloquer la boucle d’avis vérifié.`,
+      label: lang === 'en' ? 'Next: first run' : 'Prochaine étape : première exécution',
+      milestones,
+      score,
+      tone: 'active',
+    };
+  }
+
+  if (firstReviewable) {
+    return {
+      action: { href: `${workspacePath}/${firstReviewable.id}?tab=review`, type: 'link' },
+      actionLabel: lang === 'en' ? 'Leave review' : 'Laisser un avis',
+      detail:
+        lang === 'en'
+          ? 'A successful run is recorded. Your verified review helps rank the best agents.'
+          : 'Une exécution réussie est enregistrée. Votre avis vérifié aide à faire remonter les meilleurs agents.',
+      label: lang === 'en' ? 'Review ready' : 'Avis prêt',
+      milestones,
+      score,
+      tone: 'active',
+    };
+  }
+
+  if (activeRentals.length > 0) {
+    return {
+      action: { href: `${workspacePath}/${activeRentals[0].id}`, type: 'link' },
+      actionLabel: lang === 'en' ? 'Open workspace' : 'Ouvrir le workspace',
+      detail:
+        lang === 'en'
+          ? 'You have active access. Keep using the workspace and compare outputs.'
+          : 'Vous avez un accès actif. Continuez dans le workspace et comparez les résultats.',
+      label: lang === 'en' ? 'Workspace active' : 'Workspace actif',
+      milestones,
+      score,
+      tone: 'active',
+    };
+  }
+
+  if (stoppedRental) {
+    const agentName = rentalAgentName(stoppedRental, lang === 'en' ? 'a previous agent' : 'un ancien agent');
+
+    return {
+      action: { href: stoppedRental.slug ? `${agentBasePath}/agents/${stoppedRental.slug}` : marketplacePath, type: 'link' },
+      actionLabel: lang === 'en' ? 'Rent again' : 'Relouer',
+      detail:
+        lang === 'en'
+          ? `${agentName} stays in your history so you can restart without searching the marketplace.`
+          : `${agentName} reste dans votre historique pour relancer sans rechercher dans toute la marketplace.`,
+      label: lang === 'en' ? 'Ready to restart' : 'Prêt à relancer',
+      milestones,
+      score,
+      tone: 'restart',
+    };
+  }
+
+  return {
+    action: { href: marketplacePath, type: 'link' },
+    actionLabel: lang === 'en' ? 'Explore marketplace' : 'Explorer la marketplace',
+    detail:
+      lang === 'en'
+        ? 'Pick one approved agent, activate it, run it from the workspace, then leave a verified review.'
+        : 'Choisissez un agent approuvé, activez-le, lancez-le dans le workspace, puis laissez un avis vérifié.',
+    label: lang === 'en' ? 'Start your loop' : 'Démarrer la boucle',
+    milestones,
+    score,
+    tone: 'start',
+  };
+}
+
+function buildUserMissions({ agentPath, betaRentals, historyRows, lang, marketplaceAgents, marketplacePath, paymentOrders, workspacePath }) {
+  const rentals = Array.isArray(betaRentals) ? betaRentals : [];
+  const history = Array.isArray(historyRows) ? historyRows : [];
+  const orders = Array.isArray(paymentOrders) ? paymentOrders : [];
+  const marketplace = Array.isArray(marketplaceAgents) ? marketplaceAgents : [];
+  const rentedSlugs = new Set([...rentals, ...history].map(rentalAgentKey).filter(Boolean));
+  const missions = [];
+
+  const blockedPayment = orders.find((payment) => payment.status === 'paid_blocked');
+  if (blockedPayment) {
+    missions.push({
+      action: { tab: 'payments', type: 'tab' },
+      impact: lang === 'en' ? 'Recover access' : 'Récupérer l’accès',
+      key: `blocked-${blockedPayment.id}`,
+      label: lang === 'en' ? 'Check blocked activation' : 'Vérifier une activation bloquée',
+      tone: 'warning',
+    });
+  }
+
+  const pendingPayment = orders.find((payment) => payment.status === 'pending' || (payment.status === 'paid' && !payment.rentalRequestId));
+  if (pendingPayment) {
+    missions.push({
+      action: { tab: 'payments', type: 'tab' },
+      impact: lang === 'en' ? 'Keep checkout visible' : 'Garder le checkout visible',
+      key: `pending-${pendingPayment.id}`,
+      label: lang === 'en' ? 'Track an activation in progress' : 'Suivre une activation en cours',
+      tone: 'pending',
+    });
+  }
+
+  const runnable = rentals.find((rental) => rental.accessOpen && !rental.hasSuccessfulRun);
+  if (runnable) {
+    const agentName = rentalAgentName(runnable, lang === 'en' ? 'your active agent' : 'votre agent actif');
+
+    missions.push({
+      action: { href: `${workspacePath}/${runnable.id}`, type: 'link' },
+      impact: lang === 'en' ? 'Unlock verified review' : 'Débloquer l’avis vérifié',
+      key: `run-${runnable.id}`,
+      label:
+        lang === 'en'
+          ? `Use ${agentName} once`
+          : `Utiliser ${agentName} une fois`,
+      tone: 'active',
+    });
+  }
+
+  const reviewable = rentals.find((rental) => rental.accessOpen && rental.hasSuccessfulRun && !rental.review);
+  if (reviewable) {
+    const agentName = rentalAgentName(reviewable, lang === 'en' ? 'this agent' : 'cet agent');
+
+    missions.push({
+      action: { href: `${workspacePath}/${reviewable.id}?tab=review`, type: 'link' },
+      impact: lang === 'en' ? 'Help rankings' : 'Aider le classement',
+      key: `review-${reviewable.id}`,
+      label:
+        lang === 'en'
+          ? `Leave a verified review for ${agentName}`
+          : `Laisser un avis vérifié pour ${agentName}`,
+      tone: 'review',
+    });
+  }
+
+  const activeReady = rentals.find((rental) => rental.accessOpen && rental.hasSuccessfulRun);
+  if (activeReady) {
+    const agentName = rentalAgentName(activeReady, lang === 'en' ? 'your workspace' : 'votre workspace');
+
+    missions.push({
+      action: { href: `${workspacePath}/${activeReady.id}`, type: 'link' },
+      impact: lang === 'en' ? 'Compare another output' : 'Comparer un autre résultat',
+      key: `continue-${activeReady.id}`,
+      label:
+        lang === 'en'
+          ? `Use another action in ${agentName}`
+          : `Utiliser une autre action dans ${agentName}`,
+      tone: 'active',
+    });
+  }
+
+  const restartable = history.find((rental) => !rental.accessOpen && rental.slug);
+  if (restartable) {
+    const agentName = rentalAgentName(restartable, lang === 'en' ? 'a previous agent' : 'un ancien agent');
+
+    missions.push({
+      action: { href: agentPath(restartable.slug), type: 'link' },
+      impact: lang === 'en' ? 'Restart faster' : 'Relancer plus vite',
+      key: `restart-${restartable.id}`,
+      label:
+        lang === 'en'
+          ? `Rent ${agentName} again`
+          : `Relouer ${agentName}`,
+      tone: 'restart',
+    });
+  }
+
+  const nextAgent = marketplace.find((agent) => agent.slug && !rentedSlugs.has(agent.slug));
+  if (nextAgent) {
+    missions.push({
+      action: { href: agentPath(nextAgent.slug), type: 'link' },
+      impact: lang === 'en' ? 'Explore a new use case' : 'Explorer un nouveau cas',
+      key: `discover-${nextAgent.id}`,
+      label:
+        lang === 'en'
+          ? `Try ${nextAgent.name}`
+          : `Tester ${nextAgent.name}`,
+      tone: 'discover',
+    });
+  }
+
+  if (missions.length === 0) {
+    missions.push({
+      action: { href: marketplacePath, type: 'link' },
+      impact: lang === 'en' ? 'Start the loop' : 'Démarrer la boucle',
+      key: 'start',
+      label: lang === 'en' ? 'Find your first approved agent' : 'Trouver votre premier agent approuvé',
+      tone: 'discover',
+    });
+  }
+
+  return missions.slice(0, 4);
+}
+
+function userLoopTier(score, lang) {
+  const tiers = [
+    {
+      max: 24,
+      name: lang === 'en' ? 'Explorer' : 'Explorateur',
+      next: lang === 'en' ? 'Rent an agent and open a workspace.' : 'Louez un agent et ouvrez un workspace.',
+    },
+    {
+      max: 49,
+      name: lang === 'en' ? 'Operator' : 'Opérateur',
+      next: lang === 'en' ? 'Complete a first workspace run.' : 'Terminez une première exécution workspace.',
+    },
+    {
+      max: 74,
+      name: lang === 'en' ? 'Reviewer' : 'Évaluateur',
+      next: lang === 'en' ? 'Leave a verified review after a run.' : 'Laissez un avis vérifié après une exécution.',
+    },
+    {
+      max: 99,
+      name: lang === 'en' ? 'Power user' : 'Power user',
+      next: lang === 'en' ? 'Try a second or advanced agent.' : 'Testez un deuxième agent ou un agent avancé.',
+    },
+    {
+      max: 100,
+      name: lang === 'en' ? 'Beta closer' : 'Closer beta',
+      next: lang === 'en' ? 'Loop complete. Compare another agent.' : 'Boucle complète. Comparez un autre agent.',
+    },
+  ];
+
+  return tiers.find((tier) => score <= tier.max) ?? tiers[tiers.length - 1];
+}
+
+function UserMomentumPanel({ lang, momentum, onSelectTab }) {
+  const tier = userLoopTier(momentum.score, lang);
+  const nextMilestone = momentum.milestones.find((item) => !item.done);
+
+  return (
+    <section className="mb-10 overflow-hidden rounded-3xl border border-[#6B3FA0]/35 bg-[radial-gradient(circle_at_top_left,#35215B_0%,#110D24_45%,#07050F_100%)] p-5 shadow-[0_18px_60px_rgba(11,7,28,0.38)] md:p-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+        <div>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#8B5CF6]/40 bg-[#1A152F] px-3 py-1.5 text-xs font-semibold text-[#D8B4FE]">
+              <Flame className="h-3.5 w-3.5" />
+              {lang === 'en' ? 'User loop' : 'Boucle utilisateur'}
+            </span>
+            <span className="inline-flex rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-3 py-1.5 text-xs font-semibold text-[#6EE7B7]">
+              {momentum.milestones.filter((item) => item.done).length}/{momentum.milestones.length}{' '}
+              {lang === 'en' ? 'steps done' : 'étapes validées'}
+            </span>
+            <span className="inline-flex rounded-full border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-3 py-1.5 text-xs font-semibold text-[#F6C177]">
+              {lang === 'en' ? 'Level' : 'Niveau'} · {tier.name}
+            </span>
+          </div>
+          <h2 className="font-display text-2xl font-bold text-[#F5F1FA] md:text-3xl">{momentum.label}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#D6C5E8]">{momentum.detail}</p>
+          <div className="mt-4 rounded-2xl border border-[#8B5CF6]/25 bg-[#0A0816]/70 p-4">
+            <p className="font-label text-[10px] text-[#A78BCF]">{lang === 'en' ? 'NEXT LEVEL HINT' : 'INDICE PROCHAIN NIVEAU'}</p>
+            <p className="mt-1 text-sm leading-6 text-[#D6C5E8]">{tier.next}</p>
+          </div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {momentum.milestones.map((item) => {
+              const isNext = nextMilestone?.key === item.key;
+
+              return (
+                <div
+                  key={item.key}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                    item.done
+                      ? 'border-[#10B981]/35 bg-[#10B981]/10 text-[#6EE7B7]'
+                      : isNext
+                        ? 'border-[#F59E0B]/45 bg-[#F59E0B]/10 text-[#F6C177]'
+                        : 'border-[#2F184B] bg-[#0A0816] text-[#9B72CF]'
+                  }`}
+                >
+                  <CheckCircle2
+                    className={`h-4 w-4 shrink-0 ${
+                      item.done ? 'text-[#10B981]' : isNext ? 'text-[#F59E0B]' : 'text-[#4A3D6B]'
+                    }`}
+                  />
+                  <span className="min-w-0 flex-1">{item.label}</span>
+                  {isNext && (
+                    <span className="shrink-0 rounded-full border border-[#F59E0B]/35 bg-[#0A0816] px-2 py-0.5 text-[10px] font-semibold text-[#F6C177]">
+                      {lang === 'en' ? 'Next' : 'À débloquer'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[#8B5CF6]/30 bg-[#0F0B22] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="font-label text-xs text-[#A78BCF]">{lang === 'en' ? 'Progress score' : 'Score exploration'}</p>
+            <Trophy className="h-5 w-5 text-[#C4B5FD]" />
+          </div>
+          <p className="font-stat text-5xl text-[#F5F1FA]">{momentum.score}%</p>
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#251A40]">
+            <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${momentum.score}%` }} />
+          </div>
+          <div className="mt-4 rounded-2xl border border-[#2F184B] bg-[#080612] p-3">
+            <p className="font-label text-[10px] text-[#A78BCF]">
+              {nextMilestone
+                ? lang === 'en'
+                  ? 'Next measurable step'
+                  : 'Prochaine étape mesurable'
+                : lang === 'en'
+                  ? 'Loop completed'
+                  : 'Boucle complétée'}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[#F5F1FA]">
+              {nextMilestone?.label ?? (lang === 'en' ? 'Compare another agent' : 'Comparer un autre agent')}
+            </p>
+          </div>
+          <div className="mt-5">
+            {momentum.action.type === 'link' ? (
+              <Link href={momentum.action.href}>
+                <Button className="h-11 w-full border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white">
+                  {momentum.actionLabel}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => onSelectTab(momentum.action.tab)}
+                className="h-11 w-full border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white"
+              >
+                {momentum.actionLabel}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UserMissionQueue({ lang, missions, onSelectTab }) {
+  const toneClasses = {
+    active: 'border-[#10B981]/35 bg-[#10B981]/10 text-[#6EE7B7]',
+    discover: 'border-[#8B5CF6]/35 bg-[#8B5CF6]/10 text-[#D8B4FE]',
+    pending: 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]',
+    restart: 'border-[#38BDF8]/35 bg-[#0EA5E9]/10 text-[#7DD3FC]',
+    review: 'border-[#F59E0B]/35 bg-[#F59E0B]/10 text-[#F6C177]',
+    warning: 'border-[#EF4444]/35 bg-[#EF4444]/10 text-[#FCA5A5]',
+  };
+
+  return (
+    <section className="mb-10 rounded-3xl border border-[#251A40] bg-[#110D24] p-5 md:p-6">
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#A78BCF]">{lang === 'en' ? 'TODAY’S MISSIONS' : 'MISSIONS DU JOUR'}</p>
+          <h2 className="font-display mt-1 text-2xl font-bold text-[#F5F1FA]">
+            {lang === 'en' ? 'Keep your AgentHub loop moving' : 'Gardez votre boucle AgentHub active'}
+          </h2>
+        </div>
+        <p className="max-w-lg text-sm leading-6 text-[#A78BCF]">
+          {lang === 'en'
+            ? 'These actions come from your real access, payments and history. Complete one, then come back for the next.'
+            : 'Ces actions viennent de vos vrais accès, paiements et historique. Terminez-en une, puis revenez pour la suivante.'}
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {missions.map((mission, index) => {
+          const card = (
+            <div className={`h-full rounded-2xl border p-4 transition hover:-translate-y-0.5 ${toneClasses[mission.tone] ?? toneClasses.discover}`}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A0816] text-sm font-bold text-[#F5F1FA]">
+                  {index + 1}
+                </span>
+                <Target className="h-4 w-4" />
+              </div>
+              <p className="font-display text-base font-bold text-[#F5F1FA]">{mission.label}</p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-current">{mission.impact}</p>
+              <p className="mt-4 inline-flex items-center text-sm font-semibold text-[#F5F1FA]">
+                {lang === 'en' ? 'Open' : 'Ouvrir'}
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </p>
+            </div>
+          );
+
+          if (mission.action.type === 'tab') {
+            return (
+              <button key={mission.key} type="button" onClick={() => onSelectTab(mission.action.tab)} className="text-left">
+                {card}
+              </button>
+            );
+          }
+
+          return (
+            <Link key={mission.key} href={mission.action.href}>
+              {card}
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RecentViewedAgentsPanel({ agentPath, lang, profile }) {
+  const [recentAgents, setRecentAgents] = useState([]);
+  const recentAgentStorageKey = getRecentAgentStorageKey(profile);
+  const legacyRecentAgentStorageKey = getLegacyRecentAgentStorageKey(profile);
+
+  useEffect(() => {
+    const loadRecentAgents = () => {
+      try {
+        setRecentAgents(
+          parseRecentAgentsFromStorage(
+            window.localStorage,
+            recentAgentStorageKey,
+            legacyRecentAgentStorageKey,
+          ),
+        );
+      } catch {
+        setRecentAgents([]);
+      }
+    };
+
+    loadRecentAgents();
+    const refreshTimer = window.setInterval(loadRecentAgents, 60000);
+    window.addEventListener('agenthub:recent-agents-updated', loadRecentAgents);
+    window.addEventListener('storage', loadRecentAgents);
+
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener('agenthub:recent-agents-updated', loadRecentAgents);
+      window.removeEventListener('storage', loadRecentAgents);
+    };
+  }, [legacyRecentAgentStorageKey, recentAgentStorageKey]);
+
+  if (recentAgents.length === 0) {
+    return null;
+  }
+
+  const visibleRecentAgents = recentAgents.slice(0, 3);
+  const comparisonGoal = 3;
+  const comparisonCount = Math.min(recentAgents.length, comparisonGoal);
+  const comparisonProgress = Math.round((comparisonCount / comparisonGoal) * 100);
+  const remainingComparisons = Math.max(0, comparisonGoal - comparisonCount);
+  const clearRecentAgents = () => {
+    setRecentAgents([]);
+
+    try {
+      removeRecentAgentsFromStorage(window.localStorage, recentAgentStorageKey, legacyRecentAgentStorageKey);
+      window.dispatchEvent(new CustomEvent('agenthub:recent-agents-updated'));
+    } catch {
+      // Local convenience only. The dashboard remains usable without storage.
+    }
+  };
+
+  return (
+    <section className="mb-10 rounded-3xl border border-[#2F184B] bg-[#0F0A1E] p-5 md:p-6">
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-label flex items-center gap-1.5 text-xs text-[#B794F4]">
+            <Clock3 className="h-3.5 w-3.5" />
+            {lang === 'en' ? 'RECENTLY VIEWED' : 'VUS RÉCEMMENT'}
+          </p>
+          <h2 className="font-display mt-1 text-2xl font-bold text-[#F5F1FA]">
+            {lang === 'en' ? 'Resume your agent comparison' : 'Reprendre votre comparaison'}
+          </h2>
+        </div>
+        <div className="max-w-lg text-sm leading-6 text-[#A78BCF]">
+          <p>
+            {lang === 'en'
+              ? 'Agents opened from the marketplace stay here so you can come back without searching again.'
+              : 'Les fiches ouvertes depuis la marketplace restent ici pour revenir sans refaire une recherche.'}
+          </p>
+          <p className="mt-2 font-semibold text-[#D8B4FE]">
+            {lang === 'en'
+              ? `${recentAgents.length} saved lead${recentAgents.length > 1 ? 's' : ''}`
+              : `${recentAgents.length} piste${recentAgents.length > 1 ? 's' : ''} sauvegardée${recentAgents.length > 1 ? 's' : ''}`}
+          </p>
+          <div className="mt-3 rounded-2xl border border-[#33214F] bg-[#15102A] p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="font-label text-[10px] text-[#D8B4FE]">
+                {lang === 'en' ? 'COMPARISON LOOP' : 'BOUCLE COMPARAISON'}
+              </p>
+              <span className="font-stat text-sm text-[#F5F1FA]">
+                {comparisonCount}/{comparisonGoal}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#2B1A44]">
+              <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${comparisonProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-[#A78BCF]">
+              {remainingComparisons === 0
+                ? lang === 'en'
+                  ? 'Enough signals to choose the agent to test next.'
+                  : 'Assez de signaux pour choisir l’agent à tester maintenant.'
+                : lang === 'en'
+                  ? `Open ${remainingComparisons} more agent${remainingComparisons > 1 ? 's' : ''} to compare with less friction.`
+                  : `Ouvrez encore ${remainingComparisons} agent${remainingComparisons > 1 ? 's' : ''} pour comparer sans repartir de zéro.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearRecentAgents}
+            className="mt-3 rounded-full border border-[#33214F] px-3 py-1.5 text-xs font-semibold text-[#A78BCF] transition-colors hover:border-[#8B5CF6] hover:text-white"
+          >
+            {lang === 'en' ? 'Hide saved leads' : 'Masquer les pistes'}
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {visibleRecentAgents.map((agent, index) => (
+          <Link
+            key={agent.slug}
+            href={agentPath(agent.slug)}
+            className="group rounded-2xl border border-[#33214F] bg-[#15102A] p-4 transition hover:-translate-y-0.5 hover:border-[#8B5CF6] hover:bg-[#20143D]"
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-[#F4EFFA]">{agent.name}</p>
+                <p className="mt-1 truncate text-xs text-[#B794F4]">
+                  {agent.category || agent.runtimeLabel || 'AgentHub'}
+                </p>
+              </div>
+              {index === 0 ? (
+                <span className="rounded-full border border-[#8B5CF6]/35 bg-[#251A40] px-2 py-1 text-[10px] font-semibold text-[#D8B4FE]">
+                  {lang === 'en' ? 'Latest' : 'Dernière piste'}
+                </span>
+              ) : (
+                <ArrowRight className="h-4 w-4 shrink-0 text-[#A78BCF] transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
+              )}
+            </div>
+            <p className="line-clamp-2 text-xs leading-5 text-[#A78BCF]">
+              {agent.pitch ||
+                (lang === 'en'
+                  ? 'Agent page opened recently.'
+                  : 'Fiche agent consultée récemment.')}
+            </p>
+            <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7F6B9C]">
+              {formatRecentAgentViewedAt(agent.viewedAt, lang)}
+            </p>
+            {index === 0 && (
+              <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#D8B4FE]">
+                {lang === 'en' ? 'Resume comparison' : 'Reprendre la comparaison'}
+                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </p>
+            )}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DashboardPage({
   profile,
   betaRentals = [],
   betaRentalsError = null,
   paymentOrders = [],
   paymentOrdersError = null,
+  recommendedAgents = [],
+  recommendedAgentsError = null,
   reviewSubmitted = null,
   reviewError = null,
   rentalCreated = false,
   codeAccessRequired = false,
   locale,
 }) {
-  const { t, lang } = useT();
+  const { lang: contextLang } = useT();
   const [tab, setTab] = useState('rentals');
-  const [memory, setMemory] = useState({
-    job: lang==='en'?'Freelance consultant':'Consultante freelance',
-    needs: lang==='en'?'Writing, Analysis, Strategy':'Rédaction, Analyse, Stratégie',
-    level: lang==='en'?'Intermediate':'Intermédiaire',
-    tools: 'Notion, Google Docs, Gmail',
-    style: lang==='en'?'Direct and concise':'Direct et concis',
-    lang: lang==='en'?'English':'Français',
-  });
-  const [editingKey, setEditingKey] = useState(null);
-  const favorites = agentsList.slice(0, 4);
-  const recommended = agentsList.slice(0, 4);
+  const effectiveLocale = (locale ?? contextLang ?? 'fr') === 'en' ? 'en' : 'fr';
+  const lang = effectiveLocale;
+  const t = (key, vars) => translate(effectiveLocale, key, vars);
+  const marketplaceAgents = Array.isArray(recommendedAgents) ? recommendedAgents : [];
+  const recommended = marketplaceAgents.slice(0, 4);
+  const verifiedReviewCards = marketplaceAgents
+    .flatMap((agent) =>
+      (agent.reviewSummaries ?? [])
+        .filter((review) => review?.body || review?.title)
+        .map((review) => ({
+          agentName: agent.name,
+          agentSlug: agent.slug,
+          body: review.body || review.title,
+          id: `${agent.id}-${review.id}`,
+          rating: Math.max(1, Math.min(5, Math.round(review.rating || 0))),
+        })),
+    )
+    .slice(0, 6);
   const tabs = [
     { id: 'rentals', label: t('db.t.rentals') },
     { id: 'history', label: t('db.t.history') },
@@ -160,12 +877,12 @@ function DashboardPage({
     { id: 'payments', label: t('db.t.payments') },
   ];
 
-  const effectiveLocale = (locale ?? lang ?? 'fr') === 'en' ? 'en' : 'fr';
   const reviewAction = submitRentalReviewAction.bind(null, effectiveLocale);
   const stopAction = stopAgentAccessAction.bind(null, effectiveLocale);
-  const marketplacePath = effectiveLocale === 'en' ? '/en/marketplace' : '/agenthub/search';
+  const marketplacePath = effectiveLocale === 'en' ? '/en/search' : '/agenthub/search';
   const workspacePath = effectiveLocale === 'en' ? '/en/workspace' : '/agenthub/workspace';
-  const agentPath = (slug) => `${effectiveLocale === 'en' ? '/en' : '/agenthub'}/agents/${slug}`;
+  const agentBasePath = effectiveLocale === 'en' ? '/en' : '/agenthub';
+  const agentPath = (slug) => `${agentBasePath}/agents/${slug}`;
   const formatAccessDate = (date) => new Date(date).toLocaleDateString(effectiveLocale === 'en' ? 'en-US' : 'fr-FR');
 
   const rentedAgentHistory = [];
@@ -185,7 +902,7 @@ function DashboardPage({
   const historyRows = rentedAgentHistory
     .map((rental) => ({
       id: rental.id,
-      agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'AgentHub agent'),
+      agent: rental.agent?.name ?? (effectiveLocale === 'en' ? 'AgentHub agent' : 'Agent AgentHub'),
       slug: rental.agent?.slug ?? null,
       status: rental.status,
       accessOpen: rental.accessOpen,
@@ -196,9 +913,32 @@ function DashboardPage({
       dates: formatAccessDate(rental.createdAt),
     }));
   const activeAccessCount = betaRentals.filter((rental) => rental.accessOpen).length;
+  const totalRunCount = betaRentals.reduce((total, rental) => total + rentalRunSummary(rental).total, 0);
+  const totalSucceededRunCount = betaRentals.reduce((total, rental) => total + rentalRunSummary(rental).succeeded, 0);
+  const failedRunCount = betaRentals.reduce((total, rental) => total + rentalRunSummary(rental).failed, 0);
+  const reviewCount = betaRentals.filter((rental) => rental.review).length;
   const pendingPaymentCount = paymentOrders.filter((payment) => payment.status === 'pending').length;
   const cancelledPaymentCount = paymentOrders.filter((payment) => payment.status === 'cancelled').length;
   const blockedPaymentCount = paymentOrders.filter((payment) => payment.status === 'paid_blocked').length;
+  const userMomentum = buildUserMomentum({
+    agentBasePath,
+    betaRentals,
+    historyRows,
+    lang,
+    marketplacePath,
+    paymentOrders,
+    workspacePath,
+  });
+  const userMissions = buildUserMissions({
+    agentPath,
+    betaRentals,
+    historyRows,
+    lang,
+    marketplaceAgents,
+    marketplacePath,
+    paymentOrders,
+    workspacePath,
+  });
 
   const reviewErrorMessage = (() => {
     if (!reviewError) {
@@ -245,8 +985,8 @@ function DashboardPage({
 
     if (reviewError === 'review-run-required') {
       return lang === 'en'
-        ? 'Run this agent once from the workspace before leaving a verified review.'
-        : 'Lancez cet agent une fois depuis le workspace avant de laisser un avis vérifié.';
+        ? 'Use this workspace once before leaving a verified review.'
+        : 'Utilisez ce workspace une fois avant de laisser un avis vérifié.';
     }
 
     if (reviewError === 'review-run-check-failed') {
@@ -317,6 +1057,10 @@ function DashboardPage({
           </div>
         )}
 
+        <UserMomentumPanel lang={lang} momentum={userMomentum} onSelectTab={setTab} />
+        <UserMissionQueue lang={lang} missions={userMissions} onSelectTab={setTab} />
+        <RecentViewedAgentsPanel agentPath={agentPath} lang={lang} profile={profile} />
+
         {/* Recommended agents row */}
         <section className="mb-10">
           <div className="flex items-end justify-between mb-4">
@@ -326,12 +1070,31 @@ function DashboardPage({
             </div>
           </div>
           <div className="marquee-wrapper marquee-mask overflow-hidden py-8">
-            <div className="marquee-track gap-4">
-              {[...recommended, ...recommended].map((a, i) => (
-                <div key={`${a.id}-${i}`} className="w-[280px] shrink-0">
-                  <AgentCard agent={a}/>
+            <div className={recommended.length > 0 ? "marquee-track gap-4" : ""}>
+              {recommended.length > 0 ? (
+                [...recommended, ...recommended].map((a, i) => (
+                  <div key={`${a.id}-${i}`} className="w-[280px] shrink-0">
+                    <AgentCard agent={a} agentBasePath={agentBasePath} locale={effectiveLocale} />
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6 text-sm text-[#C8B1E4]">
+                  <p className="font-display text-lg font-semibold text-[#F5F1FA]">
+                    {recommendedAgentsError
+                      ? lang === 'en'
+                        ? 'Live recommendations are unavailable right now.'
+                        : 'Les recommandations live sont indisponibles pour le moment.'
+                      : lang === 'en'
+                        ? 'No approved agents are available yet.'
+                        : 'Aucun agent approuvé n’est disponible pour le moment.'}
+                  </p>
+                  <p className="mt-2 max-w-xl text-[#A78BCF]">
+                    {lang === 'en'
+                      ? 'Open the marketplace to browse the latest approved agents as soon as they are published.'
+                      : 'Ouvrez la marketplace pour retrouver les derniers agents approuvés dès leur publication.'}
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
             <div className="text-center mt-6">
@@ -339,30 +1102,50 @@ function DashboardPage({
           </div>
         </section>
 
-        {/* Avis utilisateurs — défilement vers la droite */}
+        {/* Avis vérifiés — défilement vers la droite */}
         <section className="mb-10">
           <div className="mb-4">
             <p className="font-label text-xs text-[#A78BCF] mb-1.5">{t('db.reviewssub')}</p>
             <h2 className="font-display text-2xl md:text-3xl font-bold text-[#F5F1FA]">{t('db.reviewstitle')}</h2>
           </div>
-          <div className="marquee-wrapper marquee-mask overflow-hidden py-4">
-            <div className="marquee-track reverse gap-5">
-              {[...userReviews, ...userReviews].map((r, i) => (
-                <div key={`${r.id}-${i}`} className="w-[280px] shrink-0 bg-[#0F0B22] border border-[#1E1340] rounded-2xl p-5">
-                  <div className="flex gap-1 mb-3">{Array.from({length:r.stars}).map((_,k)=><Star key={k} className="w-3.5 h-3.5 fill-[#F59E0B] text-[#F59E0B]"/>)}</div>
-                  <p className="text-sm text-[#B8A8D8] italic leading-relaxed mb-5 line-clamp-4">« {r.quote} »</p>
-                  <div className="flex items-center gap-3 pt-3 border-t border-[#1E1340]">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6B3FA0] to-[#8B5CF6] flex items-center justify-center text-xs font-stat text-white">{r.avatar}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-display font-semibold text-[#F5F1FA] truncate">{r.name}</p>
-                      <p className="text-[11px] text-[#A78BCF] truncate">{r.job}</p>
+          {verifiedReviewCards.length > 0 ? (
+            <div className="marquee-wrapper marquee-mask overflow-hidden py-4">
+              <div className="marquee-track reverse gap-5">
+                {[...verifiedReviewCards, ...verifiedReviewCards].map((review, i) => (
+                  <div key={`${review.id}-${i}`} className="w-[280px] shrink-0 bg-[#0F0B22] border border-[#1E1340] rounded-2xl p-5">
+                    <div className="flex gap-1 mb-3">
+                      {Array.from({ length: review.rating }).map((_, k) => (
+                        <Star key={k} className="w-3.5 h-3.5 fill-[#F59E0B] text-[#F59E0B]"/>
+                      ))}
+                    </div>
+                    <p className="text-sm text-[#B8A8D8] italic leading-relaxed mb-5 line-clamp-4">« {review.body} »</p>
+                    <div className="flex items-center gap-3 pt-3 border-t border-[#1E1340]">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6B3FA0] to-[#8B5CF6] flex items-center justify-center text-xs font-stat text-white">✓</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-display font-semibold text-[#F5F1FA] truncate">
+                          {lang === 'en' ? 'Verified review' : 'Avis vérifié'}
+                        </p>
+                        <Link href={agentPath(review.agentSlug)} className="block truncate text-[11px] text-[#A78BCF] hover:text-[#F5F1FA]">
+                          {review.agentName}
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[11px] text-[#4A3D6B] mt-3">{lang==='en' ? r.dateEn : r.dateFr}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6 text-sm text-[#C8B1E4]">
+              <p className="font-display text-lg font-semibold text-[#F5F1FA]">
+                {lang === 'en' ? 'No verified reviews yet.' : 'Aucun avis vérifié pour le moment.'}
+              </p>
+              <p className="mt-2 max-w-xl text-[#A78BCF]">
+                {lang === 'en'
+                  ? 'Use an approved agent from your workspace, then leave the first verified review.'
+                  : 'Utilisez un agent approuvé depuis votre workspace, puis laissez le premier avis vérifié.'}
+              </p>
+            </div>
+          )}
         </section>
 
         <div className="flex gap-1 border-b border-[#251A40] mb-6 overflow-x-auto no-scrollbar">
@@ -391,7 +1174,7 @@ function DashboardPage({
                       <div className="flex items-start gap-3 mb-4">
                         <AgentAvatar index={0} size="md" />
                         <div className="flex-1">
-                          <h3 className="font-display font-bold text-lg text-[#F5F1FA]">{rental.agent?.name ?? 'AgentHub agent'}</h3>
+                          <h3 className="font-display font-bold text-lg text-[#F5F1FA]">{rental.agent?.name ?? (lang === 'en' ? 'AgentHub agent' : 'Agent AgentHub')}</h3>
                           <p className="text-xs text-[#A78BCF]">{rental.agent?.summary ?? ''}</p>
                         </div>
                       </div>
@@ -405,21 +1188,22 @@ function DashboardPage({
                       </div>
                       <p className="text-xs text-[#A78BCF] mb-4">
                         {lang === 'en'
-                          ? 'Active without payment during the private beta.'
-                          : 'Actif sans paiement pendant la beta privée.'}
+                          ? 'Access active. Open the workspace to generate and store results.'
+                          : 'Accès actif. Ouvrez le workspace pour générer et conserver vos résultats.'}
                       </p>
                       <StructuredBrief inputs={rental.requiredInputs} lang={lang} />
+                      <RentalRunStrip lang={lang} summary={rentalRunSummary(rental)} />
                       {rental.result && (
                         <div className="mb-4 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 p-3 text-xs text-[#D6C5E8]">
                           <p className="font-label mb-1 text-[10px] text-[#6EE7B7]">
-                            {lang === 'en' ? 'DELIVERED RESULT' : 'RÉSULTAT LIVRÉ'}
+                            {lang === 'en' ? 'WORKSPACE RESULT' : 'RÉSULTAT WORKSPACE'}
                           </p>
                           <p className="leading-relaxed">{rental.result.summary}</p>
                         </div>
                       )}
                       {!rental.result && rental.status === 'delivered' && (
                         <div className="mb-4 rounded-xl border border-[#2F184B] bg-[#07050F] p-3 text-xs text-[#C8B1E4]">
-                          {lang === 'en' ? 'Legacy delivered access without stored result.' : 'Ancien accès livré sans résultat enregistré.'}
+                          {lang === 'en' ? 'Legacy completed access without stored workspace result.' : 'Ancien accès terminé sans résultat workspace enregistré.'}
                         </div>
                       )}
 
@@ -435,8 +1219,8 @@ function DashboardPage({
                                   ? 'A successful run is recorded. Publish your verified review from the workspace review tab.'
                                   : 'Une exécution réussie est enregistrée. Publiez votre avis vérifié depuis l’onglet avis du workspace.'
                                 : lang === 'en'
-                                  ? 'Run the agent first, then publish your verified review from the workspace history.'
-                                  : 'Lancez d’abord l’agent, puis publiez votre avis vérifié depuis l’historique du workspace.'}
+                                  ? 'Use the workspace first, then publish your verified review from the workspace history.'
+                                  : 'Utilisez d’abord le workspace, puis publiez votre avis vérifié depuis l’historique.'}
                             </p>
                             <Link href={`${workspacePath}/${rental.id}?tab=review`} className="mt-2 inline-flex text-[#D8B4FE] hover:text-white">
                               {lang === 'en' ? 'Open workspace review tab' : 'Ouvrir l’onglet avis du workspace'}
@@ -628,7 +1412,6 @@ function DashboardPage({
           <div className="bg-[#110D24] border border-[#251A40] rounded-2xl overflow-x-auto">
             <div className="flex justify-between items-center p-4 border-b border-[#251A40]">
               <p className="font-display font-bold">{lang==='en'?'Rented agents history':'Historique des agents loués'}</p>
-              <Button size="sm" variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]"><Download className="w-3.5 h-3.5 mr-1"/>{t('cr.exportcsv')}</Button>
             </div>
             {historyRows.length === 0 ? (
               <div className="p-6 text-sm text-[#A78BCF]">
@@ -678,48 +1461,125 @@ function DashboardPage({
         )}
 
         {tab === 'favorites' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {favorites.map(a => (
-              <div key={a.id} className="relative">
-                <button className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-[#1A152F]/80 backdrop-blur hover:bg-[#EF4444]/20 text-[#EF4444] flex items-center justify-center"><Heart className="w-4 h-4 fill-current"/></button>
-                <Link href={`/agenthub/agents/${a.slug}`} className="block bg-[#110D24] border border-[#251A40] rounded-2xl p-5 card-hover">
-                  <AgentAvatar index={a.gradient} size="lg" className="mb-3"/>
-                  <h3 className="font-display font-bold text-[#F5F1FA]">{a.name}</h3>
-                  <p className="text-xs text-[#A78BCF]">{a.pitch}</p>
+          <div className="rounded-2xl border border-[#251A40] bg-[#110D24] p-6 md:p-8">
+            <div className="max-w-2xl">
+              <p className="font-label mb-2 text-xs text-[#A78BCF]">
+                {lang === 'en' ? 'Saved agents' : 'Agents enregistrés'}
+              </p>
+              <h2 className="font-display text-2xl font-bold text-[#F5F1FA]">
+                {lang === 'en' ? 'Favorites are not enabled yet.' : 'Les favoris ne sont pas encore activés.'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#C8B1E4]">
+                {lang === 'en'
+                  ? 'For now, the reliable shortcut is your rental history. Rented agents stay available there so you can rent them again without searching.'
+                  : 'Pour l’instant, le raccourci fiable est votre historique. Les agents déjà loués y restent disponibles pour les relouer sans chercher.'}
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  onClick={() => setTab('history')}
+                  className="h-11 border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white"
+                >
+                  {lang === 'en' ? 'Open history' : 'Voir l’historique'}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Link href={marketplacePath}>
+                  <Button variant="outline" className="h-11 border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F] hover:text-[#F5F1FA]">
+                    {lang === 'en' ? 'Browse marketplace' : 'Explorer la marketplace'}
+                  </Button>
                 </Link>
               </div>
-            ))}
+            </div>
           </div>
         )}
 
         {tab === 'memory' && (
-          <div>
+          <div className="space-y-5">
             <div className="mb-6 p-5 rounded-2xl bg-gradient-to-br from-[#1A152F] to-[#110D24] border border-[#8B5CF6]/30">
-              <h2 className="font-display text-2xl font-bold mb-2">{t('db.memtitle')}</h2>
-              <p className="text-sm text-[#D6C5E8]">{t('db.memsub')}</p>
+              <h2 className="font-display text-2xl font-bold mb-2">
+                {lang === 'en' ? 'AgentHub activity profile' : 'Profil d’activité AgentHub'}
+              </h2>
+              <p className="text-sm text-[#D6C5E8]">
+                {lang === 'en'
+                  ? 'This beta profile is based only on your real AgentHub activity. Personal memory editing will come later.'
+                  : 'Ce profil beta est calculé uniquement depuis votre activité réelle sur AgentHub. L’édition de mémoire personnelle viendra plus tard.'}
+              </p>
             </div>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
-                { k: 'job', label: t('db.f.job') },
-                { k: 'needs', label: t('db.f.needs') },
-                { k: 'level', label: t('db.f.level') },
-                { k: 'tools', label: t('db.f.tools') },
-                { k: 'style', label: t('db.f.style') },
-                { k: 'lang', label: t('db.f.lang') },
-              ].map(f => (
-                <div key={f.k} className="bg-[#110D24] border border-[#251A40] rounded-xl p-4">
-                  <div className="flex justify-between mb-2"><p className="font-label text-xs text-[#A78BCF]">{f.label}</p><button onClick={()=>setEditingKey(editingKey===f.k?null:f.k)} className="text-[#A78BCF] hover:text-[#F5F1FA]"><Edit3 className="w-3.5 h-3.5"/></button></div>
-                  {editingKey === f.k ? (
-                    <input value={memory[f.k]} onChange={e=>setMemory({...memory, [f.k]: e.target.value})} onBlur={()=>setEditingKey(null)} autoFocus className="w-full bg-[#0A0816] border border-[#8B5CF6] rounded-md px-2 py-1 text-sm text-[#F5F1FA] focus:outline-none"/>
-                  ) : (
-                    <p className="text-sm text-[#F5F1FA]">{memory[f.k]}</p>
-                  )}
+                {
+                  label: lang === 'en' ? 'Active agents' : 'Agents actifs',
+                  value: activeAccessCount,
+                  detail: lang === 'en' ? 'open workspaces' : 'workspaces ouverts',
+                },
+                {
+                  label: lang === 'en' ? 'History' : 'Historique',
+                  value: historyRows.length,
+                  detail: lang === 'en' ? 'agents ready to rent again' : 'agents relouables',
+                },
+                {
+                  label: lang === 'en' ? 'Stored runs' : 'Exécutions stockées',
+                  value: totalRunCount,
+                  detail:
+                    lang === 'en'
+                      ? `${totalSucceededRunCount} succeeded · ${failedRunCount} failed`
+                      : `${totalSucceededRunCount} réussis · ${failedRunCount} échecs`,
+                },
+                {
+                  label: lang === 'en' ? 'Verified reviews' : 'Avis vérifiés',
+                  value: reviewCount,
+                  detail: lang === 'en' ? 'feedback left' : 'retours laissés',
+                },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl border border-[#251A40] bg-[#110D24] p-4">
+                  <p className="font-label text-xs text-[#A78BCF]">{item.label}</p>
+                  <p className="mt-2 font-stat text-3xl text-[#F5F1FA]">{item.value}</p>
+                  <p className="mt-1 text-xs text-[#7F6B9C]">{item.detail}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-6 flex gap-3">
-              <Button variant="outline" className="bg-transparent border-[#6B3FA0] text-[#D6C5E8] hover:bg-[#1A152F]"><Download className="w-4 h-4 mr-2"/>{t('db.export')}</Button>
-              <button className="text-sm text-[#EF4444] hover:underline">{t('db.delprof')}</button>
+            <div className="rounded-2xl border border-[#2F184B] bg-[#0F0A1E] p-5">
+              <p className="font-display text-lg font-bold text-[#F5F1FA]">
+                {lang === 'en' ? 'Next best action' : 'Prochaine meilleure action'}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#C8B1E4]">
+                {activeAccessCount > 0
+                  ? lang === 'en'
+                    ? 'Open an active workspace and complete one run. That is what unlocks meaningful reviews and history.'
+                    : 'Ouvrez un workspace actif et terminez une exécution. C’est ce qui débloque les avis utiles et l’historique.'
+                  : historyRows.length > 0
+                    ? lang === 'en'
+                      ? 'Restart an agent from history instead of searching from scratch.'
+                      : 'Relancez un agent depuis l’historique plutôt que de repartir de zéro.'
+                    : lang === 'en'
+                      ? 'Pick one approved agent from the marketplace to start building your activity profile.'
+                      : 'Choisissez un agent approuvé dans la marketplace pour démarrer votre profil d’activité.'}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {activeAccessCount > 0 ? (
+                  <Button type="button" onClick={() => setTab('rentals')} className="border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white">
+                    {lang === 'en' ? 'Open active agents' : 'Voir les agents actifs'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : historyRows.length > 0 ? (
+                  <Button type="button" onClick={() => setTab('history')} className="border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white">
+                    {lang === 'en' ? 'Open history' : 'Voir l’historique'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Link href={marketplacePath}>
+                    <Button className="border-0 bg-[#F5F1FA] text-[#2B1A44] hover:bg-white">
+                      {lang === 'en' ? 'Explore marketplace' : 'Explorer la marketplace'}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/settings">
+                  <Button variant="outline" className="border-[#6B3FA0] bg-transparent text-[#D6C5E8] hover:bg-[#1A152F] hover:text-[#F5F1FA]">
+                    {lang === 'en' ? 'Account settings' : 'Paramètres du compte'}
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         )}
@@ -771,7 +1631,7 @@ function DashboardPage({
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-display text-lg font-bold text-[#F5F1FA]">
-                          {payment.agent?.name ?? 'AgentHub agent'}
+                          {payment.agent?.name ?? (lang === 'en' ? 'AgentHub agent' : 'Agent AgentHub')}
                         </h3>
                         <p className="mt-1 line-clamp-2 text-xs text-[#A78BCF]">{payment.agent?.summary}</p>
                       </div>

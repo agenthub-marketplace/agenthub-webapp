@@ -24,6 +24,12 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  getLegacyNotificationStorageKey,
+  getNotificationStorageKey,
+  readNotificationIdsFromStorage,
+  writeNotificationIdsToStorage,
+} from '@/lib/notification-storage';
 
 function getInitials(profile) {
   const source = profile?.displayName || profile?.email || 'AgentHub Code';
@@ -34,10 +40,6 @@ function getInitials(profile) {
 
 function getDisplayName(profile) {
   return profile?.displayName || profile?.email?.replace(/@.*$/, '') || 'AgentHub Code';
-}
-
-function getNotificationStorageKey(profile) {
-  return profile?.email ? `agenthub:read-notifications:${profile.email}` : null;
 }
 
 function getCodeNavItems(role) {
@@ -229,7 +231,7 @@ export function CodeSidebar({ mobile = false, onNavigate, profile, unreadNotific
 }
 
 export function CodeTopbar({
-  markNotificationsRead,
+  markNotificationRead,
   notifications = [],
   notificationsOpen,
   onMenuClick,
@@ -267,9 +269,6 @@ export function CodeTopbar({
             onClick={() => {
               const nextOpen = !notificationsOpen;
               setNotificationsOpen(nextOpen);
-              if (nextOpen) {
-                markNotificationsRead();
-              }
             }}
             className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#D8DDEE] bg-white text-[#4B5563] transition-colors hover:border-[#8B5CF6] hover:bg-[#F5F3FF] hover:text-[#111827]"
             aria-label={notificationCopy.open}
@@ -296,7 +295,10 @@ export function CodeTopbar({
                       <Link
                         key={notification.id}
                         href={notification.href}
-                        onClick={() => setNotificationsOpen(false)}
+                        onClick={() => {
+                          markNotificationRead(notification.id);
+                          setNotificationsOpen(false);
+                        }}
                         className="block border-b border-[#EEF1F8] p-4 transition-colors last:border-b-0 hover:bg-[#F8FAFC]"
                       >
                         <div className="flex gap-3">
@@ -355,6 +357,7 @@ export default function CodeShell({ children, profile }) {
   const [notifications, setNotifications] = useState([]);
   const [readNotificationIds, setReadNotificationIds] = useState([]);
   const notificationStorageKey = getNotificationStorageKey(profile);
+  const legacyNotificationStorageKey = getLegacyNotificationStorageKey(profile);
   const unreadNotifications = useMemo(
     () => notifications.filter((notification) => !readNotificationIds.includes(notification.id)),
     [notifications, readNotificationIds],
@@ -368,16 +371,16 @@ export default function CodeShell({ children, profile }) {
       }
 
       try {
-        const raw = window.localStorage.getItem(notificationStorageKey);
-        const parsed = raw ? JSON.parse(raw) : [];
-        setReadNotificationIds(Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []);
+        setReadNotificationIds(
+          readNotificationIdsFromStorage(window.localStorage, notificationStorageKey, legacyNotificationStorageKey),
+        );
       } catch {
         setReadNotificationIds([]);
       }
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [notificationStorageKey]);
+  }, [legacyNotificationStorageKey, notificationStorageKey]);
 
   useEffect(() => {
     if (!notificationStorageKey) {
@@ -413,8 +416,12 @@ export default function CodeShell({ children, profile }) {
     };
   }, [notificationStorageKey]);
 
-  function markNotificationsRead() {
-    const nextIds = [...new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)])];
+  function markNotificationRead(notificationId) {
+    if (!notificationId) {
+      return;
+    }
+
+    const nextIds = [...new Set([...readNotificationIds, notificationId])];
     setReadNotificationIds(nextIds);
 
     if (!notificationStorageKey) {
@@ -422,7 +429,12 @@ export default function CodeShell({ children, profile }) {
     }
 
     try {
-      window.localStorage.setItem(notificationStorageKey, JSON.stringify(nextIds.slice(-80)));
+      writeNotificationIdsToStorage(
+        window.localStorage,
+        notificationStorageKey,
+        nextIds,
+        legacyNotificationStorageKey,
+      );
     } catch {
       // Non-blocking: if localStorage is unavailable, the badge still clears
     }
@@ -434,7 +446,7 @@ export default function CodeShell({ children, profile }) {
         <CodeSidebar profile={profile} unreadNotifications={unreadNotifications} />
         <div className="min-w-0 flex-1">
           <CodeTopbar
-            markNotificationsRead={markNotificationsRead}
+            markNotificationRead={markNotificationRead}
             notifications={notifications}
             notificationsOpen={notificationsOpen}
             profile={profile}

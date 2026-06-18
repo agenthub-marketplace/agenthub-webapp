@@ -20,36 +20,36 @@
 html, body {
   background-color: #0A0816;
   color: #F5F1FA;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; letter-spacing: -0.02em; }
-.font-label { font-family: 'Space Grotesk', sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; }
-.font-stat { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
-.font-inter { font-family: 'Inter', sans-serif; }
+.font-display { font-family: var(--font-space-grotesk), var(--font-inter), sans-serif; letter-spacing: -0.02em; }
+.font-label { font-family: var(--font-space-grotesk), sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; }
+.font-stat { font-family: var(--font-space-grotesk), sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.font-inter { font-family: var(--font-inter), sans-serif; }
 
 .user-theme {
-  font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-ibm-plex-sans), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
   letter-spacing: 0;
 }
 .user-theme .font-display {
-  font-family: 'Libre Baskerville', Georgia, serif;
+  font-family: var(--font-libre-baskerville), Georgia, serif;
   font-weight: 700;
   letter-spacing: 0;
 }
 .user-theme .font-label {
-  font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-ibm-plex-sans), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 .user-theme .font-stat {
-  font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-ibm-plex-sans), var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 800;
 }
 .user-theme h1,
 .user-theme h2,
 .user-theme h3 {
-  font-family: 'Libre Baskerville', Georgia, serif;
+  font-family: var(--font-libre-baskerville), Georgia, serif;
   letter-spacing: 0;
 }
 

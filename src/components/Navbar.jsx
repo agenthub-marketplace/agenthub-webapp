@@ -4,11 +4,22 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Bell, Bot, Box, ChevronDown, Code2, Gauge, Home, LogOut, Menu, PlusCircle, Search, Settings as SettingsIcon, ShieldCheck, Trophy, User, X } from 'lucide-react';
+import { Bell, Bot, Box, ChevronDown, Clock3, Code2, Gauge, Home, LogOut, Menu, PlusCircle, Search, Settings as SettingsIcon, ShieldCheck, Trophy, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Flag from '@/components/Flag';
 import { languages } from '@/lib/mock-data';
-import { useT } from '@/lib/i18n';
+import { translate, useT } from '@/lib/i18n';
+import {
+  getLegacyRecentAgentStorageKey,
+  getRecentAgentStorageKey,
+  parseRecentAgentsFromStorage,
+} from '@/lib/recent-agents';
+import {
+  getLegacyNotificationStorageKey,
+  getNotificationStorageKey,
+  readNotificationIdsFromStorage,
+  writeNotificationIdsToStorage,
+} from '@/lib/notification-storage';
 
 function getInitials(profile) {
   const source = profile?.displayName || profile?.email || 'AgentHub';
@@ -24,13 +35,66 @@ function getDisplayName(profile) {
   return profile?.displayName || profile?.email?.replace(/@.*$/, '') || 'AgentHub';
 }
 
-function getNotificationStorageKey(profile) {
-  return profile?.email ? `agenthub:read-notifications:${profile.email}` : null;
+function formatNotificationCount(count) {
+  return count > 9 ? '9+' : String(count);
+}
+
+function normalizePath(href) {
+  if (!href || typeof href !== 'string') {
+    return '';
+  }
+
+  const [path] = href.split(/[?#]/);
+  if (path.length > 1 && path.endsWith('/')) {
+    return path.slice(0, -1);
+  }
+
+  return path;
+}
+
+function getNotificationHref(notification, routePrefix) {
+  const href = normalizePath(notification?.href);
+
+  if (!href) {
+    return '';
+  }
+
+  if (!routePrefix || href.startsWith('/code') || href.startsWith('/agenthub') || href.startsWith('/auth')) {
+    return href;
+  }
+
+  if (href.startsWith('/')) {
+    return `${routePrefix}${href}`;
+  }
+
+  return href;
+}
+
+function notificationMatchesNavLink(notificationHref, link) {
+  const target = normalizePath(link?.href);
+  const activePrefix = normalizePath(link?.activePrefix || target);
+
+  if (!notificationHref || !target) {
+    return false;
+  }
+
+  if (notificationHref === target || notificationHref.startsWith(`${target}/`)) {
+    return true;
+  }
+
+  return Boolean(activePrefix && (notificationHref === activePrefix || notificationHref.startsWith(`${activePrefix}/`)));
+}
+
+function countUnreadForNavLink(unreadNotifications, link, routePrefix) {
+  return unreadNotifications.filter((notification) =>
+    notificationMatchesNavLink(getNotificationHref(notification, routePrefix), link),
+  ).length;
 }
 
 /**
  * @param {{
  *   profile?: {
+ *     id?: string,
  *     displayName: string | null,
  *     email: string,
  *     role: 'user' | 'creator' | 'admin'
@@ -47,7 +111,9 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [readNotificationIds, setReadNotificationIds] = useState([]);
+  const [resumeAgent, setResumeAgent] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profileFetchResolved, setProfileFetchResolved] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -77,11 +143,13 @@ export default function Navbar({ experience = 'agenthub', profile }) {
       .then((payload) => {
         if (active) {
           setFetchedProfile(payload?.authenticated ? payload.profile : null);
+          setProfileFetchResolved(true);
         }
       })
       .catch(() => {
         if (active) {
           setFetchedProfile(null);
+          setProfileFetchResolved(true);
         }
       });
 
@@ -90,8 +158,8 @@ export default function Navbar({ experience = 'agenthub', profile }) {
     };
   }, [profile]);
 
-  const authResolved = true;
   const resolvedProfile = profile ?? fetchedProfile ?? null;
+  const authResolved = Boolean(profile) || profileFetchResolved;
   const isSignedIn = Boolean(resolvedProfile);
   const isCodeExperience = experience === 'code';
   const canAccessCode = resolvedProfile?.role === 'creator' || resolvedProfile?.role === 'admin';
@@ -100,11 +168,19 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   const routePrefix = pathname === '/en' || pathname.startsWith('/en/') ? '/en' : '';
   const searchHref = routePrefix ? '/en/search' : '/agenthub/search';
   const workspaceHref = routePrefix ? '/en/workspace' : '/agenthub/workspace';
-  const agentHubHomeHref = routePrefix ? '/en/marketplace' : '/agenthub';
+  const agentHubHomeHref = routePrefix ? '/en/search' : '/agenthub';
   const codeHomeHref = '/code';
-  const currentLang = languages.find((l) => l.code === lang) || languages[0];
-  const notificationStorageEmail = resolvedProfile?.email ?? null;
-  const notificationCopy = lang === 'en'
+  const displayLang = routePrefix ? 'en' : lang;
+  const navT = (key, vars) => (routePrefix ? translate('en', key, vars) : t(key, vars));
+  const currentLang = languages.find((l) => l.code === displayLang) || languages[0];
+  const notificationStorageKey = getNotificationStorageKey(resolvedProfile);
+  const legacyNotificationStorageKey = getLegacyNotificationStorageKey(resolvedProfile);
+  const recentAgentStorageKey = getRecentAgentStorageKey(resolvedProfile);
+  const legacyRecentAgentStorageKey = getLegacyRecentAgentStorageKey(resolvedProfile);
+  const resumeAgentHref = isSignedIn && resumeAgent?.slug
+    ? `${routePrefix ? '/en' : '/agenthub'}/agents/${resumeAgent.slug}`
+    : null;
+  const notificationCopy = displayLang === 'en'
     ? {
         title: 'Notifications',
         empty: 'No notifications yet.',
@@ -122,22 +198,22 @@ export default function Navbar({ experience = 'agenthub', profile }) {
     ...(resolvedProfile?.role === 'admin'
       ? [
           {
-            href: `${routePrefix}/admin`,
-            label: t('nav.admin'),
+            href: '/code/admin/review',
+            label: navT('nav.admin'),
             icon: ShieldCheck,
             featured: false,
             secondaryRole: true,
-            activePrefix: `${routePrefix}/admin`,
+            activePrefix: '/code/admin',
           },
         ]
       : []),
   ];
   const links = isCodeExperience
     ? [
-        { href: '/code', label: 'Overview', icon: Code2, exact: true },
+        { href: '/code', label: 'Vue d’ensemble', icon: Code2, exact: true },
         {
           href: '/code/dashboard',
-          label: 'Dashboard',
+          label: 'Pilotage',
           icon: Gauge,
           activePrefix: '/code/dashboard',
         },
@@ -151,25 +227,25 @@ export default function Navbar({ experience = 'agenthub', profile }) {
         ...(resolvedProfile?.role === 'admin'
           ? [
               {
-                href: `${routePrefix}/admin`,
-                label: t('nav.admin'),
+                href: '/code/admin/review',
+                label: navT('nav.admin'),
                 icon: ShieldCheck,
                 featured: false,
                 secondaryRole: true,
-                activePrefix: `${routePrefix}/admin`,
+                activePrefix: '/code/admin',
               },
             ]
           : []),
       ]
     : [
-        { href: searchHref, label: t('nav.discoveragents'), icon: Search },
+        { href: searchHref, label: navT('nav.discoveragents'), icon: Search },
         {
           href: workspaceHref,
-          label: t('nav.workspace'),
+          label: navT('nav.workspace'),
           icon: Box,
           activePrefix: workspaceHref,
         },
-        { href: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy },
+        { href: '/leaderboard', label: navT('nav.leaderboard'), icon: Trophy },
         ...roleLinks,
       ];
   const switcherHref = isCodeExperience ? agentHubHomeHref : codeHomeHref;
@@ -195,15 +271,24 @@ export default function Navbar({ experience = 'agenthub', profile }) {
     ? 'hidden rounded-xl border border-[#D8DDEE] bg-white px-3 py-2 text-sm font-medium text-[#374151] transition-colors hover:border-[#8B5CF6] hover:bg-[#F1F3F8] hover:text-[#111827] md:inline-flex'
     : 'hidden rounded-lg px-2.5 py-2 text-sm font-medium text-[#A78BCF] transition-colors hover:bg-[#15112A] hover:text-[#F5F1FA] md:inline-flex';
   const drawerLinks = [
-    { href: isCodeExperience ? codeHomeHref : agentHubHomeHref, label: t('nav.m.home'), icon: Home },
+    { href: isCodeExperience ? codeHomeHref : agentHubHomeHref, label: navT('nav.m.home'), icon: Home },
+    ...(!isCodeExperience && resumeAgentHref
+      ? [
+          {
+            href: resumeAgentHref,
+            label: displayLang === 'en' ? 'Resume last agent' : 'Reprendre le dernier agent',
+            icon: Clock3,
+          },
+        ]
+      : []),
     ...links,
     ...(showCodeSwitcher
       ? [{ href: switcherHref, label: switcherLabel, icon: isCodeExperience ? Bot : Code2 }]
       : []),
     ...(isSignedIn
       ? [
-          { href: '/profile', label: t('nav.myprofile'), icon: User },
-          { href: '/settings', label: t('nav.settings'), icon: SettingsIcon },
+          { href: '/profile', label: navT('nav.myprofile'), icon: User },
+          { href: '/settings', label: navT('nav.settings'), icon: SettingsIcon },
         ]
       : []),
   ];
@@ -227,36 +312,43 @@ export default function Navbar({ experience = 'agenthub', profile }) {
   };
 
   useEffect(() => {
-    const storageKey = notificationStorageEmail ? `agenthub:read-notifications:${notificationStorageEmail}` : null;
     const frame = window.requestAnimationFrame(() => {
-      if (!storageKey) {
+      if (!notificationStorageKey) {
         setReadNotificationIds([]);
         return;
       }
 
       try {
-        const storedValue = window.localStorage.getItem(storageKey);
-        const storedIds = storedValue ? JSON.parse(storedValue) : [];
-        setReadNotificationIds(Array.isArray(storedIds) ? storedIds.filter((id) => typeof id === 'string') : []);
+        setReadNotificationIds(
+          readNotificationIdsFromStorage(window.localStorage, notificationStorageKey, legacyNotificationStorageKey),
+        );
       } catch {
         setReadNotificationIds([]);
       }
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [notificationStorageEmail]);
+  }, [legacyNotificationStorageKey, notificationStorageKey]);
 
-  const markNotificationsRead = () => {
-    const nextIds = [...new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)])];
+  const markNotificationRead = (notificationId) => {
+    if (!notificationId) {
+      return;
+    }
+
+    const nextIds = [...new Set([...readNotificationIds, notificationId])];
     setReadNotificationIds(nextIds);
 
-    const storageKey = getNotificationStorageKey(resolvedProfile);
-    if (!storageKey) {
+    if (!notificationStorageKey) {
       return;
     }
 
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify(nextIds));
+      writeNotificationIdsToStorage(
+        window.localStorage,
+        notificationStorageKey,
+        nextIds,
+        legacyNotificationStorageKey,
+      );
     } catch {
       // Non-blocking: if localStorage is unavailable, the badge still clears
       // for the current render and will recover on the next successful read.
@@ -297,6 +389,37 @@ export default function Navbar({ experience = 'agenthub', profile }) {
     };
   }, [isSignedIn, resolvedProfile?.email, resolvedProfile?.role]);
 
+  useEffect(() => {
+    if (isCodeExperience || !isSignedIn || !recentAgentStorageKey) {
+      return undefined;
+    }
+
+    const loadRecentAgent = () => {
+      try {
+        const recentAgents = parseRecentAgentsFromStorage(
+          window.localStorage,
+          recentAgentStorageKey,
+          legacyRecentAgentStorageKey,
+        );
+
+        setResumeAgent(recentAgents[0] ?? null);
+      } catch {
+        setResumeAgent(null);
+      }
+    };
+
+    loadRecentAgent();
+    const refreshTimer = window.setInterval(loadRecentAgent, 60000);
+    window.addEventListener('agenthub:recent-agents-updated', loadRecentAgent);
+    window.addEventListener('storage', loadRecentAgent);
+
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener('agenthub:recent-agents-updated', loadRecentAgent);
+      window.removeEventListener('storage', loadRecentAgent);
+    };
+  }, [isCodeExperience, isSignedIn, legacyRecentAgentStorageKey, recentAgentStorageKey]);
+
   return (
     <>
       <nav className={`sticky top-0 z-[60] transition-all duration-200 ${navChrome}`}>
@@ -313,6 +436,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
           <div className="hidden lg:flex items-center gap-2">
             {links.map((link) => {
               const active = isNavLinkActive(link);
+              const unreadCount = countUnreadForNavLink(unreadNotifications, link, routePrefix);
               return (
                 <Link
                   key={link.href}
@@ -331,6 +455,18 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                 >
                   <link.icon className="h-3.5 w-3.5" />
                   {link.label}
+                  {unreadCount > 0 && (
+                    <span
+                      className={`ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-4 ${
+                        active && link.featured
+                          ? 'bg-white/20 text-white'
+                          : 'bg-[#8B5CF6] text-white shadow-[0_0_10px_rgba(139,92,246,0.28)]'
+                      }`}
+                      aria-label={`${unreadCount} notification${unreadCount === 1 ? '' : 's'} non lue${unreadCount === 1 ? '' : 's'}`}
+                    >
+                      {formatNotificationCount(unreadCount)}
+                    </span>
+                  )}
                   {active && !link.featured && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-[#8B5CF6] glow-soft" />}
                 </Link>
               );
@@ -338,6 +474,18 @@ export default function Navbar({ experience = 'agenthub', profile }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {!isCodeExperience && resumeAgentHref && (
+              <Link
+                href={resumeAgentHref}
+                className="hidden max-w-[220px] items-center gap-2 rounded-xl border border-[#6B3FA0]/45 bg-[#15102A] px-3 py-2 text-sm font-semibold text-[#D8B4FE] transition-colors hover:border-[#A78BCF] hover:bg-[#20143D] hover:text-white xl:inline-flex"
+                title={resumeAgent?.name}
+              >
+                <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {displayLang === 'en' ? 'Resume' : 'Reprendre'} · {resumeAgent?.name}
+                </span>
+              </Link>
+            )}
             {showCodeSwitcher && (
               <Link
                 href={switcherHref}
@@ -375,8 +523,8 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                         }}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
                           isCodeExperience
-                            ? lang === language.code ? 'bg-[#EEF1F8] text-[#111827]' : 'text-[#4B5563] hover:bg-[#F7F8FC]'
-                            : lang === language.code ? 'bg-[#251A40]/50 text-[#F5F1FA]' : 'text-[#A78BCF] hover:bg-[#251A40]'
+                            ? displayLang === language.code ? 'bg-[#EEF1F8] text-[#111827]' : 'text-[#4B5563] hover:bg-[#F7F8FC]'
+                            : displayLang === language.code ? 'bg-[#251A40]/50 text-[#F5F1FA]' : 'text-[#A78BCF] hover:bg-[#251A40]'
                         }`}
                       >
                         <Flag code={language.flag} />
@@ -397,9 +545,6 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                     onClick={() => {
                       const nextOpen = !notificationsOpen;
                       setNotificationsOpen(nextOpen);
-                      if (nextOpen) {
-                        markNotificationsRead();
-                      }
                       setUserOpen(false);
                       setLangOpen(false);
                     }}
@@ -428,8 +573,11 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                             {notifications.map((notification) => (
                               <Link
                                 key={notification.id}
-                                href={routePrefix && notification.href.startsWith('/') ? `${routePrefix}${notification.href}` : notification.href}
-                                onClick={() => setNotificationsOpen(false)}
+                                href={getNotificationHref(notification, routePrefix)}
+                                onClick={() => {
+                                  markNotificationRead(notification.id);
+                                  setNotificationsOpen(false);
+                                }}
                                 className={`block border-b p-3 transition-colors last:border-b-0 ${isCodeExperience ? 'border-[#E3E7F2] hover:bg-[#F7F8FC]' : 'border-[#251A40]/70 hover:bg-[#1A152F]'}`}
                               >
                                 <div className="flex items-start gap-3">
@@ -465,7 +613,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                       setNotificationsOpen(false);
                     }}
                     className={`flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors ${isCodeExperience ? 'hover:bg-[#F1F3F8]' : 'hover:bg-[#15112A]'}`}
-                    aria-label={t('nav.myprofile')}
+                    aria-label={navT('nav.myprofile')}
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6B3FA0] to-[#8B5CF6] text-xs font-stat text-white">
                       {initials}
@@ -482,25 +630,25 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                         </div>
                         <Link href="/profile" onClick={() => setUserOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${isCodeExperience ? 'bg-[#F7F8FC] text-[#111827] hover:bg-[#EEF1F8]' : 'bg-[#1A152F] text-[#F5F1FA] hover:bg-[#251A40]'}`}>
                           <User className="h-4 w-4" />
-                          {t('nav.myprofile')}
+                          {navT('nav.myprofile')}
                         </Link>
                         <Link href={isCodeExperience ? '/code/dashboard' : workspaceHref} onClick={() => setUserOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${isCodeExperience ? 'text-[#4B5563] hover:bg-[#F7F8FC] hover:text-[#111827]' : 'text-[#A78BCF] hover:bg-[#251A40] hover:text-[#F5F1FA]'}`}>
                           <Box className="h-4 w-4" />
-                          {isCodeExperience ? 'Console Code' : t('nav.workspace')}
+                          {isCodeExperience ? 'Console Code' : navT('nav.workspace')}
                         </Link>
                         <Link href="/settings" onClick={() => setUserOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${isCodeExperience ? 'text-[#4B5563] hover:bg-[#F7F8FC] hover:text-[#111827]' : 'text-[#A78BCF] hover:bg-[#251A40] hover:text-[#F5F1FA]'}`}>
                           <SettingsIcon className="h-4 w-4" />
-                          {t('nav.settings')}
+                          {navT('nav.settings')}
                         </Link>
                         {resolvedProfile.role === 'admin' && (
-                          <Link href={`${routePrefix}/admin`} onClick={() => setUserOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${isCodeExperience ? 'text-[#4B5563] hover:bg-[#F7F8FC] hover:text-[#111827]' : 'text-[#A78BCF] hover:bg-[#251A40] hover:text-[#F5F1FA]'}`}>
+                          <Link href="/code/admin/review" onClick={() => setUserOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${isCodeExperience ? 'text-[#4B5563] hover:bg-[#F7F8FC] hover:text-[#111827]' : 'text-[#A78BCF] hover:bg-[#251A40] hover:text-[#F5F1FA]'}`}>
                             <ShieldCheck className="h-4 w-4" />
-                            {t('nav.admin')}
+                            {navT('nav.admin')}
                           </Link>
                         )}
             <Link prefetch={false} href={`${routePrefix}/auth/logout`} className={`flex items-center gap-3 border-t px-3 py-2.5 text-sm text-[#EF4444] transition-colors ${isCodeExperience ? 'border-[#E3E7F2] hover:bg-[#FEF2F2]' : 'border-[#251A40] hover:bg-[#251A40]'}`}>
                           <LogOut className="h-4 w-4" />
-                          {t('nav.signout')}
+                          {navT('nav.signout')}
                         </Link>
                       </div>
                     </>
@@ -519,7 +667,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                         : 'border-[#6B3FA0]/70 bg-transparent text-[#F5F1FA] hover:bg-[#1A152F] hover:text-white'
                     }
                   >
-                    {t('nav.signin')}
+                    {navT('nav.signin')}
                   </Button>
                 </Link>
                 <Link href={`${routePrefix}/auth/signup`} className="hidden sm:inline-flex">
@@ -531,7 +679,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                         : 'border-0 bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white glow-soft transition-all hover:from-[#7C3AED] hover:to-[#A78BCF]'
                     }
                   >
-                    {t('nav.signup')}
+                    {navT('nav.signup')}
                   </Button>
                 </Link>
               </>
@@ -581,6 +729,7 @@ export default function Navbar({ experience = 'agenthub', profile }) {
               )}
               {drawerLinks.map((link) => {
                 const active = isNavLinkActive(link);
+                const unreadCount = countUnreadForNavLink(unreadNotifications, link, routePrefix);
                 return (
                   <Link
                     key={link.href}
@@ -597,7 +746,15 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                     }`}
                   >
                     <link.icon className="h-5 w-5" />
-                    {link.label}
+                    <span className="flex-1">{link.label}</span>
+                    {unreadCount > 0 && (
+                      <span
+                        className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#8B5CF6] px-1.5 text-[10px] font-bold leading-5 text-white shadow-[0_0_10px_rgba(139,92,246,0.28)]"
+                        aria-label={`${unreadCount} notification${unreadCount === 1 ? '' : 's'} non lue${unreadCount === 1 ? '' : 's'}`}
+                      >
+                        {formatNotificationCount(unreadCount)}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -611,10 +768,10 @@ export default function Navbar({ experience = 'agenthub', profile }) {
                     onClick={() => setLang(language.code)}
                     className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-all ${
                       isCodeExperience
-                        ? lang === language.code
+                        ? displayLang === language.code
                           ? 'border-[#8B5CF6] bg-[#F5F3FF] text-[#111827]'
                           : 'border-[#E3E7F2] text-[#6B7280]'
-                        : lang === language.code ? 'border-[#8B5CF6] bg-[#1A152F] text-[#F5F1FA]' : 'border-[#251A40] text-[#A78BCF]'
+                        : displayLang === language.code ? 'border-[#8B5CF6] bg-[#1A152F] text-[#F5F1FA]' : 'border-[#251A40] text-[#A78BCF]'
                     }`}
                   >
                     <Flag code={language.flag} />
@@ -625,19 +782,19 @@ export default function Navbar({ experience = 'agenthub', profile }) {
               {isSignedIn ? (
                 <Link prefetch={false} href={`${routePrefix}/auth/logout`} onClick={() => setDrawerOpen(false)}>
                   <Button variant="outline" className="w-full border-[#EF4444]/70 bg-transparent text-[#EF4444] hover:bg-[#EF4444]/10">
-                    {t('nav.signout')}
+                    {navT('nav.signout')}
                   </Button>
                 </Link>
               ) : authResolved ? (
                 <>
                   <Link href={`${routePrefix}/auth/login`} onClick={() => setDrawerOpen(false)}>
                     <Button variant="outline" className={`mb-2 w-full ${isCodeExperience ? 'border-[#D8DDEE] bg-white text-[#111827] hover:bg-[#F1F3F8]' : 'border-[#6B3FA0]/70 bg-transparent text-[#F5F1FA] hover:bg-[#1A152F]'}`}>
-                      {t('nav.signin')}
+                      {navT('nav.signin')}
                     </Button>
                   </Link>
                   <Link href={`${routePrefix}/auth/signup`} onClick={() => setDrawerOpen(false)}>
                     <Button className={`w-full border-0 text-white ${isCodeExperience ? 'bg-[#111827] hover:bg-[#2B1A44]' : 'bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6]'}`}>
-                      {t('nav.signup')}
+                      {navT('nav.signup')}
                     </Button>
                   </Link>
                 </>

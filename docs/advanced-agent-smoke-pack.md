@@ -2,28 +2,121 @@
 
 ## Objectif
 
-Valider que les agents avances beta ne sont pas seulement des templates, mais des agents vendables et executables dans AgentHub.
+Valider que les agents avancés beta ne sont pas seulement des templates, mais des agents vendables et exécutables dans AgentHub.
 
 Parcours cible :
 
 ```text
-creator allowliste
--> cree l'agent depuis template
+creator allowlisté
+-> crée l'agent depuis template
 -> admin approuve assets + security review + agent
 -> user loue via Stripe sandbox
 -> workspace lance le runtime
--> resultat stocke dans agent_runs
--> historique visible apres reload
--> avis verifie possible
+-> résultat stocké dans agent_runs
+-> historique visible après reload
+-> avis vérifié possible
 ```
 
 Ce pack teste trois agents :
 
 - `Support Triage Agent` : `workflow_automation`, LLM-only.
 - `Lead Qualification Agent` : `workflow_automation`, LLM-only.
-- `CRM Enrichment API Agent` : `creator_endpoint`, endpoint HTTPS creator reel.
+- `CRM Enrichment API Agent` : `creator_endpoint`, endpoint HTTPS creator réel.
 
 ## Preconditions Globales
+
+### Smoke DB local
+
+Avant le smoke manuel prod, lancer le smoke invariant local :
+
+```bash
+npm run smoke:agenthub:advanced
+```
+
+Ce test crée puis rollback trois agents avancés :
+
+- `Support Triage Agent` en `workflow_automation` ;
+- `Lead Qualification Agent` en `workflow_automation` ;
+- `CRM Enrichment API Agent` en `creator_endpoint`.
+
+Il vérifie les gates critiques : runtime enabled/run_enabled, creator allowlisté, assets approuvés, security review passée, accès actif, run `succeeded`, avis vérifié possible et ledger revenue `earned`.
+
+### Readiness prod sandbox
+
+Après le smoke manuel prod, lancer la requête read-only :
+
+```sql
+-- Supabase SQL editor, environnement prod sandbox
+\i scripts/agenthub-advanced-prod-readiness.sql
+```
+
+Si l'éditeur SQL Supabase ne supporte pas `\i`, copier le contenu de `scripts/agenthub-advanced-prod-readiness.sql`.
+
+Alternative depuis un terminal avec une URL Postgres Supabase temporaire :
+
+```bash
+SUPABASE_DB_URL="postgresql://..." npm run smoke:agenthub:prod-readiness
+```
+
+Le script utilise `psql` si disponible, sinon `docker run postgres:17-alpine`. Il n'écrit rien en base.
+
+Alternative sans URL Postgres, avec la service role locale/admin :
+
+```bash
+npm run smoke:agenthub:prod-readiness:api
+```
+
+Ce script lit `NEXT_PUBLIC_SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` depuis l'environnement ou `.env.local`. Il est réservé aux machines admin/dev et ne doit jamais être exécuté côté client.
+
+Pour une passe prod sandbox sûre en une seule commande, sans appliquer de correction :
+
+```bash
+npm run smoke:agenthub:advanced-prod:safe
+```
+
+Cette commande enchaîne le readiness API, la réconciliation ledger en `dry-run`, puis le nettoyage des paiements stale en `dry-run`. Elle sert à décider quoi corriger, pas à modifier la prod.
+
+Si le seul blocker restant est `no_earned_ledger` sur un accès déjà payé/actif, lancer d'abord :
+
+```bash
+npm run smoke:agenthub:advanced-ledger:dry-run
+```
+
+Puis, uniquement après vérification des lignes listées :
+
+```bash
+npm run smoke:agenthub:advanced-ledger:apply
+```
+
+Ce script est ciblé sur les trois agents avancés du smoke. Il ne crée aucun accès, ne modifie aucun paiement et ne fait qu'insérer les événements ledger manquants pour des paiements `paid` déjà liés à un accès `active`.
+
+Si le seul blocker restant est `payment_watch_items`, vérifier les checkouts stale :
+
+```bash
+npm run smoke:agenthub:advanced-payments:dry-run
+```
+
+Puis, uniquement pour des paiements `pending` anciens sans accès :
+
+```bash
+npm run smoke:agenthub:advanced-payments:apply
+```
+
+Le seuil par défaut est 60 minutes et peut être ajusté avec `ADVANCED_PAYMENT_STALE_MINUTES`.
+
+La colonne `blockers` doit être vide pour les trois lignes :
+
+- `Support Triage Agent` ;
+- `Lead Qualification Agent` ;
+- `CRM Enrichment API Agent`.
+
+Cette requête ne modifie aucune donnée. Elle vérifie les signaux prod nécessaires : agent approved, runtime actif, creator allowlisté, asset workflow/API approuvé, security review passée, accès payé actif, run réussi, avis vérifié, ledger earned, et absence de run bloqué.
+
+Les preuves finales doivent être reportées dans :
+
+```text
+docs/advanced-agent-prod-evidence.md
+```
 
 ### Environnement
 

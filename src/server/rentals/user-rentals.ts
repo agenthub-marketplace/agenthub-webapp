@@ -41,6 +41,13 @@ export type UserRental = {
   } | null;
   accessOpen: boolean;
   hasSuccessfulRun: boolean;
+  runSummary: {
+    failed: number;
+    lastRunAt: string | null;
+    lastStatus: "failed" | "running" | "succeeded" | null;
+    succeeded: number;
+    total: number;
+  };
   result: {
     summary: string;
     deliveredAt: string | null;
@@ -261,8 +268,16 @@ type UserPaymentOrderRow = {
         name: string;
         slug: string;
         summary: string;
-      }[]
+  }[]
     | null;
+};
+
+type AgentRunSummary = UserRental["runSummary"];
+
+type AgentRunSummaryRow = {
+  created_at: string;
+  rental_request_id: string | null;
+  status: "failed" | "running" | "succeeded";
 };
 
 function readSingle<T>(value: T | T[] | null) {
@@ -322,10 +337,44 @@ function dedupeOpenAccessRentals(rentals: UserRental[]) {
   return deduped;
 }
 
-function mapUserRental(rental: UserRentalRow, successfulRunRentalIds = new Set<string>()): UserRental {
+function emptyRunSummary(): AgentRunSummary {
+  return {
+    failed: 0,
+    lastRunAt: null,
+    lastStatus: null,
+    succeeded: 0,
+    total: 0,
+  };
+}
+
+function buildRunSummaryByRentalId(rows: AgentRunSummaryRow[] = []) {
+  const summaries = new Map<string, AgentRunSummary>();
+
+  for (const row of rows) {
+    if (!row.rental_request_id) {
+      continue;
+    }
+
+    const current = summaries.get(row.rental_request_id) ?? emptyRunSummary();
+    const isNewer = !current.lastRunAt || new Date(row.created_at).getTime() > new Date(current.lastRunAt).getTime();
+
+    summaries.set(row.rental_request_id, {
+      failed: current.failed + (row.status === "failed" ? 1 : 0),
+      lastRunAt: isNewer ? row.created_at : current.lastRunAt,
+      lastStatus: isNewer ? row.status : current.lastStatus,
+      succeeded: current.succeeded + (row.status === "succeeded" ? 1 : 0),
+      total: current.total + 1,
+    });
+  }
+
+  return summaries;
+}
+
+function mapUserRental(rental: UserRentalRow, runSummaryByRentalId = new Map<string, AgentRunSummary>()): UserRental {
   const agent = readSingle(rental.agents);
   const version = readSingle(agent?.agent_versions ?? null);
   const template = getAgentTemplateByLabel(agent?.name ?? "");
+  const runSummary = runSummaryByRentalId.get(rental.id) ?? emptyRunSummary();
   const contract = normalizeAgentContract({
     workspaceMode: version?.workspace_mode,
     setupRequirements: version?.setup_requirements,
@@ -368,7 +417,8 @@ function mapUserRental(rental: UserRentalRow, successfulRunRentalIds = new Set<s
     createdAt: rental.created_at,
     agent: mappedAgent,
     accessOpen: (ACCESS_COMPATIBLE_STATUSES as readonly string[]).includes(rental.status) && mappedAgent?.status === "approved",
-    hasSuccessfulRun: successfulRunRentalIds.has(rental.id),
+    hasSuccessfulRun: runSummary.succeeded > 0,
+    runSummary,
     result: result
       ? {
           summary: result.summary,
@@ -555,25 +605,24 @@ export async function getUserRentals(userId: string) {
 
   const rentalRows = data ?? [];
   const rentalIds = rentalRows.map((rental) => rental.id);
-  let successfulRunRentalIds = new Set<string>();
+  let runSummaryByRentalId = new Map<string, AgentRunSummary>();
 
   if (rentalIds.length > 0) {
     const { data: runRows, error: runRowsError } = await supabase
       .from("agent_runs")
-      .select("rental_request_id")
+      .select("rental_request_id,status,created_at")
       .eq("user_id", userId)
-      .eq("status", "succeeded")
       .in("rental_request_id", rentalIds)
-      .returns<{ rental_request_id: string | null }[]>();
+      .returns<AgentRunSummaryRow[]>();
 
     if (runRowsError && !isMissingAgentRunsSchemaError(runRowsError)) {
       return { rentals: [], error: "rentals-load-failed" };
     }
 
-    successfulRunRentalIds = new Set((runRows ?? []).map((run) => run.rental_request_id).filter((id): id is string => Boolean(id)));
+    runSummaryByRentalId = buildRunSummaryByRentalId(runRows ?? []);
   }
 
-  const rentals = rentalRows.map((rental) => mapUserRental(rental, successfulRunRentalIds));
+  const rentals = rentalRows.map((rental) => mapUserRental(rental, runSummaryByRentalId));
 
   return {
     rentals: dedupeOpenAccessRentals(rentals),
@@ -680,8 +729,26 @@ export async function getUserRentalById(userId: string, rentalId: string) {
     return { rental: null, error: "rentals-load-failed" };
   }
 
+  const rental = data?.[0] ?? null;
+  let runSummaryByRentalId = new Map<string, AgentRunSummary>();
+
+  if (rental) {
+    const { data: runRows, error: runRowsError } = await supabase
+      .from("agent_runs")
+      .select("rental_request_id,status,created_at")
+      .eq("user_id", userId)
+      .eq("rental_request_id", rental.id)
+      .returns<AgentRunSummaryRow[]>();
+
+    if (runRowsError && !isMissingAgentRunsSchemaError(runRowsError)) {
+      return { rental: null, error: "rentals-load-failed" };
+    }
+
+    runSummaryByRentalId = buildRunSummaryByRentalId(runRows ?? []);
+  }
+
   return {
-    rental: data?.[0] ? mapUserRental(data[0]) : null,
+    rental: rental ? mapUserRental(rental, runSummaryByRentalId) : null,
     error: null,
   };
 }

@@ -1,24 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, FileText, Loader2, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
 import WorkspaceRunGuidance from './WorkspaceRunGuidance';
+import CopyTextButton from './CopyTextButton';
+import { formatRunCount, getLatestSuccessfulRunId, shouldShowFullResultToggle, WorkspaceReviewCta } from './run-history-display';
 
 const copy = {
   fr: {
     accepted: 'PDF/DOCX uniquement, 3.5 MB maximum. Pas d’OCR pour les PDF scannés en beta.',
-    disabled: 'Le runtime document est désactivé pour le moment.',
+    disabled: 'L’exécution document est désactivée pour le moment.',
     emptyHistory: 'Aucune analyse de document enregistrée pour le moment.',
     error: 'Impossible de traiter ce document pour le moment.',
     fallbackGuidance: 'Plan de secours',
     errors: {
       'document-file-already-used': 'Ce document a déjà été utilisé pour une analyse. Ajoutez-le à nouveau pour relancer.',
       'document-file-link-failed': 'Le document n’a pas pu être lié à cette analyse.',
-      'document-runs-disabled': 'Le runtime document est désactivé dans cet environnement.',
+      'document-runs-disabled': 'L’exécution document est désactivée dans cet environnement.',
       'file-too-large': 'Le fichier dépasse la limite beta de 3.5 MB.',
       'invalid-action': 'Cette action document n’est pas disponible pour cet agent.',
       'invalid-file': 'Ce fichier ne correspond pas aux formats PDF/DOCX attendus.',
@@ -36,12 +38,17 @@ const copy = {
     inputLabel: 'Instruction courte',
     inputPlaceholder: 'Exemple : résume les décisions et actions importantes...',
     launch: 'Lancer l’analyse',
+    latestResult: 'Dernier résultat',
     loading: 'Analyse en cours...',
     nextActions: 'Prochaines actions',
     nextActionNow: 'À faire maintenant',
     noSensitive: 'N’ajoutez pas de documents sensibles réels pendant la beta.',
     remaining: 'caractères restants',
     result: 'Résultat généré',
+    reviewCta: 'Comparer et laisser un avis',
+    reviewDoneCta: 'Voir mon avis',
+    reviewDoneHint: 'Avis déjà publié. Vous pouvez le retrouver dans l’onglet avis.',
+    reviewHint: 'Cette analyse est stockée. Utilisez-la comme base pour un avis vérifié.',
     selectAction: 'Ajoutez un document, choisissez une action, puis lancez l’analyse.',
     setupGuidance: 'À préparer',
     showLess: 'Réduire',
@@ -81,12 +88,17 @@ const copy = {
     inputLabel: 'Short instruction',
     inputPlaceholder: 'Example: summarize the key decisions and action items...',
     launch: 'Run analysis',
+    latestResult: 'Latest result',
     loading: 'Analyzing...',
     nextActions: 'Next actions',
     nextActionNow: 'Do now',
     noSensitive: 'Do not upload real sensitive documents during beta.',
     remaining: 'characters remaining',
     result: 'Generated result',
+    reviewCta: 'Compare and leave review',
+    reviewDoneCta: 'View my review',
+    reviewDoneHint: 'Review already published. You can find it in the review tab.',
+    reviewHint: 'This analysis is stored. Use it as the basis for a verified review.',
     selectAction: 'Add a document, choose an action, then run the analysis.',
     setupGuidance: 'Prepare',
     showLess: 'Collapse',
@@ -152,6 +164,7 @@ export default function DocumentWorkspaceActions({
   enabled = false,
   fallbackPath = [],
   disabledMessage,
+  hasReview = false,
   initialRuns = [],
   locale = 'fr',
   maxFileBytes = 3500000,
@@ -175,19 +188,25 @@ export default function DocumentWorkspaceActions({
   const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
+  const uploadInFlightRef = useRef(false);
+  const reviewCtaLabel = hasReview ? t.reviewDoneCta : t.reviewCta;
+  const reviewCtaHint = hasReview ? t.reviewDoneHint : t.reviewHint;
   const selectedAction = actions[selectedIndex] ?? actions[0] ?? null;
   const remainingChars = maxInputChars - inputText.length;
   const canUpload = enabled && selectedFile && selectedFile.size <= maxFileBytes && !isUploading && !isSubmitting;
   const canSubmit = enabled && documentFile?.status === 'extracted' && selectedAction && !isSubmitting && !isUploading;
+  const latestSuccessfulRunId = getLatestSuccessfulRunId(runs);
   const visibleRuns = runs.slice(0, visibleRunCount);
 
   async function uploadDocument(event) {
     event.preventDefault();
 
-    if (!canUpload) {
+    if (!canUpload || uploadInFlightRef.current) {
       return;
     }
 
+    uploadInFlightRef.current = true;
     setError(null);
     setResult(null);
     setIsUploading(true);
@@ -215,6 +234,7 @@ export default function DocumentWorkspaceActions({
     } catch {
       setError(t.error);
     } finally {
+      uploadInFlightRef.current = false;
       setIsUploading(false);
     }
   }
@@ -222,10 +242,11 @@ export default function DocumentWorkspaceActions({
   async function submitRun(event) {
     event.preventDefault();
 
-    if (!canSubmit) {
+    if (!canSubmit || submitInFlightRef.current) {
       return;
     }
 
+    submitInFlightRef.current = true;
     setError(null);
     setResult(null);
     setIsSubmitting(true);
@@ -265,6 +286,7 @@ export default function DocumentWorkspaceActions({
     } catch {
       setError(t.error);
     } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -403,26 +425,50 @@ export default function DocumentWorkspaceActions({
 
       {result && (
         <div className="mt-5 rounded-2xl border border-[#10B981]/30 bg-[#07130F] p-4">
-          <p className="font-label mb-2 text-xs text-[#6EE7B7]">{t.result}</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="font-label text-xs text-[#6EE7B7]">{t.result}</p>
+            <CopyTextButton
+              copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+              errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+              label={locale === 'en' ? 'Copy' : 'Copier'}
+              text={result}
+            />
+          </div>
           <div className="whitespace-pre-line text-sm leading-relaxed text-[#D6C5E8]">{result}</div>
+          <WorkspaceReviewCta hint={reviewCtaHint} label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
         </div>
       )}
 
       <div className="mt-6 border-t border-[#2F184B] pt-5">
-        <p className="font-label mb-3 text-xs text-[#9B72CF]">{t.history}</p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="font-label text-xs text-[#9B72CF]">{t.history}</p>
+          {runs.length > 0 && (
+            <span className="rounded-full border border-[#2F184B] px-2.5 py-1 text-[10px] font-label text-[#9B72CF]">
+              {formatRunCount(runs.length, locale)}
+            </span>
+          )}
+        </div>
         {runs.length === 0 ? (
           <p className="text-sm text-[#7F6B9C]">{t.emptyHistory}</p>
         ) : (
           <div className="space-y-3">
             {visibleRuns.map((run) => {
               const expanded = expandedRunIds.includes(run.id);
-              const canExpand = run.status === 'succeeded' && run.outputText;
+              const canExpand = run.status === 'succeeded' && shouldShowFullResultToggle(run.outputText);
+              const isLatestSuccessfulRun = run.id === latestSuccessfulRunId;
 
               return (
                 <article key={run.id} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                        {isLatestSuccessfulRun && (
+                          <span className="rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-2 py-1 text-[10px] font-label text-[#6EE7B7]">
+                            {t.latestResult}
+                          </span>
+                        )}
+                      </div>
                       {run.documentFile?.originalFilename && (
                         <p className="mt-1 text-xs text-[#7F6B9C]">{run.documentFile.originalFilename}</p>
                       )}
@@ -437,16 +483,27 @@ export default function DocumentWorkspaceActions({
                       <p className={`${expanded ? '' : 'line-clamp-5'} whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]`}>
                         {run.outputText}
                       </p>
-                      {canExpand && (
-                        <button
-                          type="button"
-                          onClick={() => toggleRun(run.id)}
-                          className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
-                        >
-                          {expanded ? t.showLess : t.showMore}
-                          <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
-                        </button>
-                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {canExpand && (
+                          <button
+                            type="button"
+                            onClick={() => toggleRun(run.id)}
+                            className="inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+                          >
+                            {expanded ? t.showLess : t.showMore}
+                            <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
+                        <CopyTextButton
+                          copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+                          errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+                          label={locale === 'en' ? 'Copy' : 'Copier'}
+                          text={run.outputText}
+                        />
+                        {isLatestSuccessfulRun && (
+                          <WorkspaceReviewCta compact label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
+                        )}
+                      </div>
                     </>
                   ) : run.status === 'failed' ? (
                     <p className="text-sm text-[#FCA5A5]">{errorLabel(run.errorCode, t)}</p>

@@ -220,7 +220,7 @@ function isMissingAgentContractRpcError(error: unknown) {
 }
 
 export async function submitAgentForReviewAction(locale: Locale, formData: FormData) {
-  const profile = await requireCreatorAccess(locale, localizedPath("/creator/agents/new", locale));
+  const profile = await requireCreatorAccess(locale, "/code/agents/new");
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -624,7 +624,7 @@ export async function resubmitAgentChangesAction(locale: Locale, formData: FormD
     redirectWithError(locale, "required");
   }
 
-  const profile = await requireCreatorAccess(locale, localizedPath(`/creator/agents/${agentId}/edit`, locale));
+  const profile = await requireCreatorAccess(locale, `/code/agents/${agentId}/edit`);
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {

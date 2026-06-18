@@ -22,5 +22,7 @@ export default async function EnAgentDetailAlias({ params, searchParams }) {
     }),
   ).toString();
 
-  redirect(`/agents/${slug}${serializedQuery ? `?${serializedQuery}` : ''}`);
+  const queryPrefix = serializedQuery ? `${serializedQuery}&locale=en` : 'locale=en';
+
+  redirect(`/agenthub/agents/${slug}?${queryPrefix}`);
 }

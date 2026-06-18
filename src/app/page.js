@@ -26,11 +26,11 @@ const choices = {
       'linear-gradient(115deg, transparent 0%, rgba(167,139,207,0.08) 36%, transparent 64%), repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 18px)',
   },
   code: {
-    href: '/code',
+    href: '/onboarding/creator',
     title: 'AgentHub',
     titleSuffix: 'Code',
     label: 'Build',
-    action: 'Ouvrir AgentHub Code',
+    action: 'Publier un agent',
     tone: 'code',
     panel: 'bg-[#F7F8FC] text-[#111827]',
     overlay: {

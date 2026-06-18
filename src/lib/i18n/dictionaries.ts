@@ -183,7 +183,7 @@ export const dictionaries = {
       eyebrow: "Marketplace",
       title: "Explore des agents IA vérifiés par livrable concret.",
       description:
-        "Trouve des services IA revus que tu peux louer à la tâche, à la durée ou au projet. Cette beta utilise des mocks typés pendant la préparation du backend.",
+        "Trouve des services IA revus que tu peux louer à la tâche, à la durée ou au projet. Cette beta affiche les agents approuvés et les signaux d’usage disponibles.",
       searchLabel: "Rechercher des agents",
       searchPlaceholder: "Chercher par cas d’usage, catégorie ou livrable",
       staticFilters: "Filtres statiques",
@@ -191,11 +191,11 @@ export const dictionaries = {
       all: "Tous",
       pricing: "Tarification",
       showing: (approved: number, total: number) =>
-        `${approved} agents vérifiés affichés sur ${total} fiches mock au total.`,
+        `${approved} agents vérifiés affichés sur ${total} fiches disponibles.`,
     },
     agentDetail: {
       notFoundTitle: "Agent introuvable",
-      notFoundDescription: "Ce slug ne correspond pas encore à une fiche mock vérifiée.",
+      notFoundDescription: "Ce slug ne correspond pas à une fiche approuvée disponible.",
       whatDoes: "Ce que fait cet agent",
       whatDoesNot: "Ce que cet agent ne fait pas",
       requiredInputs: "Entrées nécessaires",
@@ -210,9 +210,9 @@ export const dictionaries = {
       verifiedModelDescription:
         "Cette beta statique représente le futur modèle gateway. Aucun code créateur ne s’exécute dans cette app.",
       reviews: "Avis",
-      mockReviews: (count: number) => `${count} avis mock`,
+      mockReviews: (count: number) => `${count} avis vérifiés`,
       noReviewsTitle: "Pas encore d’avis",
-      noReviewsDescription: "Cet agent mock attend son premier avis après activation.",
+      noReviewsDescription: "Cet agent attend son premier avis après activation.",
       dataSensitivity: (level: string) => `Données ${level}`,
       pricingLabel: (pricing: string) => `Tarification ${pricing}`,
     },
@@ -222,9 +222,9 @@ export const dictionaries = {
       description:
         "Gère tes brouillons, suis les statuts de validation et prépare la monétisation marketplace.",
       submit: "Soumettre un nouvel agent",
-      stats: ["Agents publiés", "En validation", "Brouillons", "Revenu mock"],
+      stats: ["Agents publiés", "En validation", "Brouillons", "GMV beta"],
       pipelineTitle: "Pipeline de tes agents",
-      pipelineDescription: "Statuts mock pour le futur workflow de soumission créateur.",
+      pipelineDescription: "Statuts de validation pour passer du brouillon à la marketplace.",
       stripeTitle: "Stripe Connect prévu",
       stripeDescription:
         "Les payouts créateur et frais marketplace arriveront plus tard via Stripe Connect. Cet écran reste une prévisualisation produit statique.",
@@ -433,7 +433,7 @@ export const dictionaries = {
       eyebrow: "Marketplace",
       title: "Browse verified AI agents by concrete deliverable.",
       description:
-        "Find reviewed AI services you can rent for a task, duration, or project. This beta uses typed mock data while backend execution is planned.",
+        "Find reviewed AI services you can rent for a task, duration, or project. This beta shows approved agents and available usage signals.",
       searchLabel: "Search agents",
       searchPlaceholder: "Search by use case, category, or deliverable",
       staticFilters: "Static filters",
@@ -441,11 +441,11 @@ export const dictionaries = {
       all: "All",
       pricing: "Pricing",
       showing: (approved: number, total: number) =>
-        `Showing ${approved} verified agents from ${total} total mock listings.`,
+        `Showing ${approved} verified agents from ${total} available listings.`,
     },
     agentDetail: {
       notFoundTitle: "Agent not found",
-      notFoundDescription: "This agent slug does not match a verified mock listing yet.",
+      notFoundDescription: "This agent slug does not match an approved available listing.",
       whatDoes: "What this agent does",
       whatDoesNot: "What this agent does not do",
       requiredInputs: "Required inputs",
@@ -460,9 +460,9 @@ export const dictionaries = {
       verifiedModelDescription:
         "This beta represents the future gateway model. No creator code runs in this app.",
       reviews: "Reviews",
-      mockReviews: (count: number) => `${count} mock reviews`,
+      mockReviews: (count: number) => `${count} verified reviews`,
       noReviewsTitle: "No reviews yet",
-      noReviewsDescription: "This mock agent is ready for its first post-activation review.",
+      noReviewsDescription: "This agent is ready for its first post-activation review.",
       dataSensitivity: (level: string) => `${level} data sensitivity`,
       pricingLabel: (pricing: string) => `${pricing} pricing`,
     },
@@ -472,9 +472,9 @@ export const dictionaries = {
       description:
         "Manage agent drafts, track review status, and prepare for future marketplace monetization.",
       submit: "Submit new agent",
-      stats: ["Published agents", "In validation", "Drafts", "Mock revenue"],
+      stats: ["Published agents", "In validation", "Drafts", "Beta GMV"],
       pipelineTitle: "Your agent pipeline",
-      pipelineDescription: "Static mock statuses for the future creator submission workflow.",
+      pipelineDescription: "Review statuses for moving from draft to marketplace.",
       stripeTitle: "Stripe Connect planned",
       stripeDescription:
         "Creator payouts and marketplace fees will be added later through Stripe Connect. This screen is only a static product preview.",

@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, ClipboardList, History, Layers, Play, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, ClipboardList, History, Layers, Play, ShieldCheck, SlidersHorizontal, Trophy } from 'lucide-react';
 import { polishFrenchCopy, polishFrenchList } from '@/lib/french-copy';
+import CopyTextButton from './CopyTextButton';
 
 function DetailList({ emptyText, icon: Icon = Check, items = [], tone = 'success' }) {
   const color = tone === 'warning' ? 'text-[#F59E0B]' : 'text-[#10B981]';
@@ -240,6 +241,107 @@ function LaunchGuidance({ blueprint, labels }) {
         )}
       </div>
     </div>
+  );
+}
+
+function FirstRunKit({
+  blueprint,
+  labels,
+  outputExamples = [],
+  primaryActionLabel,
+  requiredInputs = [],
+  setupItems = [],
+}) {
+  const inputFields = blueprint?.inputSchema?.fields ?? [];
+  const inputExamples = inputFields
+    .map((field) => field?.example || field?.helper || field?.label)
+    .filter(Boolean);
+  const contextItems = [...inputExamples, ...requiredInputs, ...setupItems].filter(Boolean).slice(0, 4);
+  const outputItems = outputExamples.filter(Boolean).slice(0, 3);
+  const checkItems = (blueprint?.runChecklist ?? []).filter(Boolean).slice(0, 4);
+  const starterPromptSections = [
+    `${labels.firstRunPromptGoal}\n${primaryActionLabel || labels.primaryAction}`,
+    contextItems.length > 0
+      ? `${labels.firstRunPromptContext}\n${contextItems.map((item) => `- ${item}`).join('\n')}`
+      : null,
+    outputItems.length > 0
+      ? `${labels.firstRunPromptOutput}\n${outputItems.map((item) => `- ${item}`).join('\n')}`
+      : null,
+    checkItems.length > 0
+      ? `${labels.firstRunPromptChecks}\n${checkItems.map((item) => `- ${item}`).join('\n')}`
+      : null,
+  ].filter(Boolean);
+  const starterPrompt = starterPromptSections.join('\n\n');
+
+  if (!contextItems.length && !outputItems.length && !checkItems.length && !primaryActionLabel) {
+    return null;
+  }
+
+  const columns = [
+    {
+      empty: labels.firstRunKitEmpty,
+      items: contextItems,
+      title: labels.firstRunKitInputTitle,
+    },
+    {
+      empty: labels.firstRunKitEmpty,
+      items: outputItems,
+      title: labels.firstRunKitOutputTitle,
+    },
+    {
+      empty: labels.firstRunKitEmpty,
+      items: checkItems,
+      title: labels.firstRunKitChecklistTitle,
+    },
+  ];
+
+  return (
+    <section className="rounded-3xl border border-[#8B5CF6]/45 bg-[#160F2A] p-5">
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="font-label text-xs text-[#C4B5FD]">{labels.firstRunKitEyebrow}</p>
+          <h2 className="font-display mt-1 text-xl font-bold text-[#F4EFFA]">{labels.firstRunKitTitle}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#C8B1E4]">{labels.firstRunKitDetail}</p>
+        </div>
+        {primaryActionLabel && (
+          <span className="inline-flex w-fit rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-3 py-1.5 text-xs font-semibold text-[#6EE7B7]">
+            {primaryActionLabel}
+          </span>
+        )}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {columns.map((column, columnIndex) => (
+          <div key={column.title} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#251A40] text-xs font-bold text-[#C4B5FD]">
+                {columnIndex + 1}
+              </span>
+              <h3 className="font-display text-base font-bold text-[#F4EFFA]">{column.title}</h3>
+            </div>
+            <DetailList items={column.items} emptyText={column.empty} />
+          </div>
+        ))}
+      </div>
+      {starterPrompt && (
+        <div className="mt-4 rounded-2xl border border-[#8B5CF6]/35 bg-[#0F0A1E] p-4">
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-label text-xs text-[#C4B5FD]">{labels.firstRunPromptEyebrow}</p>
+              <h3 className="font-display text-base font-bold text-[#F4EFFA]">{labels.firstRunPromptTitle}</h3>
+            </div>
+            <CopyTextButton
+              copiedLabel={labels.copied}
+              errorLabel={labels.copyFailed}
+              label={labels.copyPrompt}
+              text={starterPrompt}
+            />
+          </div>
+          <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-xl border border-[#2F184B] bg-[#080612] p-4 text-xs leading-5 text-[#D6C5E8]">
+            {starterPrompt}
+          </pre>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -589,6 +691,171 @@ function RecipeSummary({ baseHref, labels, workspaceRecipe }) {
   );
 }
 
+function workspaceLoopTier(score, labels) {
+  if (score >= 100) {
+    return {
+      detail: labels.loopTierCompleteDetail,
+      name: labels.loopTierComplete,
+    };
+  }
+
+  if (score >= 75) {
+    return {
+      detail: labels.loopTierProofDetail,
+      name: labels.loopTierProof,
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      detail: labels.loopTierRunningDetail,
+      name: labels.loopTierRunning,
+    };
+  }
+
+  return {
+    detail: labels.loopTierStartDetail,
+    name: labels.loopTierStart,
+  };
+}
+
+function WorkspaceSessionLoop({ baseHref, labels, sessionState, workspaceRecipe }) {
+  const hasRun = Boolean(sessionState?.hasSuccessfulRun || workspaceRecipe?.lastRun?.status === 'succeeded');
+  const hasReview = Boolean(sessionState?.hasReview);
+  const setupReady = !workspaceRecipe?.readiness?.blockers?.length && !workspaceRecipe?.disabledReason;
+  const steps = [
+    {
+      done: true,
+      key: 'access',
+      label: labels.loopAccess,
+    },
+    {
+      done: setupReady,
+      key: 'setup',
+      label: labels.loopSetup,
+    },
+    {
+      done: hasRun,
+      key: 'run',
+      label: labels.loopRun,
+    },
+    {
+      done: hasReview,
+      key: 'review',
+      label: labels.loopReview,
+    },
+  ];
+  const doneCount = steps.filter((step) => step.done).length;
+  const score = Math.round((doneCount / steps.length) * 100);
+  const tier = workspaceLoopTier(score, labels);
+  const nextOpenStep = steps.find((step) => !step.done);
+  const stepGain = Math.round(100 / steps.length);
+  const nextAction = (() => {
+    if (workspaceRecipe?.disabledReason) {
+      return {
+        detail: workspaceRecipe.disabledReason,
+        href: `${baseHref}?tab=setup`,
+        label: labels.loopFixSetup,
+        title: labels.loopBlocked,
+      };
+    }
+
+    if (!setupReady) {
+      return {
+        detail: labels.loopSetupDetail,
+        href: `${baseHref}?tab=setup`,
+        label: labels.loopPrepare,
+        title: labels.loopSetupNext,
+      };
+    }
+
+    if (!hasRun) {
+      return {
+        detail: labels.loopRunDetail,
+        href: `${baseHref}?tab=use`,
+        label: labels.loopRunCta,
+        title: labels.loopRunNext,
+      };
+    }
+
+    if (!hasReview) {
+      return {
+        detail: labels.loopReviewDetail,
+        href: `${baseHref}?tab=review`,
+        label: labels.loopReviewCta,
+        title: labels.loopReviewNext,
+      };
+    }
+
+    return {
+      detail: labels.loopReplayDetail,
+      href: `${baseHref}?tab=use`,
+      label: labels.loopReplayCta,
+      title: labels.loopComplete,
+    };
+  })();
+
+  return (
+    <section className="rounded-3xl border border-[#6B3FA0]/45 bg-[radial-gradient(circle_at_top_left,#2A1750_0%,#120C24_46%,#080612_100%)] p-5 shadow-[0_18px_55px_rgba(8,6,18,0.28)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="font-label rounded-full border border-[#8B5CF6]/45 bg-[#1A152F] px-3 py-1.5 text-xs text-[#D8B4FE]">
+              {labels.loopEyebrow}
+            </span>
+            <span className="rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-3 py-1.5 text-xs font-semibold text-[#6EE7B7]">
+              {doneCount}/{steps.length} {labels.loopStepsDone}
+            </span>
+            <span className="rounded-full border border-[#8B5CF6]/40 bg-[#251A40] px-3 py-1.5 text-xs font-semibold text-[#D8B4FE]">
+              {labels.loopLevel} · {tier.name}
+            </span>
+          </div>
+          <h2 className="font-display text-2xl font-bold text-[#F4EFFA]">{nextAction.title}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#C8B1E4]">{nextAction.detail}</p>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-[#9B72CF]">{tier.detail}</p>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {steps.map((step) => (
+              <div
+                key={step.key}
+                className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm ${
+                  step.done
+                    ? 'border-[#10B981]/35 bg-[#10B981]/10 text-[#6EE7B7]'
+                    : 'border-[#2F184B] bg-[#080612] text-[#9B72CF]'
+                }`}
+              >
+                <CheckCircle2 className={`h-4 w-4 shrink-0 ${step.done ? 'text-[#10B981]' : 'text-[#4A3D6B]'}`} />
+                <span className="min-w-0 flex-1">{step.label}</span>
+                {!step.done && step.key === nextOpenStep?.key && (
+                  <span className="font-stat rounded-full bg-[#251A40] px-2 py-0.5 text-[10px] text-[#D8B4FE]">
+                    +{stepGain}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[#8B5CF6]/35 bg-[#0F0A1E] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="font-label text-xs text-[#B794F4]">{labels.loopScore}</p>
+            <Trophy className="h-5 w-5 text-[#C4B5FD]" />
+          </div>
+          <p className="font-stat text-5xl text-[#F4EFFA]">{score}%</p>
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#251A40]">
+            <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${score}%` }} />
+          </div>
+          <Link
+            href={nextAction.href}
+            className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-[#110D24] transition-colors hover:bg-[#F2E9D8]"
+          >
+            {nextAction.label}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const tabIcons = {
   clipboard: ClipboardList,
   history: History,
@@ -606,6 +873,7 @@ export default function WorkspaceAgentExperience({
   locale = 'fr',
   reviewSlot,
   runnerSlot,
+  sessionState,
   setupLabel,
   workspaceManifest,
   workspaceRecipe,
@@ -628,12 +896,29 @@ export default function WorkspaceAgentExperience({
         fallbackPathEmpty: 'No fallback path is required for this workspace.',
         fallbackOverviewDetail: 'This agent can rely on approved creator infrastructure. AgentHub keeps access, server-side proxying, audit and history in the workspace.',
         fallbackPathTitle: 'Fallback path',
+        firstRunKitChecklistTitle: 'Final check',
+        firstRunKitDetail: 'Use this mini brief to prepare a first input that is complete enough to produce a useful stored result.',
+        firstRunKitEmpty: 'No specific item yet.',
+        firstRunKitEyebrow: 'First run kit',
+        firstRunKitInputTitle: 'Context to paste',
+        firstRunKitOutputTitle: 'Expected output',
+        firstRunKitTitle: 'Prepare a useful first run',
+        firstRunPromptChecks: 'Checks before sending',
+        firstRunPromptContext: 'Context I will provide',
+        firstRunPromptEyebrow: 'Starter prompt',
+        firstRunPromptGoal: 'Goal',
+        firstRunPromptHint: 'Copy into the run input',
+        firstRunPromptOutput: 'Expected output',
+        firstRunPromptTitle: 'Ready-to-paste input',
+        copied: 'Copied',
+        copyFailed: 'Copy failed',
+        copyPrompt: 'Copy prompt',
         limitations: 'Important limitations',
         limitationsEmpty: 'No published limitation.',
         mainCapabilities: 'Main capabilities',
         mainCapabilitiesEmpty: 'No detailed capability was provided.',
         objective: 'Objective',
-        outcomeChecklistEmpty: 'Run this agent once before judging the result.',
+        outcomeChecklistEmpty: 'Use this workspace once before judging the result.',
         outcomeChecklistTitle: 'Before leaving feedback',
         optional: 'Optional',
         overviewEyebrow: 'At a glance',
@@ -656,7 +941,7 @@ export default function WorkspaceAgentExperience({
         latestRunReviewTitle: 'Latest result to evaluate',
         launchBriefDetail: 'Use this as the final check before sending user context to the runtime.',
         launchBriefEyebrow: 'Before running',
-        launchBriefTitle: 'Launch this agent correctly',
+        launchBriefTitle: 'Use this workspace correctly',
         launchChecklist: 'Launch checklist',
         launchInputs: 'Context to include',
         reviewOutputTitle: 'Expected result to check',
@@ -677,7 +962,7 @@ export default function WorkspaceAgentExperience({
         limits: 'Limits',
         noSpecificLimit: 'No specific runtime limit.',
         noLastRun: 'No run yet',
-        noLastRunDetail: 'Run this workspace once to create history.',
+        noLastRunDetail: 'Use this workspace once to create history.',
         nextActions: 'Next actions',
         primaryAction: 'Main action',
         primaryActionDetail: 'What the workspace will launch first.',
@@ -692,7 +977,7 @@ export default function WorkspaceAgentExperience({
         startupPlanTitle: 'How to use this workspace',
         runtimePanels: {
           assistant: 'Guided AI assistant',
-          document: 'Document agent',
+          document: 'Guided AI assistant',
           endpoint: 'Creator API agent',
           workflow: 'Workflow agent',
         },
@@ -736,6 +1021,36 @@ export default function WorkspaceAgentExperience({
         unknownInfra: 'Unknown infrastructure',
         workspaceBlocked: 'Execution blocked',
         workspaceReady: 'Ready to run',
+        loopAccess: 'Access active',
+        loopBlocked: 'Setup needs attention',
+        loopComplete: 'Workspace loop complete',
+        loopEyebrow: 'Workspace loop',
+        loopFixSetup: 'Review setup',
+        loopLevel: 'Level',
+        loopPrepare: 'Prepare context',
+        loopReplayCta: 'Start another session',
+        loopReplayDetail: 'You have a result and a verified review. Keep comparing outputs or try another input.',
+        loopReview: 'Review left',
+        loopReviewCta: 'Leave review',
+        loopReviewDetail: 'A run is stored. Leave a verified review while the output is still fresh.',
+        loopReviewNext: 'Next: verified review',
+        loopRun: 'Run completed',
+        loopRunCta: 'Start now',
+        loopRunDetail: 'The workspace is ready. Send a first input to create stored history.',
+        loopRunNext: 'Next: first run',
+        loopScore: 'Session score',
+        loopSetup: 'Setup ready',
+        loopSetupDetail: 'Check the required context and runtime notes before launching.',
+        loopSetupNext: 'Next: prepare the run',
+        loopStepsDone: 'steps done',
+        loopTierComplete: 'Proof complete',
+        loopTierCompleteDetail: 'This access has a stored result and a verified review. You can now compare another input or another agent.',
+        loopTierProof: 'Proof needed',
+        loopTierProofDetail: 'The workspace has produced a result. The next useful signal is a verified review.',
+        loopTierRunning: 'Running',
+        loopTierRunningDetail: 'The setup is ready. Create a stored result to unlock review eligibility.',
+        loopTierStart: 'Starting',
+        loopTierStartDetail: 'Prepare the context, then run the workspace once to create useful history.',
       }
     : {
         agentReady: 'Agent prêt',
@@ -753,12 +1068,29 @@ export default function WorkspaceAgentExperience({
         fallbackPathEmpty: 'Aucun parcours de fallback requis pour ce workspace.',
         fallbackOverviewDetail: 'Cet agent peut s’appuyer sur une infrastructure créateur approuvée. AgentHub conserve l’accès, le proxy serveur, l’audit et l’historique dans le workspace.',
         fallbackPathTitle: 'Parcours de fallback',
+        firstRunKitChecklistTitle: 'Dernier contrôle',
+        firstRunKitDetail: 'Utilisez ce mini brief pour préparer un premier input assez complet et obtenir un résultat stocké exploitable.',
+        firstRunKitEmpty: 'Aucun élément spécifique pour l’instant.',
+        firstRunKitEyebrow: 'Kit de première exécution',
+        firstRunKitInputTitle: 'Contexte à coller',
+        firstRunKitOutputTitle: 'Résultat attendu',
+        firstRunKitTitle: 'Préparer une première exécution utile',
+        firstRunPromptChecks: 'Contrôles avant envoi',
+        firstRunPromptContext: 'Contexte que je vais fournir',
+        firstRunPromptEyebrow: 'Prompt de départ',
+        firstRunPromptGoal: 'Objectif',
+        firstRunPromptHint: 'À coller dans le champ d’exécution',
+        firstRunPromptOutput: 'Résultat attendu',
+        firstRunPromptTitle: 'Input prêt à coller',
+        copied: 'Copié',
+        copyFailed: 'Copie impossible',
+        copyPrompt: 'Copier le prompt',
         limitations: 'Limites importantes',
         limitationsEmpty: 'Aucune limite publiée.',
         mainCapabilities: 'Capacités principales',
         mainCapabilitiesEmpty: 'Aucune capacité détaillée n’a été renseignée.',
         objective: 'Objectif',
-        outcomeChecklistEmpty: 'Lancez cet agent au moins une fois avant de juger le résultat.',
+        outcomeChecklistEmpty: 'Utilisez ce workspace au moins une fois avant de juger le résultat.',
         outcomeChecklistTitle: 'Avant de laisser un avis',
         optional: 'Optionnel',
         overviewEyebrow: 'En bref',
@@ -779,9 +1111,9 @@ export default function WorkspaceAgentExperience({
         latestOutput: 'Dernière sortie',
         latestRunReviewDetail: 'Basez votre avis sur le résultat stocké, pas seulement sur la promesse de la fiche.',
         latestRunReviewTitle: 'Dernier résultat à évaluer',
-        launchBriefDetail: 'Utilisez ce rappel comme dernier contrôle avant d’envoyer le contexte utilisateur au runtime.',
+        launchBriefDetail: 'Utilisez ce rappel comme dernier contrôle avant d’envoyer le contexte utilisateur au moteur d’exécution.',
         launchBriefEyebrow: 'Avant lancement',
-        launchBriefTitle: 'Lancer cet agent correctement',
+        launchBriefTitle: 'Utiliser ce workspace correctement',
         launchChecklist: 'Checklist de lancement',
         launchInputs: 'Contexte à inclure',
         reviewOutputTitle: 'Résultat attendu à vérifier',
@@ -791,7 +1123,7 @@ export default function WorkspaceAgentExperience({
           succeeded: 'Terminée',
         },
         locale: 'fr',
-        agenthubInfraDetail: 'L’exécution reste dans les gates runtime AgentHub.',
+        agenthubInfraDetail: 'L’exécution reste derrière les contrôles AgentHub.',
         creatorInfraDetail: 'L’exécution peut utiliser une infrastructure créateur approuvée via les serveurs AgentHub.',
         infraModes: {
           agenthub_hosted: 'Hébergé AgentHub',
@@ -800,28 +1132,28 @@ export default function WorkspaceAgentExperience({
         },
         infrastructure: 'Infrastructure',
         limits: 'Limites',
-        noSpecificLimit: 'Aucune limite runtime spécifique.',
+        noSpecificLimit: 'Aucune limite d’exécution spécifique.',
         noLastRun: 'Aucune exécution',
-        noLastRunDetail: 'Lancez une première exécution pour créer l’historique.',
+        noLastRunDetail: 'Utilisez le workspace une première fois pour créer l’historique.',
         nextActions: 'Prochaines actions',
         primaryAction: 'Action principale',
         primaryActionDetail: 'Ce que le workspace lancera en premier.',
-        readyToRun: 'Les gates runtime autorisent l’exécution.',
+        readyToRun: 'Les contrôles AgentHub autorisent l’exécution.',
         recipeSummaryEyebrow: 'Recette workspace',
-        recipeSummaryTitle: 'Disponibilité runtime',
-        readinessBlockers: 'Blocages readiness',
-        readinessScoreTitle: 'Score readiness',
-        runtimeLimits: 'Limites runtime',
+        recipeSummaryTitle: 'Disponibilité de l’exécution',
+        readinessBlockers: 'Blocages à résoudre',
+        readinessScoreTitle: 'Score de préparation',
+        runtimeLimits: 'Limites d’exécution',
         startupPlanEyebrow: 'Parcours de démarrage',
-        startupPlanHint: 'Adapté au runtime',
+        startupPlanHint: 'Adapté au type d’agent',
         startupPlanTitle: 'Comment utiliser ce workspace',
         runtimePanels: {
           assistant: 'Assistant IA guidé',
-          document: 'Agent document',
+          document: 'Assistant IA guidé',
           endpoint: 'Agent API creator',
           workflow: 'Agent workflow',
         },
-        runtimeState: 'Runtime',
+        runtimeState: 'État d’exécution',
         setup: 'Setup',
         setupChecklistEmpty: 'Aucune checklist de lancement requise.',
         setupChecklistTitle: 'Checklist de lancement',
@@ -861,6 +1193,36 @@ export default function WorkspaceAgentExperience({
         unknownInfra: 'Infrastructure inconnue',
         workspaceBlocked: 'Exécution bloquée',
         workspaceReady: 'Prêt à exécuter',
+        loopAccess: 'Accès actif',
+        loopBlocked: 'Setup à surveiller',
+        loopComplete: 'Boucle workspace complète',
+        loopEyebrow: 'Boucle workspace',
+        loopFixSetup: 'Vérifier le setup',
+        loopLevel: 'Niveau',
+        loopPrepare: 'Préparer le contexte',
+        loopReplayCta: 'Démarrer une autre session',
+        loopReplayDetail: 'Vous avez un résultat et un avis vérifié. Continuez à comparer les sorties ou testez un nouvel input.',
+        loopReview: 'Avis laissé',
+        loopReviewCta: 'Laisser un avis',
+        loopReviewDetail: 'Une exécution est stockée. Laissez un avis vérifié tant que le résultat est encore frais.',
+        loopReviewNext: 'Prochaine étape : avis vérifié',
+        loopRun: 'Exécution terminée',
+        loopRunCta: 'Démarrer maintenant',
+        loopRunDetail: 'Le workspace est prêt. Envoyez un premier input pour créer un historique exploitable.',
+        loopRunNext: 'Prochaine étape : première exécution',
+        loopScore: 'Score session',
+        loopSetup: 'Setup prêt',
+        loopSetupDetail: 'Vérifiez le contexte requis et les notes d’exécution avant de lancer.',
+        loopSetupNext: 'Prochaine étape : préparer l’exécution',
+        loopStepsDone: 'étapes validées',
+        loopTierComplete: 'Preuve complète',
+        loopTierCompleteDetail: 'Cet accès possède un résultat stocké et un avis vérifié. Vous pouvez maintenant comparer un autre input ou un autre agent.',
+        loopTierProof: 'Preuve à compléter',
+        loopTierProofDetail: 'Le workspace a produit un résultat. Le prochain signal utile est un avis vérifié.',
+        loopTierRunning: 'En exécution',
+        loopTierRunningDetail: 'Le setup est prêt. Créez un résultat stocké pour débloquer l’avis vérifié.',
+        loopTierStart: 'Démarrage',
+        loopTierStartDetail: 'Préparez le contexte, puis exécutez le workspace une fois pour créer un historique utile.',
       };
   const description = isEnglish ? agent.description || agent.summary : polishFrenchCopy(agent.description || agent.summary);
   const summary = isEnglish ? agent.summary : polishFrenchCopy(agent.summary);
@@ -906,7 +1268,7 @@ export default function WorkspaceAgentExperience({
           <div className="max-w-2xl">
             <p className="font-label mb-3 text-xs text-[#10B981]">{labels.agentReady}</p>
             <h1 className="font-display text-3xl font-bold text-[#F4EFFA] md:text-4xl">
-              {agent.name ?? 'AgentHub agent'}
+              {agent.name ?? (isEnglish ? 'AgentHub agent' : 'Agent AgentHub')}
             </h1>
             <p className="mt-4 text-base leading-7 text-[#C8B1E4]">
               {description}
@@ -943,6 +1305,13 @@ export default function WorkspaceAgentExperience({
           </div>
         </div>
       </div>
+
+      <WorkspaceSessionLoop
+        baseHref={baseHref}
+        labels={labels}
+        sessionState={sessionState}
+        workspaceRecipe={workspaceRecipe}
+      />
 
       <RecipeSummary baseHref={baseHref} labels={labels} workspaceRecipe={workspaceRecipe} />
 
@@ -1084,8 +1453,16 @@ export default function WorkspaceAgentExperience({
           {activeTab === 'use' && (
             <div className="space-y-5">
               <RecipeBlocks blocks={recipeBlocksForTab('use')} requiredText={labels.recipeRequired} title={labels.recipeTitle} />
+              <FirstRunKit
+                blueprint={workspaceBlueprint}
+                labels={labels}
+                outputExamples={outputExamples}
+                primaryActionLabel={workspaceRecipe?.primaryActionLabel}
+                requiredInputs={requiredInputs}
+                setupItems={setupItems}
+              />
               {(runnerTitle || runnerDescription || trustDisclosure) && (
-                <Panel eyebrow={isEnglish ? 'Runtime' : 'Runtime'} title={runnerTitle || labels.tabs.use}>
+                <Panel eyebrow={isEnglish ? 'Runtime' : 'Type d’exécution'} title={runnerTitle || labels.tabs.use}>
                   {runnerDescription && <p className="text-sm leading-6 text-[#C8B1E4]">{runnerDescription}</p>}
                   {trustDisclosure && (
                     <div className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${

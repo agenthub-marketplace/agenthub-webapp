@@ -65,6 +65,16 @@ export type CreatorAgentRunSummary = {
   completedAt: string | null;
 };
 
+type CreatorAgentRunRow = {
+  id: string;
+  agent_id: string;
+  action_label: string;
+  status: CreatorAgentRunSummary["status"];
+  error_code: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
 export type CreatorAgentEditItem = {
   id: string;
   categoryId: string | null;
@@ -652,6 +662,7 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
   const prechecksByVersion = new Map<string, CreatorSecurityPrecheckSummary>();
   const reviewStatsByAgent = new Map<string, { rating: number; reviews: number }>();
   const recentRuns: CreatorAgentRunSummary[] = [];
+  const agentNamesById = new Map(agentRows.map((agent) => [agent.id, agent.name]));
 
   if (agentIds.length > 0) {
     const { data: reviews } = await supabase
@@ -684,6 +695,31 @@ export async function getCreatorAgentsForUser(): Promise<CreatorAgentsResult> {
         rating: current.rating + ratingRow.rating,
         reviews: current.reviews + 1,
       });
+    }
+
+    const serviceSupabase = createSupabaseServiceClient();
+
+    if (serviceSupabase) {
+      const { data: runRows } = await serviceSupabase
+        .from("agent_runs")
+        .select("id,agent_id,action_label,status,error_code,created_at,completed_at")
+        .in("agent_id", agentIds)
+        .order("created_at", { ascending: false })
+        .limit(12)
+        .returns<CreatorAgentRunRow[]>();
+
+      for (const run of runRows ?? []) {
+        recentRuns.push({
+          id: run.id,
+          agentId: run.agent_id,
+          agentName: agentNamesById.get(run.agent_id) ?? "AgentHub agent",
+          actionLabel: run.action_label,
+          status: run.status,
+          errorCode: run.error_code,
+          createdAt: run.created_at,
+          completedAt: run.completed_at,
+        });
+      }
     }
 
   }

@@ -4,8 +4,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Check, PenLine, BarChart3, Megaphone, Code2, Briefcase, Sparkles, Target, Scale } from 'lucide-react';
-import { agentsList } from '@/lib/mock-data';
-import AgentAvatar from '@/components/AgentAvatar';
 
 const STEPS = ['Métier', 'Besoins', 'Niveau IA', 'Outils', 'Prêt'];
 const JOBS = [
@@ -26,6 +24,12 @@ const LEVELS = [
   { id: 'advanced', t: 'Avancé', d: 'Je construis ou personnalise des outils IA' },
 ];
 const TOOLS = ['Notion','Google Docs','Gmail','Slack','Trello','Figma','Excel','Autre'];
+const JOB_LABELS = Object.fromEntries(JOBS.map((job) => [job.id, job.label]));
+const LEVEL_LABELS = Object.fromEntries(LEVELS.map((level) => [level.id, level.t]));
+
+function formatSelectionLabel(item) {
+  return JOB_LABELS[item] || LEVEL_LABELS[item] || item;
+}
 
 function OnboardingUser() {
   const router = useRouter();
@@ -35,7 +39,7 @@ function OnboardingUser() {
   const [level, setLevel] = useState('');
   const [tools, setTools] = useState([]);
   const progress = ((step+1)/STEPS.length)*100;
-  const recommended = agentsList.slice(0,3);
+  const searchQuery = needs.slice(0, 2).join(' ');
 
   const canNext = () => {
     if (step === 0) return jobs.length > 0;
@@ -52,7 +56,7 @@ function OnboardingUser() {
 
       <div className="relative container max-w-2xl flex-1 flex flex-col py-10">
         <div className="flex items-center justify-between mb-8">
-          {step > 0 ? <button onClick={()=>setStep(step-1)} className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Précédent</button> : <Link href="/" className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Retour</Link>}
+          {step > 0 ? <button onClick={()=>setStep(step-1)} className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Précédent</button> : <Link href="/agenthub" className="flex items-center gap-1 text-sm text-[#A78BCF] hover:text-[#F5F1FA]"><ArrowLeft className="w-4 h-4"/>Retour</Link>}
           <p className="text-sm text-[#A78BCF]">Étape {step+1} / {STEPS.length}</p>
           {step < STEPS.length - 1 && <Link href="/agenthub/dashboard" className="text-sm text-[#A78BCF] hover:text-[#F5F1FA]">Passer</Link>}
         </div>
@@ -117,7 +121,7 @@ function OnboardingUser() {
           {step === 3 && (
             <div>
               <h1 className="font-display text-3xl md:text-5xl font-bold mb-3 text-[#F5F1FA]">Vos outils quotidiens ?</h1>
-              <p className="text-[#D6C5E8] mb-8">Personnalisons votre expérience</p>
+              <p className="text-[#D6C5E8] mb-8">Préparons une recherche de départ adaptée à vos usages.</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {TOOLS.map(t => {
                   const sel = tools.includes(t);
@@ -140,17 +144,36 @@ function OnboardingUser() {
                 </div>
               </div>
               <h1 className="font-display text-3xl md:text-5xl font-bold mb-3 text-[#F5F1FA]">Votre profil est prêt</h1>
-              <p className="text-[#D6C5E8] mb-8">Voici 3 agents recommandés pour vous</p>
-              <div className="grid sm:grid-cols-3 gap-3 mb-8 text-left">
-                {recommended.map(a => (
-                  <Link key={a.id} href={`/agenthub/agents/${a.slug}`} className="bg-[#110D24] border border-[#251A40] rounded-xl p-4 card-hover">
-                    <AgentAvatar index={a.gradient} size="md" className="mb-3"/>
-                    <p className="font-display font-bold text-sm text-[#F5F1FA]">{a.name}</p>
-                    <p className="text-xs text-[#A78BCF]">{a.pitch}</p>
-                  </Link>
-                ))}
+              <p className="text-[#D6C5E8] mb-8">
+                On va ouvrir la marketplace avec vos premiers critères. Les recommandations affichées seront uniquement des agents approuvés.
+              </p>
+              <div className="mb-5 rounded-2xl border border-[#8B5CF6]/40 bg-[#1A152F]/80 p-4 text-left">
+                <p className="font-display text-sm font-semibold text-[#F5F1FA]">Recherche non sauvegardée</p>
+                <p className="mt-1 text-sm leading-6 text-[#D6C5E8]">
+                  Ce questionnaire sert seulement à construire votre première recherche. Il ne modifie pas encore votre profil ni vos préférences de compte.
+                </p>
               </div>
-              <Button onClick={()=>router.push('/agenthub/search')} className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-8">Commencer à explorer <ArrowRight className="w-4 h-4 ml-2"/></Button>
+              <div className="mb-8 rounded-2xl border border-[#251A40] bg-[#110D24] p-5 text-left">
+                <p className="font-label mb-3 text-xs text-[#A78BCF]">Votre recherche de départ</p>
+                <div className="flex flex-wrap gap-2">
+                  {[...jobs, ...needs.slice(0, 4), level, ...tools.slice(0, 3)]
+                    .filter(Boolean)
+                    .map((item) => (
+                      <span key={item} className="rounded-full border border-[#6B3FA0]/40 bg-[#1A152F] px-3 py-1.5 text-xs text-[#D6C5E8]">
+                        {formatSelectionLabel(item)}
+                      </span>
+                    ))}
+                </div>
+                <p className="mt-4 text-xs leading-5 text-[#A78BCF]">
+                  Vous pourrez ensuite louer un agent, l’exécuter dans le workspace, puis laisser un avis vérifié.
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push(searchQuery ? `/agenthub/search?q=${encodeURIComponent(searchQuery)}` : '/agenthub/search')}
+                className="bg-gradient-to-r from-[#6B3FA0] to-[#8B5CF6] text-white border-0 glow-primary h-12 px-8"
+              >
+                Commencer à explorer <ArrowRight className="w-4 h-4 ml-2"/>
+              </Button>
             </div>
           )}
         </div>

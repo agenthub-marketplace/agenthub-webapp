@@ -5,21 +5,24 @@ import { ArrowRight, ArrowUpRight, Mail } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
 export default function Footer({ variant = 'agenthub', compact = false }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const isCode = variant === 'code';
+  const isEnglish = lang === 'en';
+  const marketplacePath = isEnglish ? '/en/search' : '/agenthub/search';
+  const workspacePath = isEnglish ? '/en/workspace' : '/agenthub/workspace';
   const primaryLinks = isCode
     ? [
-        { label: 'Dashboard créateur', href: '/code/dashboard' },
+        { label: 'Pilotage AgentHub Code', href: '/code/dashboard' },
         { label: 'Mes agents', href: '/code/agents' },
         { label: 'Créer un agent', href: '/code/agents/new' },
         { label: 'Documentation', href: '/code/docs' },
       ]
     : [
-        { label: t('nav.discoveragents'), href: '/agenthub/search' },
-        { label: t('nav.workspace'), href: '/agenthub/workspace' },
+        { label: t('nav.discoveragents'), href: marketplacePath },
+        { label: t('nav.workspace'), href: workspacePath },
         { label: t('nav.leaderboard'), href: '/leaderboard' },
-        { label: 'Profil', href: '/profile' },
-        { label: 'Paramètres', href: '/settings' },
+        { label: isEnglish ? 'Profile' : 'Profil', href: '/profile' },
+        { label: isEnglish ? 'Settings' : 'Paramètres', href: '/settings' },
       ];
   const cta = isCode
     ? {
@@ -28,9 +31,11 @@ export default function Footer({ variant = 'agenthub', compact = false }) {
         text: 'Prépare une fiche, son contrat d’usage et son runtime avant validation.',
       }
     : {
-        href: '/agenthub/search',
-        label: 'Explorer les agents',
-        text: 'Trouve un agent par besoin, active-le, puis retrouve-le dans ton espace.',
+        href: marketplacePath,
+        label: isEnglish ? 'Explore agents' : 'Explorer les agents',
+        text: isEnglish
+          ? 'Find an agent by need, activate it, then keep it in your workspace.'
+          : 'Trouve un agent par besoin, active-le, puis retrouve-le dans ton espace.',
       };
   const socials = [
     { label: 'LinkedIn', href: 'https://www.linkedin.com/company/agenthub', icon: ArrowUpRight },

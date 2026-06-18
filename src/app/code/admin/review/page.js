@@ -17,13 +17,13 @@ import { EmptyAdminState, RuntimeSettingSummary } from '../_components/admin-sha
 export const dynamic = 'force-dynamic';
 
 const reviewErrors = {
-  'security-review-required': 'Une security review passée ou waived est requise pour ce runtime sensible.',
-  'runtime-disabled': 'Ce runtime est désactivé.',
+  'security-review-required': 'Une security review passée ou waived est requise pour ce type d’agent sensible.',
+  'runtime-disabled': 'Ce type d’exécution est désactivé.',
   'workflow-not-approved': 'Les assets de l’agent workflow doivent être approuvés avant publication.',
   'creator-endpoint-not-approved': 'L’API creator doit être approuvée avant publication.',
   'changes-notes-required': 'Ajoutez au moins 10 caractères pour demander des modifications.',
   'security-review-create-failed': 'Impossible de créer la security review.',
-  'security-review-not-required': 'Ce runtime ne nécessite pas de security review par défaut.',
+  'security-review-not-required': 'Ce type d’agent ne nécessite pas de security review par défaut.',
   'agent-not-reviewable': 'Ce précheck ne peut être généré que pour un agent soumis ou en review.',
   'invalid-precheck': 'Impossible de générer le précheck pour cet agent.',
   'manifest-load-failed': 'Impossible de charger le manifest pour générer le précheck.',
@@ -530,7 +530,7 @@ function buildAdminDecisionChecklist(agent) {
   }
 
   if (!['llm_prompt', 'static_guided'].includes(runtimeType) && !['passed', 'waived'].includes(agent.securityReview?.status)) {
-    items.push('Créer ou finaliser une security review passée/waived pour ce runtime sensible.');
+    items.push('Créer ou finaliser une security review passée/waived pour ce type d’agent sensible.');
   }
 
   if (precheck.blockers?.length > 0 || precheck.recommendation === 'block_publication') {
@@ -653,6 +653,56 @@ function TriageStat({ label, tone = 'in_review', value }) {
       </div>
       <p className="mt-3 text-3xl font-bold text-[#111827]">{value}</p>
     </div>
+  );
+}
+
+function NextReviewFocus({ agent }) {
+  if (!agent) {
+    return null;
+  }
+
+  const priority = getPrecheckPriority(agent);
+  const approvalBlocker = getApprovalBlocker(agent);
+  const runtimeLabel = AGENT_RUNTIME_TYPE_LABELS[agent.contract?.runtimeType] || agent.contract?.runtimeType || 'Runtime inconnu';
+  const actionLabel =
+    agent.status === 'submitted'
+      ? 'Prendre en revue'
+      : approvalBlocker
+        ? 'Traiter le blocage'
+        : 'Décider publication';
+
+  return (
+    <section className="mt-6 rounded-3xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_64%,#F5F3FF_100%)] p-5 shadow-[0_18px_48px_rgba(109,64,160,0.08)]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_300px] lg:items-center">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <p className="font-label text-xs text-[#6B3FA0]">PROCHAINE DÉCISION</p>
+            <StatusBadge status={priority.tone} label={priority.label} />
+            <StatusBadge status={agent.status} label={agent.status} />
+          </div>
+          <h2 className="font-display text-2xl font-bold text-[#111827]">{agent.name}</h2>
+          <p className="mt-2 text-sm text-[#4B5563]">
+            {agent.creatorName || 'Créateur inconnu'} · {runtimeLabel} · Soumis le {formatDate(agent.createdAt)}
+          </p>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-[#374151]">{priority.detail}</p>
+          {approvalBlocker && (
+            <p className="mt-4 rounded-2xl border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-sm leading-6 text-[#991B1B]">
+              {approvalBlocker}
+            </p>
+          )}
+        </div>
+        <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4">
+          <p className="font-label text-[10px] text-[#6B3FA0]">Action recommandée</p>
+          <p className="mt-2 font-display text-xl font-bold text-[#111827]">{actionLabel}</p>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Commence par cette fiche pour garder la file admin fluide et éviter les publications avancées non contrôlées.
+          </p>
+          <Link href={`#review-${agent.id}`} className="mt-4 inline-flex rounded-xl border border-[#8B5CF6] bg-[#6B3FA0] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5B21B6]">
+            Aller à la décision
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -958,6 +1008,8 @@ export default async function AdminReviewPage({ searchParams }) {
 
       {!reviewQueue.error && reviewQueue.queue.length > 0 && (
         <>
+          <NextReviewFocus agent={prioritizedQueue[0]} />
+
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
             <TriageStat label="À traiter" value={triage.total} />
             <TriageStat label="Bloqués par précheck" value={triage.blocked} tone={triage.blocked > 0 ? 'failed' : 'approved'} />
@@ -1007,7 +1059,7 @@ export default async function AdminReviewPage({ searchParams }) {
           <EmptyAdminState title="Aucun agent en attente" text="Les nouvelles soumissions creators apparaîtront ici." />
         )}
         {prioritizedQueue.map((agent) => (
-          <CodePanel key={agent.id}>
+          <CodePanel key={agent.id} className="scroll-mt-24" id={`review-${agent.id}`}>
             <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
               <div>
                 <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1381,7 +1433,7 @@ export default async function AdminReviewPage({ searchParams }) {
                         <p className="mt-1 text-sm text-[#4B5563]">
                           {agent.securityReview
                             ? `Review ${agent.securityReview.status}`
-                            : 'Review obligatoire avant publication pour ce runtime sensible.'}
+                            : 'Review obligatoire avant publication pour ce type d’agent sensible.'}
                         </p>
                       </div>
                       {agent.securityReview ? (

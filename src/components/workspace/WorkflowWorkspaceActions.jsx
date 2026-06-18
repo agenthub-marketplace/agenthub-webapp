@@ -7,10 +7,19 @@ import { Button } from '@/components/ui/button';
 import WorkspaceNextActions from './WorkspaceNextActions';
 import WorkspaceReadinessNotice from './WorkspaceReadinessNotice';
 import WorkspaceRunGuidance from './WorkspaceRunGuidance';
+import CopyTextButton from './CopyTextButton';
+import {
+  focusRunInput,
+  formatRunCount,
+  getLatestSuccessfulRunId,
+  normalizeRunInputForReuse,
+  shouldShowFullResultToggle,
+  WorkspaceReviewCta,
+} from './run-history-display';
 
 const copy = {
   fr: {
-    disabled: 'Le runtime workflow automation est désactivé pour le moment.',
+    disabled: 'L’exécution workflow est désactivée pour le moment.',
     emptyHistory: 'Aucun workflow enregistré pour le moment.',
     error: 'Impossible de lancer ce workflow pour le moment.',
     currentStep: 'EN COURS',
@@ -18,14 +27,14 @@ const copy = {
     errors: {
       'access-not-active': 'Cet accès n’est plus actif.',
       'agent-not-approved': 'Cet agent n’est pas encore approuvé pour l’exécution.',
-      'creator-not-allowlisted': 'Le créateur n’est pas autorisé pour ce runtime beta.',
+      'creator-not-allowlisted': 'Le créateur n’est pas autorisé pour ce type d’agent beta.',
       'missing-agent-version': 'La version approuvée de l’agent est introuvable.',
       'run-already-in-progress': 'Un workflow est déjà en cours pour cet accès.',
       'user-workflow-limit-reached': 'La limite quotidienne de workflows est atteinte pour ce compte.',
       'workflow-agent-not-enabled': 'Cet agent n’est pas configuré comme workflow.',
       'workflow-not-approved': 'Le workflow doit être approuvé avant exécution.',
       'workflow-run-create-failed': 'Le run workflow n’a pas pu être créé.',
-      'workflow-runs-disabled': 'Le runtime workflow est désactivé dans cet environnement.',
+      'workflow-runs-disabled': 'L’exécution workflow est désactivée dans cet environnement.',
       'workflow-state-load-failed': 'L’état du workflow n’a pas pu être chargé.',
       'workflow-steps-create-failed': 'Les étapes du workflow n’ont pas pu être préparées.',
       'workflow-worker-trigger-failed': 'Le worker workflow n’a pas pu être déclenché.',
@@ -34,12 +43,18 @@ const copy = {
     inputLabel: 'Votre demande',
     inputPlaceholder: 'Décrivez le résultat attendu et les contraintes importantes...',
     launch: 'Lancer le workflow',
+    latestResult: 'Dernier résultat',
     loading: 'Workflow en cours...',
     nextActions: 'Prochaines actions',
     nextActionNow: 'À faire maintenant',
     queued: 'Workflow en file d’attente...',
     remaining: 'caractères restants',
     result: 'Résultat workflow',
+    reviewCta: 'Comparer et laisser un avis',
+    reviewDoneCta: 'Voir mon avis',
+    reviewDoneHint: 'Avis déjà publié. Vous pouvez le retrouver dans l’onglet avis.',
+    reviewHint: 'Ce workflow est stocké. Utilisez son résultat comme preuve pour un avis vérifié.',
+    reuseInput: 'Réutiliser l’input',
     selectAction: 'Ajoutez votre demande, puis lancez le workflow validé par AgentHub.',
     setupGuidance: 'À préparer',
     showLess: 'Réduire',
@@ -81,12 +96,18 @@ const copy = {
     inputLabel: 'Your request',
     inputPlaceholder: 'Describe the expected outcome and important constraints...',
     launch: 'Run workflow',
+    latestResult: 'Latest result',
     loading: 'Workflow running...',
     nextActions: 'Next actions',
     nextActionNow: 'Do now',
     queued: 'Workflow queued...',
     remaining: 'characters remaining',
     result: 'Workflow result',
+    reviewCta: 'Compare and leave review',
+    reviewDoneCta: 'View my review',
+    reviewDoneHint: 'Review already published. You can find it in the review tab.',
+    reviewHint: 'This workflow result is stored. Use it as proof for a verified review.',
+    reuseInput: 'Reuse input',
     selectAction: 'Add your request, then run the AgentHub-reviewed workflow.',
     setupGuidance: 'Prepare',
     showLess: 'Collapse',
@@ -199,6 +220,7 @@ export default function WorkflowWorkspaceActions({
   enabled = false,
   fallbackPath = [],
   disabledMessage,
+  hasReview = false,
   initialRuns = [],
   locale = 'fr',
   maxInputChars = 4000,
@@ -218,13 +240,18 @@ export default function WorkflowWorkspaceActions({
   const [expandedRunIds, setExpandedRunIds] = useState([]);
   const [visibleRunCount, setVisibleRunCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef(null);
+  const submitInFlightRef = useRef(false);
   const submittedInputRef = useRef('');
+  const reviewCtaLabel = hasReview ? t.reviewDoneCta : t.reviewCta;
+  const reviewCtaHint = hasReview ? t.reviewDoneHint : t.reviewHint;
   const remainingChars = maxInputChars - inputText.length;
   const runningRun = runs.find((run) => ['queued', 'running'].includes(run.status));
   const activeWorkflowRun = workflowRun && ['queued', 'running'].includes(workflowRun.status) ? workflowRun : null;
   const activeRunId = activeWorkflowRun?.agentRunId ?? runningRun?.id;
   const activeStatus = activeWorkflowRun?.status ?? runningRun?.status;
   const canSubmit = enabled && inputText.trim().length >= 3 && !isSubmitting && !activeRunId;
+  const latestSuccessfulRunId = getLatestSuccessfulRunId(runs);
   const visibleRuns = runs.slice(0, visibleRunCount);
 
   useEffect(() => {
@@ -298,10 +325,11 @@ export default function WorkflowWorkspaceActions({
   async function submitRun(event) {
     event.preventDefault();
 
-    if (!canSubmit) {
+    if (!canSubmit || submitInFlightRef.current) {
       return;
     }
 
+    submitInFlightRef.current = true;
     setError(null);
     setResult(null);
     setWorkflowRun(null);
@@ -352,6 +380,7 @@ export default function WorkflowWorkspaceActions({
     } catch {
       setError(t.error);
     } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -360,6 +389,15 @@ export default function WorkflowWorkspaceActions({
     setExpandedRunIds((current) =>
       current.includes(runId) ? current.filter((id) => id !== runId) : [...current, runId],
     );
+  }
+
+  function reuseRunInput(runInput) {
+    const normalizedInput = normalizeRunInputForReuse(runInput, maxInputChars);
+
+    if (normalizedInput) {
+      setInputText(normalizedInput);
+      window.requestAnimationFrame(() => focusRunInput(inputRef.current));
+    }
   }
 
   return (
@@ -400,6 +438,7 @@ export default function WorkflowWorkspaceActions({
           <label className="block">
             <span className="mb-1 block text-xs text-[#A78BCF]">{t.inputLabel}</span>
             <textarea
+              ref={inputRef}
               value={inputText}
               onChange={(event) => {
                 const value = event.target.value;
@@ -442,25 +481,49 @@ export default function WorkflowWorkspaceActions({
 
       {result && (
         <div className="mt-5 rounded-2xl border border-[#10B981]/30 bg-[#07130F] p-4">
-          <p className="font-label mb-2 text-xs text-[#6EE7B7]">{t.result}</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="font-label text-xs text-[#6EE7B7]">{t.result}</p>
+            <CopyTextButton
+              copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+              errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+              label={locale === 'en' ? 'Copy' : 'Copier'}
+              text={result}
+            />
+          </div>
           <div className="whitespace-pre-line text-sm leading-relaxed text-[#D6C5E8]">{result}</div>
+          <WorkspaceReviewCta hint={reviewCtaHint} label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
         </div>
       )}
 
       <div className="mt-6 border-t border-[#2F184B] pt-5">
-        <p className="font-label mb-3 text-xs text-[#9B72CF]">{t.history}</p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="font-label text-xs text-[#9B72CF]">{t.history}</p>
+          {runs.length > 0 && (
+            <span className="rounded-full border border-[#2F184B] px-2.5 py-1 text-[10px] font-label text-[#9B72CF]">
+              {formatRunCount(runs.length, locale)}
+            </span>
+          )}
+        </div>
         {runs.length === 0 ? (
           <p className="text-sm text-[#7F6B9C]">{t.emptyHistory}</p>
         ) : (
           <div className="space-y-3">
             {visibleRuns.map((run) => {
               const expanded = expandedRunIds.includes(run.id);
-              const canExpand = run.status === 'succeeded' && run.outputText;
+              const canExpand = run.status === 'succeeded' && shouldShowFullResultToggle(run.outputText);
+              const isLatestSuccessfulRun = run.id === latestSuccessfulRunId;
 
               return (
                 <article key={run.id} className="rounded-2xl border border-[#2F184B] bg-[#080612] p-4">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-display text-sm font-bold text-[#F4EFFA]">{run.actionLabel}</p>
+                      {isLatestSuccessfulRun && (
+                        <span className="rounded-full border border-[#10B981]/35 bg-[#10B981]/10 px-2 py-1 text-[10px] font-label text-[#6EE7B7]">
+                          {t.latestResult}
+                        </span>
+                      )}
+                    </div>
                     <span className="rounded-full border border-[#2F184B] px-2 py-1 text-[10px] font-label text-[#9B72CF]">
                       {statusLabel(run.status, locale)}
                     </span>
@@ -471,16 +534,36 @@ export default function WorkflowWorkspaceActions({
                       <p className={`${expanded ? '' : 'line-clamp-5'} whitespace-pre-line text-sm leading-relaxed text-[#C8B1E4]`}>
                         {run.outputText}
                       </p>
-                      {canExpand && (
-                        <button
-                          type="button"
-                          onClick={() => toggleRun(run.id)}
-                          className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
-                        >
-                          {expanded ? t.showLess : t.showMore}
-                          <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
-                        </button>
-                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {canExpand && (
+                          <button
+                            type="button"
+                            onClick={() => toggleRun(run.id)}
+                            className="inline-flex items-center gap-1 text-xs font-label text-[#9B72CF] hover:text-[#F4EFFA]"
+                          >
+                            {expanded ? t.showLess : t.showMore}
+                            <ChevronDown className={`h-3.5 w-3.5 transition ${expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
+                        <CopyTextButton
+                          copiedLabel={locale === 'en' ? 'Copied' : 'Copié'}
+                          errorLabel={locale === 'en' ? 'Copy failed' : 'Copie impossible'}
+                          label={locale === 'en' ? 'Copy' : 'Copier'}
+                          text={run.outputText}
+                        />
+                        {run.inputText && (
+                          <button
+                            type="button"
+                            onClick={() => reuseRunInput(run.inputText)}
+                            className="inline-flex rounded-full border border-[#2F184B] px-2.5 py-1 text-xs font-label text-[#9B72CF] transition-colors hover:border-[#6B3FA0] hover:text-[#F4EFFA]"
+                          >
+                            {t.reuseInput}
+                          </button>
+                        )}
+                        {isLatestSuccessfulRun && (
+                          <WorkspaceReviewCta compact label={reviewCtaLabel} locale={locale} rentalId={rentalId} />
+                        )}
+                      </div>
                     </>
                   ) : run.status === 'failed' ? (
                     <p className="text-sm text-[#FCA5A5]">{errorLabel(run.errorCode, t)}</p>

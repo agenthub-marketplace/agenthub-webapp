@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Edit3, ExternalLink, FileText, PlayCircle, ShieldCheck, Star, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, Edit3, ExternalLink, FileText, PlayCircle, ShieldCheck, Star, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   CodeAlert,
@@ -24,14 +24,14 @@ const runtimeReadiness = {
     title: 'Workspace guidé',
     state: 'Disponible legacy',
     tone: 'border-[#FCD34D] bg-[#FFFBEB] text-[#92400E]',
-    ready: ['Workspace statique', 'Aucun appel runtime', 'Compatible agents historiques'],
+    ready: ['Workspace statique', 'Aucun appel d’exécution', 'Compatible agents historiques'],
     blocked: ['Pas de génération IA', 'Pas de document', 'Pas de workflow'],
   },
   llm_prompt: {
     title: 'Assistant IA guidé',
     state: 'Beta active',
     tone: 'border-[#86EFAC] bg-[#F0FDF4] text-[#166534]',
-    ready: ['Assistant texte server-side', 'Historique agent_runs', 'Accès actif requis'],
+    ready: ['Assistant texte server-side', 'Historique d’exécution', 'Accès actif requis'],
     blocked: ['Pas de workflow', 'Pas d’outil externe', 'Pas de code creator'],
   },
   document_file: {
@@ -117,7 +117,7 @@ function RuntimeReadiness({ version }) {
     <CodePanel>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-label mb-1 text-xs text-[#6B3FA0]">Runtime readiness</p>
+          <p className="font-label mb-1 text-xs text-[#6B3FA0]">Préparation exécution</p>
           <h2 className="font-display text-xl font-bold text-[#111827]">{readiness.title}</h2>
         </div>
         <span className={`rounded-full border px-3 py-1 text-xs font-label ${readiness.tone}`}>{readiness.state}</span>
@@ -125,7 +125,7 @@ function RuntimeReadiness({ version }) {
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
-          <p className="font-label mb-2 text-xs text-[#6B7280]">Runtime</p>
+          <p className="font-label mb-2 text-xs text-[#6B7280]">Type d’exécution</p>
           <p className="font-semibold text-[#111827]">{getRuntimeTypeLabel(runtimeType)}</p>
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-4">
@@ -188,6 +188,18 @@ const precheckActionLabels = {
   require_security_review: 'Security review requise',
   standard_review: 'Review standard',
 };
+
+function summarizeAgentRuns(recentRuns) {
+  return (recentRuns ?? []).reduce(
+    (summary, run) => ({
+      failed: summary.failed + (run.status === 'failed' ? 1 : 0),
+      running: summary.running + (run.status === 'running' ? 1 : 0),
+      succeeded: summary.succeeded + (run.status === 'succeeded' ? 1 : 0),
+      total: summary.total + 1,
+    }),
+    { failed: 0, running: 0, succeeded: 0, total: 0 },
+  );
+}
 
 function WorkspaceBlueprintReadiness({ readiness }) {
   if (!readiness) {
@@ -274,7 +286,7 @@ function WorkspaceBlueprintReadiness({ readiness }) {
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
-          <p className="font-label mb-2 text-xs text-[#6B3FA0]">À vérifier après run</p>
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">À vérifier après exécution</p>
           <BulletList items={blueprint.successCriteria.slice(0, 4)} />
         </div>
         <div className="rounded-2xl border border-[#E3E7F2] bg-white p-4">
@@ -340,6 +352,252 @@ function CreatorSecurityPrecheckPanel({ precheck }) {
   );
 }
 
+function buildAgentMission(agent, editable, runSummary) {
+  const changesRequested =
+    agent.status === 'in_review' &&
+    (agent.latestAdminReview?.isChangesRequest || Boolean(agent.latestAdminReview?.notes?.trim()));
+  const precheckBlocked =
+    agent.securityPrecheck &&
+    (agent.securityPrecheck.status === 'failed' ||
+      agent.securityPrecheck.riskLevel === 'blocked' ||
+      ['block_publication', 'request_changes', 'reject_candidate'].includes(agent.securityPrecheck.recommendedAction));
+  const workspaceBlocked = Boolean(agent.workspaceReadiness?.compatibility?.decision?.fallbackRequired);
+  const runtimeType = agent.version?.runtimeType || 'static_guided';
+
+  if (!agent.version) {
+    return {
+      actionHref: `/code/agents/${agent.id}/edit`,
+      actionLabel: 'Compléter la fiche',
+      detail: 'Aucune version active complète n’est attachée à cet agent. Le contrat agent doit être finalisé avant review.',
+      label: 'Version agent à compléter',
+      tone: 'draft',
+    };
+  }
+
+  if (changesRequested || agent.status === 'rejected') {
+    return {
+      actionHref: `/code/agents/${agent.id}/edit`,
+      actionLabel: 'Corriger et resoumettre',
+      detail: 'Un retour admin bloque la publication. Reprenez la promesse, les limites ou les données demandées avant de relancer la review.',
+      label: 'Correction prioritaire',
+      tone: 'rejected',
+    };
+  }
+
+  if (agent.status === 'draft') {
+    return {
+      actionHref: `/code/agents/${agent.id}/edit`,
+      actionLabel: 'Finaliser le brouillon',
+      detail: 'La fiche n’est pas encore dans la file admin. Vérifiez le listing public, le contrat agent et le type d’exécution avant soumission.',
+      label: 'Brouillon à publier',
+      tone: 'draft',
+    };
+  }
+
+  if (precheckBlocked) {
+    return {
+      actionHref: `/code/agents/${agent.id}/edit`,
+      actionLabel: editable ? 'Réduire le risque' : 'Voir les points',
+      detail: `${agent.securityPrecheck.label}. Traitez les findings avant de chercher à obtenir une approbation stable.`,
+      label: 'Précheck sécurité bloquant',
+      tone: 'failed',
+    };
+  }
+
+  if (workspaceBlocked) {
+    return {
+      actionHref: `/code/agents/${agent.id}/edit`,
+      actionLabel: 'Clarifier le workspace',
+      detail: 'Le workspace détecté dépend d’une infra ou d’une capacité non prête. Clarifiez les actions, les inputs et le mode d’exécution.',
+      label: 'Workspace à clarifier',
+      tone: 'in_review',
+    };
+  }
+
+  if (agent.status === 'submitted' || agent.status === 'in_review') {
+    return {
+      actionHref: '/code/agents',
+      actionLabel: 'Suivre la file',
+      detail: 'La fiche est en validation. Gardez un œil sur le retour admin, le précheck et les éventuelles security reviews.',
+      label: 'Review admin en cours',
+      tone: 'in_review',
+    };
+  }
+
+  if (agent.status === 'approved' && agent.slug && agent.reviews === 0) {
+    const hasSuccessfulRun = runSummary.succeeded > 0;
+
+    return {
+      actionHref: `/agenthub/agents/${agent.slug}`,
+      actionLabel: hasSuccessfulRun ? 'Demander un avis vérifié' : 'Tester comme utilisateur',
+      detail: hasSuccessfulRun
+        ? `Agent publié en ${getRuntimeTypeLabel(runtimeType)} avec ${runSummary.succeeded} exécution réussie. Prochaine preuve marketplace : un avis vérifié.`
+        : `Agent publié en ${getRuntimeTypeLabel(runtimeType)}. Prochaine preuve : une location sandbox, une exécution workspace et un avis vérifié.`,
+      label: hasSuccessfulRun ? 'Avis vérifié à obtenir' : 'Première preuve user à obtenir',
+      tone: 'approved',
+    };
+  }
+
+  if (agent.status === 'approved' && agent.slug) {
+    return {
+      actionHref: `/agenthub/agents/${agent.slug}`,
+      actionLabel: 'Ouvrir la fiche publique',
+      detail: 'La boucle beta tourne. Comparez les avis, les exécutions récentes et les retours testeurs pour améliorer le template ou la promesse.',
+      label: 'Agent en boucle beta',
+      tone: 'approved',
+    };
+  }
+
+  return {
+    actionHref: '/code/agents',
+    actionLabel: 'Retour aux agents',
+    detail: 'Le statut actuel demande une inspection rapide depuis la liste pour repérer le prochain blocage.',
+    label: 'À inspecter',
+    tone: agent.status,
+  };
+}
+
+function AgentMissionPanel({ agent, editable, runSummary }) {
+  const mission = buildAgentMission(agent, editable, runSummary);
+  const checks = [
+    {
+      done: Boolean(agent.version),
+      key: 'contract',
+      label: 'Contrat agent',
+    },
+    {
+      done: !agent.workspaceReadiness || agent.workspaceReadiness.compatibility.status !== 'blocked',
+      key: 'workspace',
+      label: 'Workspace lisible',
+    },
+    {
+      done: !agent.securityPrecheck || agent.securityPrecheck.status !== 'failed',
+      key: 'security',
+      label: 'Précheck acceptable',
+    },
+    {
+      done: agent.status === 'approved',
+      key: 'published',
+      label: 'Publié',
+    },
+    {
+      done: runSummary.succeeded > 0,
+      key: 'run',
+      label: 'Exécution réussie',
+    },
+    {
+      done: agent.reviews > 0,
+      key: 'review',
+      label: 'Avis vérifié',
+    },
+  ];
+
+  return (
+    <CodePanel tone="violet" className="mb-8">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <StatusBadge status={mission.tone} label={mission.label} />
+            <StatusBadge status={agent.status} label={getAgentStatusLabel(agent)} />
+          </div>
+          <p className="font-label mb-2 text-xs text-[#6B3FA0]">MISSION CRÉATEUR</p>
+          <h2 className="font-display text-2xl font-bold text-[#111827]">La prochaine action sur cet agent</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">{mission.detail}</p>
+        </div>
+        <Link href={mission.actionHref} className="shrink-0">
+          <Button className="h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44]">
+            {mission.actionLabel}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        {checks.map((check) => (
+          <div
+            key={check.key}
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${
+              check.done
+                ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]'
+                : 'border-[#E2E8F0] bg-white text-[#64748B]'
+            }`}
+          >
+            <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${check.done ? 'text-[#10B981]' : 'text-[#CBD5E1]'}`} />
+            <span>{check.label}</span>
+          </div>
+        ))}
+      </div>
+      {agent.status === 'approved' && (
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-3">
+            <p className="font-label text-[10px] text-[#166534]">Exécutions réussies</p>
+            <p className="mt-1 font-stat text-xl text-[#14532D]">{runSummary.succeeded}</p>
+          </div>
+          <div className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-3">
+            <p className="font-label text-[10px] text-[#92400E]">Exécutions en cours</p>
+            <p className="mt-1 font-stat text-xl text-[#78350F]">{runSummary.running}</p>
+          </div>
+          <div className="rounded-2xl border border-[#FECACA] bg-[#FEF2F2] p-3">
+            <p className="font-label text-[10px] text-[#991B1B]">Exécutions en échec</p>
+            <p className="mt-1 font-stat text-xl text-[#7F1D1D]">{runSummary.failed}</p>
+          </div>
+        </div>
+      )}
+    </CodePanel>
+  );
+}
+
+function BetaTesterPack({ agent }) {
+  if (agent.status !== 'approved' || !agent.slug) {
+    return null;
+  }
+
+  const publicHref = `/agenthub/agents/${agent.slug}`;
+  const smokeSteps = [
+    'Ouvrir la fiche publique',
+    'Louer via Stripe sandbox',
+    'Lancer une action workspace',
+    'Recharger et vérifier l’historique',
+    'Laisser un avis vérifié',
+  ];
+
+  return (
+    <CodePanel className="border-[#BBF7D0] bg-[linear-gradient(135deg,#FFFFFF_0%,#F0FDF4_100%)]">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#BBF7D0] bg-white text-[#166534]">
+          <ClipboardList className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="font-label text-[10px] text-[#166534]">PACK TESTEUR BETA</p>
+          <h2 className="font-display mt-1 text-lg font-bold text-[#111827]">Envoyer un test propre</h2>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+            Utilisez ce lien pour faire tester l’agent sans exposer les données privées des utilisateurs.
+          </p>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-[#BBF7D0] bg-white p-3">
+        <p className="font-label mb-1 text-[10px] text-[#166534]">Lien public à partager</p>
+        <p className="break-all text-sm font-semibold text-[#111827]">{publicHref}</p>
+      </div>
+      <ol className="mt-4 space-y-2">
+        {smokeSteps.map((step, index) => (
+          <li key={step} className="flex gap-2 rounded-xl border border-[#DCFCE7] bg-white/80 px-3 py-2 text-sm text-[#14532D]">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#DCFCE7] text-[10px] font-bold text-[#166534]">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <Link href={publicHref}>
+        <Button className="mt-4 h-10 w-full border-0 bg-[#166534] text-white hover:bg-[#14532D]">
+          Ouvrir la fiche publique
+          <ExternalLink className="ml-2 h-4 w-4" />
+        </Button>
+      </Link>
+    </CodePanel>
+  );
+}
+
 export default function CodeAgentDetailContent({ agentResult }) {
   const agent = agentResult?.agent;
 
@@ -373,6 +631,7 @@ export default function CodeAgentDetailContent({ agentResult }) {
   const adminNotes = cleanAdminNotes(agent.latestAdminReview?.notes);
   const editable = canEditAgent(agent);
   const usageAnalyticsLimited = Boolean(agent.analyticsLimited);
+  const runSummary = summarizeAgentRuns(agent.recentRuns);
 
   return (
     <main className="px-4 py-8 lg:px-8">
@@ -407,17 +666,19 @@ export default function CodeAgentDetailContent({ agentResult }) {
         }
       />
 
+      <AgentMissionPanel agent={agent} editable={editable} runSummary={runSummary} />
+
       <div className="mb-8 grid gap-4 md:grid-cols-4">
         <DetailMetric label="Accès actifs" value={agent.accessStats.active} />
         <DetailMetric label="Accès total" value={agent.accessStats.total} />
-        <DetailMetric label="Runs récents" value={agent.recentRuns.length} />
+        <DetailMetric label="Exécutions récentes" value={agent.recentRuns.length} />
         <DetailMetric label="Avis" value={formatRating(agent.rating, agent.reviews)} />
       </div>
 
       {usageAnalyticsLimited && (
         <div className="mb-8">
           <CodeAlert title="Analytics masqués">
-            Les accès et runs des utilisateurs ne sont pas exposés aux créateurs dans cette beta.
+            Les accès et exécutions des utilisateurs ne sont pas exposés aux créateurs dans cette beta.
           </CodeAlert>
         </div>
       )}
@@ -492,16 +753,18 @@ export default function CodeAgentDetailContent({ agentResult }) {
         </div>
 
         <aside className="space-y-6">
+          <BetaTesterPack agent={agent} />
+
           <CreatorSecurityPrecheckPanel precheck={agent.securityPrecheck} />
 
           <CodePanel>
             <div className="mb-4 flex items-center gap-3">
               <PlayCircle className="h-5 w-5 text-[#6B3FA0]" />
-              <h2 className="font-display text-lg font-bold text-[#111827]">Runs récents</h2>
+              <h2 className="font-display text-lg font-bold text-[#111827]">Exécutions récentes</h2>
             </div>
             {agent.recentRuns.length === 0 ? (
               <p className="text-sm text-[#6B7280]">
-                {usageAnalyticsLimited ? "Les runs utilisateur sont masqués pendant la beta." : "Aucune exécution enregistrée pour le moment."}
+                {usageAnalyticsLimited ? "Les exécutions utilisateur sont masquées pendant la beta." : "Aucune exécution enregistrée pour le moment."}
               </p>
             ) : (
               <div className="space-y-3">

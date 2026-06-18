@@ -167,12 +167,24 @@ function buildQualityReport(values) {
 }
 
 function runtimeGuardrails(values) {
+  const hasManualContent = Boolean(
+    values.name ||
+      values.short_description ||
+      values.long_description ||
+      values.target_user ||
+      values.does ||
+      values.deliverables,
+  );
+  const isTemplateCreation = values.creation_mode === 'template' || Boolean(values.agent_template);
+  const isFreeCreation = values.creation_mode === 'free' || (!values.creation_mode && !values.agent_template && hasManualContent);
   const checks = [
     {
-      id: 'template_selected',
-      label: 'Template sélectionné',
-      detail: 'Le template donne une base cohérente avant personnalisation.',
-      passes: Boolean(values.agent_template),
+      id: 'creation_path_selected',
+      label: isFreeCreation ? 'Création libre' : 'Template sélectionné',
+      detail: isFreeCreation
+        ? 'Le creator remplit chaque champ manuellement. La validation serveur reste identique.'
+        : 'Le template donne une base cohérente avant personnalisation.',
+      passes: isFreeCreation || isTemplateCreation,
       severity: 'warning',
     },
   ];

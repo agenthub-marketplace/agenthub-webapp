@@ -36,6 +36,7 @@ function revalidateReviewPublicationSurfaces(locale: Locale, rentalId: string, a
   revalidatePath("/workspace");
   revalidatePath("/agenthub/search");
   revalidatePath("/search");
+  revalidatePath("/en/search");
   revalidatePath("/marketplace");
   revalidatePath("/en/marketplace");
   revalidatePath("/leaderboard");

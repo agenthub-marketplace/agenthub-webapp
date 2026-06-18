@@ -25,6 +25,42 @@ export default async function AgentHubCodeAdminPage({ searchParams }) {
   const securityReviews = dashboard.security.reviews ?? [];
   const pendingReviews = securityReviews.filter((review) => ['pending', 'in_review'].includes(review.status)).length;
   const routingSummary = buildReviewRoutingSummary(reviewQueue.queue);
+  const opsAlerts = (dashboard.ops.checks ?? []).filter((check) => check.value > 0 && check.tone !== 'success').length;
+  const adminMissions = [
+    {
+      href: '/code/admin/review',
+      label: 'File review',
+      metric: reviewQueue.queue.length,
+      title: reviewQueue.queue.length > 0 ? 'Décider les agents en attente' : 'Aucune validation urgente',
+      description:
+        reviewQueue.queue.length > 0
+          ? 'Commencer par les P0/P1, puis approuver ou demander des corrections creator.'
+          : 'La file de validation est propre. Surveiller les nouvelles soumissions.',
+      tone: reviewQueue.queue.length > 0 ? 'border-[#FCD34D] bg-[#FFFBEB]' : 'border-[#BBF7D0] bg-[#F0FDF4]',
+    },
+    {
+      href: '/code/admin/security',
+      label: 'Security',
+      metric: pendingReviews,
+      title: pendingReviews > 0 ? 'Finaliser les reviews sensibles' : 'Security review à jour',
+      description:
+        pendingReviews > 0
+          ? 'Prioriser workflow/API creator avant publication marketplace.'
+          : 'Aucune review sécurité ouverte. Garder le contrôle sur les runtimes sensibles.',
+      tone: pendingReviews > 0 ? 'border-[#C4B5FD] bg-[#F5F3FF]' : 'border-[#BBF7D0] bg-[#F0FDF4]',
+    },
+    {
+      href: '/code/admin/ops',
+      label: 'Ops beta',
+      metric: opsAlerts,
+      title: opsAlerts > 0 ? 'Vérifier les anomalies beta' : 'Ops sans alerte visible',
+      description:
+        opsAlerts > 0
+          ? 'Contrôler paiements à surveiller, runs bloqués et doublons avant d’élargir les tests.'
+          : 'Les checks principaux ne signalent rien à traiter maintenant.',
+      tone: opsAlerts > 0 ? 'border-[#FCA5A5] bg-[#FEF2F2]' : 'border-[#BBF7D0] bg-[#F0FDF4]',
+    },
+  ];
 
   return (
     <main className="px-4 py-8 lg:px-8">
@@ -33,6 +69,39 @@ export default async function AgentHubCodeAdminPage({ searchParams }) {
         title="Administration AgentHub Code"
         description="Centre opérationnel beta : validation, runtimes, security review, payments support et sanity checks."
       />
+
+      <section className="mb-6 rounded-3xl border border-[#DDD6FE] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAF7FF_62%,#F3E8FF_100%)] p-5 shadow-[0_18px_50px_rgba(109,64,160,0.08)]">
+        <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-label text-xs text-[#6B3FA0]">MISSION ADMIN</p>
+            <h2 className="font-display mt-1 text-2xl font-bold text-[#111827]">Ce qui mérite ton attention maintenant</h2>
+          </div>
+          <p className="max-w-xl text-sm leading-6 text-[#4B5563]">
+            Les compteurs ci-dessous transforment le dashboard en liste d’actions. L’objectif beta : ne laisser aucun agent avancé publier sans review, et aucun incident ops invisible.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {adminMissions.map((mission) => (
+            <Link
+              key={mission.href}
+              href={mission.href}
+              className={`group rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:border-[#8B5CF6] hover:shadow-[0_14px_32px_rgba(109,64,160,0.12)] ${mission.tone}`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-label text-[10px] text-[#6B3FA0]">{mission.label}</p>
+                  <h3 className="mt-2 font-display text-lg font-bold text-[#111827]">{mission.title}</h3>
+                </div>
+                <span className="flex h-11 min-w-11 items-center justify-center rounded-2xl bg-white px-3 font-display text-xl font-bold text-[#6B3FA0] shadow-sm">
+                  {mission.metric}
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-[#4B5563]">{mission.description}</p>
+              <p className="mt-4 text-sm font-semibold text-[#5B21B6] group-hover:text-[#2B1A44]">Ouvrir →</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard label="Agents à valider" value={reviewQueue.queue.length} tone={reviewQueue.queue.length > 0 ? 'warning' : 'success'} />

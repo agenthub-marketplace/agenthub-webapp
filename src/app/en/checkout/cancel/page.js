@@ -36,7 +36,7 @@ export default async function CheckoutCancelPage({ searchParams }) {
   const profile = await requireAuth('en', '/en/checkout/cancel');
   const { payment, status } = await loadPayment(profile.id, paymentId);
   const agent = Array.isArray(payment?.agents) ? payment.agents[0] : payment?.agents;
-  const agentPath = agent?.slug ? `/en/agents/${agent.slug}` : '/en/marketplace';
+  const agentPath = agent?.slug ? `/en/agents/${agent.slug}` : '/en/search';
 
   return (
     <div className="min-h-screen">

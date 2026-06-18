@@ -126,10 +126,10 @@ const MARKETPLACE_SELECT_LEGACY =
   "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)";
 
 const MARKETPLACE_LIST_SELECT_WITH_CONTRACT =
-  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy),agent_reviews(id,rating,created_at)";
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes,workspace_mode,setup_requirements,output_promise,execution_mode,runtime_type,data_policy),agent_reviews(id,rating,title,body,created_at)";
 
 const MARKETPLACE_LIST_SELECT_LEGACY =
-  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,created_at)";
+  "id,slug,name,summary,description,pricing_type,starting_price_cents,risk_level,estimated_turnaround,created_at,agent_categories(slug,name),creator_profiles(public_name),agent_versions!agents_active_version_id_fkey(capabilities,required_inputs,deliverables,limitations,data_handling_notes),agent_reviews(id,rating,title,body,created_at)";
 
 function readSingle<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
@@ -298,11 +298,16 @@ function isMarketplaceUsableAgent(agent: MarketplaceAgent, runtimeSettings: Map<
   return agent.contract.runtimeType === "static_guided" || setting.run_enabled;
 }
 
-export async function getMarketplaceAgents() {
-  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_WITH_CONTRACT);
+export async function getMarketplaceAgents(options: { limit?: number } = {}) {
+  const fetchLimit = options.limit ? options.limit * 4 : undefined;
+  let { data, error } = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_WITH_CONTRACT, {
+    limit: fetchLimit,
+  });
 
   if (error && isMissingContractColumnError(error)) {
-    const fallback = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_LEGACY);
+    const fallback = await fetchMarketplaceRows(MARKETPLACE_LIST_SELECT_LEGACY, {
+      limit: fetchLimit,
+    });
     data = fallback.data;
     error = fallback.error;
   }
@@ -312,7 +317,10 @@ export async function getMarketplaceAgents() {
   }
 
   const runtimeSettings = await loadRuntimeSettings();
-  const agents = (data ?? []).map(mapAgent).filter((agent) => isMarketplaceUsableAgent(agent, runtimeSettings));
+  const agents = (data ?? [])
+    .map(mapAgent)
+    .filter((agent) => isMarketplaceUsableAgent(agent, runtimeSettings))
+    .slice(0, options.limit);
   const categoryCounts = new Map<string, MarketplaceCategory>();
 
   for (const agent of agents) {

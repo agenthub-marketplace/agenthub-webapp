@@ -24,6 +24,7 @@ export default async function AgentHubCodeNewAgentPage({ searchParams }) {
       canUseWorkflowAutomation={canUseWorkflowAutomation}
       categories={categories}
       creatorProfileMissing={creatorProfile.creatorProfileMissing}
+      draftScopeKey={creatorProfile.id}
       error={typeof params?.error === 'string' ? params.error : null}
       profileError={creatorProfile.error}
     />

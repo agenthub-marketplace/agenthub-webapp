@@ -317,7 +317,7 @@ export default async function LeaderboardPage({ searchParams }) {
           <h2 className="font-display mb-2 text-2xl font-bold text-[#F5F1FA] md:text-3xl">Rejoindre le classement</h2>
           <p className="mb-5 text-[#A78BCF]">Publiez un agent, passez la revue admin, puis accumulez des activations et des avis vérifiés.</p>
           <Button asChild className="h-11 rounded-xl border-0 bg-[#532B88] px-6 text-white hover:bg-[#7C3AED]">
-            <Link href="/code/agents/new">
+            <Link href="/onboarding/creator">
               Créer mon agent
               <ArrowRight className="h-4 w-4" />
             </Link>

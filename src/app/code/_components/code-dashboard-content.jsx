@@ -12,11 +12,13 @@ import {
   CheckCircle2,
   Clock3,
   CreditCard,
+  Flame,
   FileText,
   Gauge,
   PieChart,
   Plus,
   ShieldAlert,
+  Trophy,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -47,6 +49,746 @@ function MetricCard({ detail, icon: Icon, label, tone = 'default', value }) {
       <p className="font-stat text-3xl text-[#111827]">{value}</p>
       {detail && <p className="mt-2 text-xs text-[#6B7280]">{detail}</p>}
     </CodePanel>
+  );
+}
+
+function buildCreatorMomentum({ agents, changesRequested, hasProfile, publishedAgents, recentRuns, revenueAnalyticsResult, submittedAgents }) {
+  const analytics = revenueAnalyticsResult?.analytics ?? null;
+  const purchaseCount = analytics?.purchaseCount ?? 0;
+  const reviewCount = agents.reduce((total, agent) => total + (agent.reviews ?? 0), 0);
+  const advancedAgents = agents.filter((agent) =>
+    ['workflow_automation', 'creator_endpoint'].includes(agent.version?.runtimeType),
+  );
+  const milestones = [
+    {
+      key: 'profile',
+      done: hasProfile,
+      label: 'Profil créateur prêt',
+    },
+    {
+      key: 'agent',
+      done: agents.length > 0,
+      label: 'Premier agent créé',
+    },
+    {
+      key: 'advanced',
+      done: advancedAgents.length > 0,
+      label: 'Agent avancé configuré',
+    },
+    {
+      key: 'published',
+      done: publishedAgents.length > 0,
+      label: 'Agent publié',
+    },
+    {
+      key: 'used',
+      done: purchaseCount > 0 || recentRuns.length > 0,
+      label: 'Première utilisation beta',
+    },
+    {
+      key: 'review',
+      done: reviewCount > 0,
+      label: 'Premier avis vérifié',
+    },
+  ];
+  const doneCount = milestones.filter((item) => item.done).length;
+  const score = Math.round((doneCount / milestones.length) * 100);
+
+  if (!hasProfile) {
+    return {
+      ctaHref: '/onboarding/creator',
+      ctaLabel: 'Créer mon profil',
+      detail: 'Votre accès Code existe, mais le profil créateur doit être finalisé avant de publier.',
+      label: 'Profil à compléter',
+      milestones,
+      score,
+    };
+  }
+
+  if (changesRequested.length > 0) {
+    return {
+      ctaHref: `/code/agents/${changesRequested[0].id}/edit`,
+      ctaLabel: 'Corriger maintenant',
+      detail: `${changesRequested.length} agent${changesRequested.length > 1 ? 's' : ''} avec retour admin bloque la progression.`,
+      label: 'Correction prioritaire',
+      milestones,
+      score,
+    };
+  }
+
+  if (agents.length === 0) {
+    return {
+      ctaHref: '/code/agents/new',
+      ctaLabel: 'Créer le premier agent',
+      detail: 'Choisissez un template ou démarrez librement pour lancer la boucle creator.',
+      label: 'Premier agent à créer',
+      milestones,
+      score,
+    };
+  }
+
+  if (submittedAgents.length > 0) {
+    return {
+      ctaHref: '/code/agents',
+      ctaLabel: 'Suivre la validation',
+      detail: `${submittedAgents.length} agent${submittedAgents.length > 1 ? 's' : ''} en attente de review admin.`,
+      label: 'Validation en cours',
+      milestones,
+      score,
+    };
+  }
+
+  if (publishedAgents.length === 0) {
+    return {
+      ctaHref: '/code/agents/new',
+      ctaLabel: 'Préparer un agent publiable',
+      detail: 'Aucun agent publié. La prochaine victoire est une fiche approuvée visible marketplace.',
+      label: 'Publication à obtenir',
+      milestones,
+      score,
+    };
+  }
+
+  if (purchaseCount === 0 && recentRuns.length === 0) {
+    return {
+      ctaHref: '/code/agents',
+      ctaLabel: 'Choisir un agent à tester',
+      detail: 'Agent publié, mais aucun signal d’utilisation beta détecté. Lancez un test user complet.',
+      label: 'Premier test utilisateur',
+      milestones,
+      score,
+    };
+  }
+
+  if (reviewCount === 0) {
+    return {
+      ctaHref: '/code/agents',
+      ctaLabel: 'Demander un avis testeur',
+      detail: 'L’usage existe. La prochaine preuve produit est un avis vérifié.',
+      label: 'Avis vérifié à obtenir',
+      milestones,
+      score,
+    };
+  }
+
+  return {
+    ctaHref: '/code/agents',
+    ctaLabel: 'Piloter mes agents',
+    detail: 'La boucle beta est active. Continuez à améliorer les agents qui convertissent et reçoivent des avis.',
+    label: 'Boucle beta lancée',
+    milestones,
+    score,
+  };
+}
+
+function creatorLaunchTier(score) {
+  const tiers = [
+    {
+      max: 24,
+      name: 'Builder 0',
+      next: 'Créer un premier agent depuis un template ou une fiche libre.',
+    },
+    {
+      max: 49,
+      name: 'Builder beta',
+      next: 'Obtenir une première publication approved visible marketplace.',
+    },
+    {
+      max: 74,
+      name: 'Operator',
+      next: 'Faire louer et exécuter un agent par un compte test user.',
+    },
+    {
+      max: 99,
+      name: 'Signal maker',
+      next: 'Transformer une exécution réussie en avis vérifié et preuve marketplace.',
+    },
+    {
+      max: 100,
+      name: 'Beta publisher',
+      next: 'Comparer les agents qui convertissent et améliorer celui qui reçoit le plus de signaux.',
+    },
+  ];
+
+  return tiers.find((tier) => score <= tier.max) ?? tiers[tiers.length - 1];
+}
+
+function CreatorMomentumPanel({ momentum }) {
+  const tier = creatorLaunchTier(momentum.score);
+  const nextMilestone = momentum.milestones.find((item) => !item.done);
+
+  return (
+    <section className="mb-8 overflow-hidden rounded-3xl border border-[#DDD6FE] bg-[radial-gradient(circle_at_top_left,#F3E8FF_0%,#FFFFFF_34%,#F8FAFC_100%)] p-5 shadow-[0_18px_50px_rgba(109,64,160,0.08)] md:p-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
+        <div>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD6FE] bg-white px-3 py-1.5 text-xs font-semibold text-[#5B21B6]">
+              <Flame className="h-3.5 w-3.5" />
+              Momentum beta
+            </span>
+            <span className="inline-flex rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#166534]">
+              {momentum.milestones.filter((item) => item.done).length}/{momentum.milestones.length} signaux verts
+            </span>
+            <span className="inline-flex rounded-full border border-[#FBBF24]/45 bg-[#FFFBEB] px-3 py-1.5 text-xs font-semibold text-[#92400E]">
+              Niveau · {tier.name}
+            </span>
+          </div>
+          <h2 className="font-display text-2xl font-bold text-[#111827] md:text-3xl">{momentum.label}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">{momentum.detail}</p>
+          <div className="mt-4 rounded-2xl border border-[#DDD6FE] bg-white/80 p-4">
+            <p className="font-label text-[10px] text-[#6B3FA0]">PROCHAIN PALIER</p>
+            <p className="mt-1 text-sm leading-6 text-[#4B5563]">{tier.next}</p>
+          </div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {momentum.milestones.map((item) => (
+              <div
+                key={item.key}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                  item.done
+                    ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]'
+                    : 'border-[#E3E7F2] bg-white text-[#6B7280]'
+                }`}
+              >
+                <CheckCircle2 className={`h-4 w-4 shrink-0 ${item.done ? 'text-[#10B981]' : 'text-[#CBD5E1]'}`} />
+                {item.label}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-[#DDD6FE] bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="font-label text-xs text-[#6B3FA0]">Score lancement</p>
+            <Trophy className="h-5 w-5 text-[#8B5CF6]" />
+          </div>
+          <p className="font-stat text-5xl text-[#111827]">{momentum.score}%</p>
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#EEF2FF]">
+            <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${momentum.score}%` }} />
+          </div>
+          <div className="mt-4 rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-3">
+            <p className="font-label text-[10px] text-[#6B3FA0]">
+              {nextMilestone ? 'PROCHAINE PREUVE À DÉBLOQUER' : 'BOUCLE CRÉATEUR COMPLÈTE'}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[#111827]">
+              {nextMilestone?.label ?? 'Comparer les agents publiés'}
+            </p>
+          </div>
+          <Link href={momentum.ctaHref}>
+            <Button className="mt-5 h-11 w-full border-0 bg-[#111827] text-white shadow-sm hover:bg-[#2B1A44]">
+              {momentum.ctaLabel}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function buildCreatorMissions({
+  agents,
+  changesRequested,
+  draftAgents,
+  publishedAgents,
+  recentRuns,
+  revenueAnalyticsResult,
+  submittedAgents,
+}) {
+  const analytics = revenueAnalyticsResult?.analytics ?? null;
+  const purchaseCount = analytics?.purchaseCount ?? 0;
+  const reviewCount = agents.reduce((total, agent) => total + (agent.reviews ?? 0), 0);
+  const advancedAgents = agents.filter((agent) =>
+    ['workflow_automation', 'creator_endpoint'].includes(agent.version?.runtimeType),
+  );
+  const missions = [];
+
+  if (changesRequested.length > 0) {
+    missions.push({
+      detail: 'Un retour admin bloque la publication. Corrigez cette fiche avant de créer autre chose.',
+      href: `/code/agents/${changesRequested[0].id}/edit`,
+      key: 'changes_requested',
+      label: 'Prioritaire',
+      score: '+25',
+      title: 'Corriger le retour admin',
+      tone: 'rejected',
+    });
+  }
+
+  if (draftAgents.length > 0) {
+    missions.push({
+      detail: 'Un brouillon incomplet ne crée aucun signal beta. Finissez la fiche et soumettez-la.',
+      href: `/code/agents/${draftAgents[0].id}/edit`,
+      key: 'finish_draft',
+      label: 'Création',
+      score: '+15',
+      title: 'Finaliser un brouillon',
+      tone: 'draft',
+    });
+  }
+
+  if (submittedAgents.length > 0) {
+    missions.push({
+      detail: 'Suivez la validation et préparez déjà le test user dès que l’agent passe approved.',
+      href: '/code/agents',
+      key: 'track_review',
+      label: 'Review',
+      score: '+10',
+      title: 'Suivre la validation admin',
+      tone: 'in_review',
+    });
+  }
+
+  if (agents.length === 0) {
+    missions.push({
+      detail: 'Choisissez un template beta ou démarrez librement pour créer votre premier actif marketplace.',
+      href: '/code/agents/new',
+      key: 'first_agent',
+      label: 'Démarrage',
+      score: '+20',
+      title: 'Créer le premier agent',
+      tone: 'submitted',
+    });
+  }
+
+  if (agents.length > 0 && advancedAgents.length === 0) {
+    missions.push({
+      detail: 'Un agent workflow ou API donne une vraie preuve “agent avancé” pour la beta.',
+      href: '/code/agents/new',
+      key: 'advanced_agent',
+      label: 'Agent avancé',
+      score: '+20',
+      title: 'Préparer un agent workflow/API',
+      tone: 'submitted',
+    });
+  }
+
+  if (publishedAgents.length === 0 && agents.length > 0) {
+    missions.push({
+      detail: 'La prochaine victoire est un agent approved visible marketplace.',
+      href: '/code/agents',
+      key: 'publish_first',
+      label: 'Publication',
+      score: '+25',
+      title: 'Obtenir une première publication',
+      tone: 'in_review',
+    });
+  }
+
+  if (publishedAgents.length > 0 && purchaseCount === 0) {
+    missions.push({
+      detail: 'Faites tester un agent publié avec Stripe sandbox pour créer le premier signal GMV.',
+      href: '/code/agents',
+      key: 'first_purchase',
+      label: 'Traction',
+      score: '+30',
+      title: 'Déclencher un achat test',
+      tone: 'approved',
+    });
+  }
+
+  if (purchaseCount > 0 && recentRuns.length === 0) {
+    missions.push({
+      detail: 'Un accès sans exécution ne prouve pas encore la valeur. Faites lancer une action workspace.',
+      href: '/code/agents',
+      key: 'first_run',
+      label: 'Usage',
+      score: '+20',
+      title: 'Obtenir une exécution workspace',
+      tone: 'approved',
+    });
+  }
+
+  if ((purchaseCount > 0 || recentRuns.length > 0) && reviewCount === 0) {
+    missions.push({
+      detail: 'L’avis vérifié transforme un test réussi en preuve marketplace.',
+      href: '/code/agents',
+      key: 'first_review',
+      label: 'Preuve',
+      score: '+20',
+      title: 'Obtenir le premier avis vérifié',
+      tone: 'approved',
+    });
+  }
+
+  if (missions.length === 0) {
+    missions.push({
+      detail: 'La boucle est lancée. Regardez les revenus beta et améliorez l’agent qui convertit le mieux.',
+      href: '/code/agents',
+      key: 'optimize',
+      label: 'Optimisation',
+      score: '+10',
+      title: 'Optimiser le meilleur agent',
+      tone: 'approved',
+    });
+  }
+
+  return missions.slice(0, 4);
+}
+
+function CreatorMissionQueue({ loopProgress, missions }) {
+  const primary = missions[0];
+  const secondary = missions.slice(1);
+  const missionCount = missions.length;
+  const missionProgress = Math.max(0, Math.min(100, Math.round(loopProgress ?? 0)));
+
+  return (
+    <section className="mb-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <CodePanel className="overflow-hidden border-[#DDD6FE] bg-[radial-gradient(circle_at_top_left,#F3E8FF_0%,#FFFFFF_45%,#F8FAFC_100%)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD6FE] bg-white px-3 py-1.5 text-xs font-semibold text-[#5B21B6]">
+                <Flame className="h-3.5 w-3.5" />
+                Mission du jour
+              </span>
+              <StatusBadge status={primary.tone} label={primary.label} />
+              <span className="inline-flex rounded-full border border-[#E3E7F2] bg-[#F8FAFC] px-3 py-1.5 text-xs font-semibold text-[#4B5563]">
+                1/{missionCount}
+              </span>
+            </div>
+            <h2 className="font-display text-2xl font-bold text-[#111827]">{primary.title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">{primary.detail}</p>
+            <div className="mt-4 max-w-xl">
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-[#6B3FA0]">
+                <span>Boucle beta validée</span>
+                <span>{missionProgress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#EDE9FE]">
+                <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${missionProgress}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 rounded-2xl border border-[#C4B5FD] bg-white p-4 text-center">
+            <p className="font-label text-[10px] text-[#6B3FA0]">Impact boucle</p>
+            <p className="font-stat mt-1 text-3xl text-[#111827]">{primary.score}</p>
+          </div>
+        </div>
+        <Link href={primary.href}>
+          <Button className="mt-5 h-11 border-0 bg-[#111827] px-5 text-white shadow-sm hover:bg-[#2B1A44]">
+            Lancer la mission
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </Link>
+      </CodePanel>
+
+      <CodePanel className="border-[#E3E7F2] bg-white">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className="font-label text-xs text-[#6B3FA0]">FILE DE MISSIONS</p>
+            <h3 className="font-display mt-1 text-lg font-bold text-[#111827]">À enchaîner ensuite</h3>
+          </div>
+          <Trophy className="h-5 w-5 text-[#8B5CF6]" />
+        </div>
+        <div className="space-y-3">
+          {secondary.length > 0 ? (
+            secondary.map((mission, index) => (
+              <Link
+                key={mission.key}
+                href={mission.href}
+                className="block rounded-2xl border border-[#E3E7F2] bg-[#F8FAFC] p-3 transition-colors hover:border-[#8B5CF6] hover:bg-[#FCFAFF]"
+              >
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[#DDD6FE] bg-white text-[10px] font-bold text-[#6B3FA0]">
+                      {index + 2}
+                    </span>
+                    <p className="truncate text-sm font-bold text-[#111827]">{mission.title}</p>
+                  </div>
+                  <span className="shrink-0 font-stat text-sm text-[#6B3FA0]">{mission.score}</span>
+                </div>
+                <p className="line-clamp-2 text-xs leading-5 text-[#64748B]">{mission.detail}</p>
+              </Link>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-3 text-sm text-[#166534]">
+              Rien d’urgent. Continuez à surveiller les exécutions, avis et revenus beta.
+            </p>
+          )}
+        </div>
+      </CodePanel>
+    </section>
+  );
+}
+
+function buildCreatorFocusSignals({
+  agents,
+  changesRequested,
+  draftAgents,
+  publishedAgents,
+  recentRuns,
+  revenueAnalyticsResult,
+  submittedAgents,
+}) {
+  const analytics = revenueAnalyticsResult?.analytics ?? null;
+  const purchaseCount = analytics?.purchaseCount ?? 0;
+  const reviewCount = agents.reduce((total, agent) => total + (agent.reviews ?? 0), 0);
+  const pendingCount = analytics?.pendingCount ?? 0;
+  const attentionCount = (analytics?.paidBlockedCount ?? 0) + (analytics?.paidWithoutAccessCount ?? 0);
+  const revenueStatus = analytics?.revenueReadiness?.status ?? 'empty';
+
+  const publicationSignal = changesRequested.length > 0
+    ? {
+        detail: 'Corrigez le dernier retour admin avant toute nouvelle création.',
+        href: `/code/agents/${changesRequested[0].id}/edit`,
+        label: `${changesRequested.length} correction${changesRequested.length > 1 ? 's' : ''}`,
+        status: 'rejected',
+        title: 'Publication bloquée',
+      }
+    : submittedAgents.length > 0
+      ? {
+          detail: 'Préparez le smoke test user pendant que la review admin avance.',
+          href: '/code/agents',
+          label: `${submittedAgents.length} en review`,
+          status: 'in_review',
+          title: 'Review en cours',
+        }
+      : draftAgents.length > 0
+        ? {
+            detail: 'Un brouillon ne crée aucun signal beta tant qu’il n’est pas soumis.',
+            href: `/code/agents/${draftAgents[0].id}/edit`,
+            label: `${draftAgents.length} brouillon${draftAgents.length > 1 ? 's' : ''}`,
+            status: 'draft',
+            title: 'Fiche à finaliser',
+          }
+        : publishedAgents.length > 0
+          ? {
+              detail: 'Vos agents publiés sont prêts pour des tests marketplace -> workspace.',
+              href: '/code/agents',
+              label: `${publishedAgents.length} publié${publishedAgents.length > 1 ? 's' : ''}`,
+              status: 'approved',
+              title: 'Publication prête',
+            }
+          : {
+              detail: 'Créez une fiche depuis template pour entrer dans la boucle beta.',
+              href: '/code/agents/new',
+              label: 'À créer',
+              status: 'submitted',
+              title: 'Premier agent',
+            };
+
+  const proofSignal = recentRuns.length === 0 && purchaseCount === 0
+    ? {
+        detail: 'Le prochain signal fiable est un test user complet avec achat sandbox.',
+        href: publishedAgents.length > 0 ? '/code/agents' : '/code/agents/new',
+        label: '0 usage',
+        status: 'draft',
+        title: 'Preuve à obtenir',
+      }
+    : reviewCount === 0
+      ? {
+          detail: 'Une exécution existe. Demandez un avis vérifié pour créer une preuve marketplace.',
+          href: '/code/agents',
+          label: `${recentRuns.length} exécution${recentRuns.length > 1 ? 's' : ''}`,
+          status: 'in_review',
+          title: 'Avis à collecter',
+        }
+      : {
+          detail: 'Continuez à faire tester les agents qui transforment usage en avis.',
+          href: '/code/agents',
+          label: `${reviewCount} avis`,
+          status: 'approved',
+          title: 'Preuve active',
+        };
+
+  const revenueSignal = attentionCount > 0
+    ? {
+        detail: 'Des paiements sandbox demandent une vérification avant d’interpréter le GMV.',
+        href: '/code/dashboard?revenuePeriod=30d',
+        label: `${attentionCount} anomalie${attentionCount > 1 ? 's' : ''}`,
+        status: 'rejected',
+        title: 'Revenus à surveiller',
+      }
+    : pendingCount > 0 || revenueStatus === 'attention'
+      ? {
+          detail: 'Des checkouts sont encore ouverts ou en attente de finalisation.',
+          href: '/code/dashboard?revenuePeriod=30d',
+          label: `${pendingCount} pending`,
+          status: 'in_review',
+          title: 'Checkout en attente',
+        }
+      : purchaseCount > 0
+        ? {
+            detail: 'Le GMV sandbox peut être utilisé comme signal beta, pas comme payout réel.',
+            href: '/code/dashboard?revenuePeriod=30d',
+            label: `${purchaseCount} achat${purchaseCount > 1 ? 's' : ''}`,
+            status: 'approved',
+            title: 'GMV sandbox lisible',
+          }
+        : {
+            detail: 'Le GMV apparaîtra après le premier checkout sandbox complété.',
+            href: '/code/dashboard?revenuePeriod=30d',
+            label: '0 achat',
+            status: 'draft',
+            title: 'Revenus à créer',
+          };
+
+  return [
+    { icon: Box, key: 'publication', eyebrow: 'Publication', ...publicationSignal },
+    { icon: Activity, key: 'proof', eyebrow: 'Preuve beta', ...proofSignal },
+    { icon: CreditCard, key: 'revenue', eyebrow: 'Revenus', ...revenueSignal },
+  ];
+}
+
+function CreatorFocusStrip({ signals }) {
+  return (
+    <section className="mb-8 grid gap-3 lg:grid-cols-3">
+      {signals.map((signal) => {
+        const Icon = signal.icon;
+
+        return (
+          <Link
+            key={signal.key}
+            href={signal.href}
+            className="group rounded-2xl border border-[#DED6FF] bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#8B5CF6] hover:shadow-[0_14px_34px_rgba(109,64,160,0.10)]"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6B3FA0]">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <p className="font-label text-[10px] text-[#6B3FA0]">{signal.eyebrow}</p>
+              </div>
+              <StatusBadge status={signal.status} label={signal.label} />
+            </div>
+            <p className="font-display text-base font-bold text-[#111827]">{signal.title}</p>
+            <p className="mt-2 text-sm leading-6 text-[#4B5563]">{signal.detail}</p>
+            <span className="mt-3 inline-flex items-center text-xs font-semibold text-[#6B3FA0] group-hover:text-[#111827]">
+              Ouvrir
+              <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </span>
+          </Link>
+        );
+      })}
+    </section>
+  );
+}
+
+function buildCreatorBetaLoop({ agents, changesRequested, draftAgents, publishedAgents, recentRuns, revenueAnalyticsResult, submittedAgents }) {
+  const analytics = revenueAnalyticsResult?.analytics ?? null;
+  const purchaseCount = analytics?.purchaseCount ?? 0;
+  const reviewCount = agents.reduce((total, agent) => total + (agent.reviews ?? 0), 0);
+  const hasCleanCandidate = agents.some(
+    (agent) => ['draft', 'submitted', 'in_review', 'approved'].includes(agent.status) && !isChangesRequest(agent.latestAdminReview),
+  );
+
+  const stages = [
+    {
+      ctaHref: draftAgents[0]?.id ? `/code/agents/${draftAgents[0].id}/edit` : '/code/agents/new',
+      ctaLabel: draftAgents.length > 0 ? 'Finaliser le brouillon' : 'Créer un agent',
+      detail: changesRequested.length > 0
+        ? `${changesRequested.length} retour admin à corriger avant de relancer.`
+        : `${agents.length} agent${agents.length > 1 ? 's' : ''} dans votre console.`,
+      done: agents.length > 0 && changesRequested.length === 0,
+      key: 'build',
+      label: 'Construire',
+      metric: agents.length,
+    },
+    {
+      ctaHref: submittedAgents.length > 0 ? '/code/agents' : '/code/agents/new',
+      ctaLabel: submittedAgents.length > 0 ? 'Suivre la review' : 'Soumettre un agent',
+      detail: publishedAgents.length > 0
+        ? `${publishedAgents.length} agent${publishedAgents.length > 1 ? 's' : ''} visible${publishedAgents.length > 1 ? 's' : ''} marketplace.`
+        : hasCleanCandidate
+          ? 'Objectif: obtenir une première validation admin.'
+          : 'Complétez une fiche propre avant review.',
+      done: publishedAgents.length > 0,
+      key: 'publish',
+      label: 'Publier',
+      metric: publishedAgents.length,
+    },
+    {
+      ctaHref: '/code/agents',
+      ctaLabel: 'Organiser un test user',
+      detail: purchaseCount > 0
+        ? `${purchaseCount} achat${purchaseCount > 1 ? 's' : ''} sandbox activé${purchaseCount > 1 ? 's' : ''}.`
+        : 'Faites louer un agent publié avec Stripe sandbox.',
+      done: purchaseCount > 0,
+      key: 'activate',
+      label: 'Activer',
+      metric: purchaseCount,
+    },
+    {
+      ctaHref: '/code/agents',
+      ctaLabel: 'Collecter la preuve',
+      detail: recentRuns.length > 0 || reviewCount > 0
+        ? `${recentRuns.length} exécution${recentRuns.length > 1 ? 's' : ''} récente${recentRuns.length > 1 ? 's' : ''}, ${reviewCount} avis vérifié${reviewCount > 1 ? 's' : ''}.`
+        : 'La preuve arrive avec une exécution réussie puis un avis vérifié.',
+      done: recentRuns.length > 0 && reviewCount > 0,
+      key: 'prove',
+      label: 'Prouver',
+      metric: recentRuns.length + reviewCount,
+    },
+  ];
+  const activeStage = stages.find((stage) => !stage.done) ?? stages[stages.length - 1];
+  const doneCount = stages.filter((stage) => stage.done).length;
+
+  return {
+    activeStage,
+    doneCount,
+    progress: Math.round((doneCount / stages.length) * 100),
+    stages,
+  };
+}
+
+function CreatorBetaLoopPanel({ loop }) {
+  return (
+    <section className="mb-8 overflow-hidden rounded-3xl border border-[#DDD6FE] bg-white shadow-[0_16px_44px_rgba(109,64,160,0.08)]">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="p-5 md:p-6">
+          <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="font-label mb-2 text-xs text-[#6B3FA0]">BOUCLE BETA AGENTHUB</p>
+              <h2 className="font-display text-2xl font-bold text-[#111827]">Transformer une fiche en preuve produit</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+                Le but n’est pas d’empiler des agents: construisez, publiez, faites activer, puis récupérez un signal de valeur.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-[#DDD6FE] bg-[#F5F3FF] px-3 py-1.5 text-xs font-semibold text-[#5B21B6]">
+              {loop.doneCount}/{loop.stages.length} paliers validés
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {loop.stages.map((stage, index) => (
+              <article
+                key={stage.key}
+                className={`rounded-2xl border p-4 ${
+                  stage.done
+                    ? 'border-[#BBF7D0] bg-[#F0FDF4]'
+                    : stage.key === loop.activeStage.key
+                      ? 'border-[#C4B5FD] bg-[#FAF7FF]'
+                      : 'border-[#E3E7F2] bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+                    stage.done ? 'bg-[#10B981] text-white' : 'bg-white text-[#6B3FA0]'
+                  }`}>
+                    {stage.done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                  </span>
+                  <span className="font-stat text-lg text-[#111827]">{stage.metric}</span>
+                </div>
+                <p className="font-display text-base font-bold text-[#111827]">{stage.label}</p>
+                <p className="mt-2 text-xs leading-5 text-[#4B5563]">{stage.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-[#DDD6FE] bg-[radial-gradient(circle_at_top_right,#F3E8FF_0%,#FFFFFF_55%,#F8FAFC_100%)] p-5 md:p-6 xl:border-l xl:border-t-0">
+          <p className="font-label text-xs text-[#6B3FA0]">PROCHAIN PALIER</p>
+          <h3 className="font-display mt-2 text-xl font-bold text-[#111827]">{loop.activeStage.label}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#4B5563]">{loop.activeStage.detail}</p>
+          <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#EEF2FF]">
+            <div className="h-full rounded-full bg-[#8B5CF6]" style={{ width: `${loop.progress}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-[#6B7280]">{loop.progress}% de la boucle beta validée.</p>
+          <Link href={loop.activeStage.ctaHref}>
+            <Button className="mt-5 h-11 w-full border-0 bg-[#111827] text-white shadow-sm hover:bg-[#2B1A44]">
+              {loop.activeStage.ctaLabel}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -376,7 +1118,7 @@ function RevenueBetaSection({ result }) {
                 <RevenueBucketList
                   buckets={analytics?.runtimes ?? []}
                   currency={currency}
-                  emptyText="Aucun runtime avec achat activé."
+                  emptyText="Aucun type d’agent avec achat activé."
                   totalCents={analytics?.activatedGmvCents ?? 0}
                 />
               </CodePanel>
@@ -461,7 +1203,7 @@ function creatorActionForAgent(agent) {
 
   if (agent.status === 'approved') {
     return {
-      detail: 'Agent publié. Surveiller les achats sandbox, les runs réussis et les avis vérifiés.',
+      detail: 'Agent publié. Surveiller les achats sandbox, les exécutions réussies et les avis vérifiés.',
       href: `/code/agents/${agent.id}`,
       key: `status-approved-${agent.id}`,
       label: 'Piloter',
@@ -606,6 +1348,42 @@ export default function CodeDashboardContent({
   const submittedAgents = agents.filter((agent) => agent.status === 'submitted');
   const draftAgents = agents.filter((agent) => agent.status === 'draft');
   const changesRequested = agents.filter((agent) => agent.status === 'in_review' && isChangesRequest(agent.latestAdminReview));
+  const creatorMomentum = buildCreatorMomentum({
+    agents,
+    changesRequested,
+    hasProfile,
+    publishedAgents,
+    recentRuns,
+    revenueAnalyticsResult,
+    submittedAgents,
+  });
+  const creatorMissions = buildCreatorMissions({
+    agents,
+    changesRequested,
+    draftAgents,
+    publishedAgents,
+    recentRuns,
+    revenueAnalyticsResult,
+    submittedAgents,
+  });
+  const creatorFocusSignals = buildCreatorFocusSignals({
+    agents,
+    changesRequested,
+    draftAgents,
+    publishedAgents,
+    recentRuns,
+    revenueAnalyticsResult,
+    submittedAgents,
+  });
+  const creatorBetaLoop = buildCreatorBetaLoop({
+    agents,
+    changesRequested,
+    draftAgents,
+    publishedAgents,
+    recentRuns,
+    revenueAnalyticsResult,
+    submittedAgents,
+  });
   const recentAgents = agents.slice(0, 4);
   const recentRentals = rentals.slice(0, 5);
   const validationStats = [
@@ -682,10 +1460,18 @@ export default function CodeDashboardContent({
           )}
           {usageAnalyticsLimited && (
             <CodeAlert title="Analytics limités">
-              Les usages et accès des utilisateurs sont masqués côté créateur pendant la beta pour éviter toute exposition cross-user.
+              Les contenus, inputs et accès individuels restent masqués côté créateur. Seules les métadonnées utiles à la beta sont affichées.
             </CodeAlert>
           )}
         </div>
+
+        <CreatorFocusStrip signals={creatorFocusSignals} />
+
+        <CreatorMomentumPanel momentum={creatorMomentum} />
+
+        <CreatorMissionQueue loopProgress={creatorBetaLoop.progress} missions={creatorMissions} />
+
+        <CreatorBetaLoopPanel loop={creatorBetaLoop} />
 
         <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-5">
           <MetricCard icon={Box} tone="green" label="Publiés" value={publishedAgents.length} detail="visibles sur la marketplace" />
@@ -711,7 +1497,7 @@ export default function CodeDashboardContent({
                   <h2 className="font-display text-xl font-bold text-[#111827]">Utilisations récentes</h2>
                   <p className="mt-1 text-xs text-[#6B7280]">
                     {usageAnalyticsLimited
-                      ? "Les runs utilisateur restent masqués côté créateur pendant la beta."
+                      ? "Métadonnées uniquement: agent, action, statut et date. Aucun input/output utilisateur n’est exposé."
                       : "Suivi technique limité, sans contenus privés des utilisateurs."}
                   </p>
                 </div>
@@ -721,7 +1507,7 @@ export default function CodeDashboardContent({
               {recentRuns.length === 0 ? (
                 <div className="p-5 text-sm leading-6 text-[#6B7280]">
                   {usageAnalyticsLimited
-                    ? "Les créateurs ne voient pas les runs des utilisateurs dans cette beta."
+                    ? "Aucune métadonnée d’exécution visible pour vos agents. Les contenus privés restent toujours masqués."
                     : "Aucune utilisation visible pour ce compte. Les créateurs ne voient pas les contenus privés des utilisateurs."}
                 </div>
               ) : (
@@ -899,11 +1685,25 @@ export default function CodeDashboardContent({
               </div>
               <p className="font-label mb-2 text-xs text-[#6B3FA0]">À FAIRE</p>
               <h2 className="font-display text-xl font-bold text-[#111827]">Prochaines actions</h2>
-              <div className="mt-4 space-y-3 text-sm text-[#4B5563]">
-                {changesRequested.length > 0 && <p>Corriger {changesRequested.length} agent{changesRequested.length > 1 ? 's' : ''} avec retours admin.</p>}
-                {submittedAgents.length > 0 && <p>Suivre {submittedAgents.length} agent{submittedAgents.length > 1 ? 's' : ''} soumis en attente de validation.</p>}
-                {publishedAgents.length === 0 && <p>Publier au moins un agent validé pour tester le parcours complet.</p>}
-                {changesRequested.length === 0 && submittedAgents.length === 0 && publishedAgents.length > 0 && <p>Surveiller les runs, les accès actifs et les avis vérifiés.</p>}
+              <div className="mt-4 space-y-2">
+                {creatorMissions.slice(0, 3).map((mission, index) => (
+                  <Link
+                    key={`next-action-${mission.key}`}
+                    href={mission.href}
+                    className="group block rounded-xl border border-[#FDE68A] bg-white/80 p-3 transition-colors hover:border-[#8B5CF6] hover:bg-[#FCFAFF]"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#FFFBEB] text-[10px] font-bold text-[#92400E]">
+                          {index + 1}
+                        </span>
+                        <p className="truncate text-sm font-bold text-[#111827]">{mission.title}</p>
+                      </div>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#A16207] transition-transform group-hover:translate-x-0.5 group-hover:text-[#6B3FA0]" />
+                    </div>
+                    <p className="line-clamp-2 text-xs leading-5 text-[#4B5563]">{mission.detail}</p>
+                  </Link>
+                ))}
               </div>
             </CodePanel>
 

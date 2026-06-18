@@ -58,19 +58,54 @@ const checklist = [
 
 const templates = [
   {
-    title: 'Agent de rédaction',
-    tag: 'Contenu',
-    text: 'Pour transformer un brief, une note ou une idée en livrable éditorial structuré.',
+    title: 'Assistant IA guidé',
+    tag: 'Ouvert',
+    text: 'Pour générer une réponse texte fiable à partir d’un contexte fourni. Simple à créer, utile pour les premiers agents, mais pas considéré comme agent avancé beta.',
   },
   {
-    title: 'Agent d’analyse',
-    tag: 'Décision',
-    text: 'Pour synthétiser des données, comparer des options ou produire une recommandation.',
+    title: 'Agent workflow',
+    tag: 'Allowlist',
+    text: 'Pour exécuter plusieurs étapes contrôlées, avec au moins une décision LLM structurée: classer, prioriser, router ou choisir la prochaine action.',
   },
   {
-    title: 'Agent d’automatisation',
-    tag: 'Workflow',
-    text: 'Pour cadrer une suite d’actions répétables avec inputs, étapes et résultat attendu.',
+    title: 'Agent API creator',
+    tag: 'Allowlist',
+    text: 'Pour appeler une API HTTPS approuvée via AgentHub, côté serveur, avec signature et validation admin. Jamais d’appel direct depuis le navigateur.',
+  },
+];
+
+const runtimeChoiceGuide = [
+  {
+    title: 'Assistant IA guidé',
+    badge: 'Disponible',
+    bestFor: 'Rédaction, reformulation, analyse simple, checklist, synthèse textuelle.',
+    needs: 'Une promesse claire, des inputs texte, des limites visibles.',
+    review: 'Validation admin standard.',
+    avoid: 'Automatisation réelle, appels API, actions externes ou décisions critiques.',
+  },
+  {
+    title: 'Agent document',
+    badge: 'Beta contrôlée',
+    bestFor: 'PDF/DOCX texte, lecture assistée, extraction de points clés, analyse de document court.',
+    needs: 'Document privé, pas d’OCR, limites de taille, aucun document sensible réel en beta.',
+    review: 'Review storage/data légère si activé.',
+    avoid: 'PDF scannés, gros fichiers, documents sensibles ou traitement juridique définitif.',
+  },
+  {
+    title: 'Agent workflow',
+    badge: 'Agent avancé',
+    bestFor: 'Triage support, qualification lead, priorisation, suites d’étapes répétables.',
+    needs: 'Creator allowlisté, 2 à 5 étapes, décision LLM structurée, security review.',
+    review: 'Validation asset workflow + security review obligatoire.',
+    avoid: 'Boucles, branchements complexes, n8n, outils externes libres ou action non approuvée.',
+  },
+  {
+    title: 'Agent API creator',
+    badge: 'Agent avancé',
+    bestFor: 'Enrichissement CRM, scoring interne, connexion à un service creator déjà maîtrisé.',
+    needs: 'Endpoint HTTPS public approuvé, réponse JSON, timeout, signature HMAC.',
+    review: 'Validation endpoint + security review obligatoire.',
+    avoid: 'localhost, IP privée, secrets côté client, endpoints instables ou non validés.',
   },
 ];
 
@@ -126,6 +161,48 @@ export default function AgentHubCodeDocsPage() {
                 ))}
               </div>
             </aside>
+          </div>
+        </section>
+
+        <section className="container py-14 md:py-16">
+          <div className="mb-8 grid gap-4 lg:grid-cols-[340px_1fr] lg:items-end">
+            <div>
+              <p className="font-label mb-3 text-xs text-[#6B3FA0]">CHOIX DU RUNTIME</p>
+              <h2 className="font-display text-3xl font-bold text-[#111827] md:text-4xl">Choisir le bon niveau d’agent.</h2>
+            </div>
+            <p className="max-w-3xl text-sm leading-6 text-[#4B5563]">
+              AgentHub sépare maintenant les assistants guidés des agents avancés. Un vrai agent beta exécute un workflow ou appelle une API creator validée; un assistant guidé reste parfait pour une génération texte simple.
+            </p>
+          </div>
+          <div className="grid gap-5 xl:grid-cols-4">
+            {runtimeChoiceGuide.map((runtime) => (
+              <article key={runtime.title} className="rounded-2xl border border-[#D8DDEE] bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <h3 className="font-display text-lg font-bold text-[#111827]">{runtime.title}</h3>
+                  <span className="shrink-0 rounded-full border border-[#DDD6FE] bg-[#F5F3FF] px-2.5 py-1 text-[10px] font-label text-[#6B3FA0]">
+                    {runtime.badge}
+                  </span>
+                </div>
+                <dl className="space-y-4 text-sm leading-6">
+                  <div>
+                    <dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#6B7280]">Idéal pour</dt>
+                    <dd className="mt-1 text-[#374151]">{runtime.bestFor}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#6B7280]">À préparer</dt>
+                    <dd className="mt-1 text-[#374151]">{runtime.needs}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#6B7280]">Validation</dt>
+                    <dd className="mt-1 text-[#374151]">{runtime.review}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-label text-[10px] uppercase tracking-[0.16em] text-[#6B7280]">À éviter</dt>
+                    <dd className="mt-1 text-[#374151]">{runtime.avoid}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
           </div>
         </section>
 
