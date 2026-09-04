@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const importer = createRequire(import.meta.url);
 import ts from 'typescript';
+import { hasMissingPaidAccess } from './payment-access-readiness.mjs';
+for (const status of ['active', 'stopped', 'expired']) assert.equal(hasMissingPaidAccess({ status: 'paid' }, { status }), false);
+for (const status of ['pending', 'rejected', 'cancelled']) assert.equal(hasMissingPaidAccess({ status: 'paid' }, { status }), true);
+assert.equal(hasMissingPaidAccess({ status: 'paid' }, null), true);
+assert.equal(hasMissingPaidAccess({ status: 'pending' }, null), false);
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 function charger(fichier, doublures = {}) {
   const source = fs.readFileSync(path.join(racine, fichier), 'utf8');

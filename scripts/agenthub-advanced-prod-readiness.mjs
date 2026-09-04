@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
+import { hasMissingPaidAccess } from "./payment-access-readiness.mjs";
 
 const ROOT = process.cwd();
 const TARGETS = [
@@ -303,7 +304,7 @@ const report = TARGETS.map((target, index) => {
   });
   const paidWithoutActiveAccessCount = countBy(agentPayments, (payment) => {
     const rental = payment.rental_request_id ? rentalsById.get(payment.rental_request_id) : null;
-    return payment.status === "paid" && (!rental || rental.status !== "active");
+    return hasMissingPaidAccess(payment, rental);
   });
   const paymentWatchCount = countBy(agentPayments, (payment) => ["pending", "paid_blocked"].includes(payment.status));
   const successfulRunCount = countBy(agentRuns, (run) => run.status === "succeeded");
