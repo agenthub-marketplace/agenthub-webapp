@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
+import { isBlockedWorkflowHostname } from "./network-policy";
 
 import { normalizeAgentContract, type AgentContract } from "@/lib/agent-contract";
 import { serverEnv } from "@/lib/env.server";
@@ -224,70 +225,6 @@ export function isSafeWorkflowEndpointUrl(value: string) {
 
 function normalizeHostname(hostname: string) {
   return hostname.toLowerCase().replace(/^\[|\]$/g, "");
-}
-
-function ipv4FromHexGroups(high: string, low: string) {
-  const highValue = Number.parseInt(high, 16);
-  const lowValue = Number.parseInt(low, 16);
-
-  if (!Number.isInteger(highValue) || !Number.isInteger(lowValue)) {
-    return null;
-  }
-
-  return [
-    (highValue >> 8) & 255,
-    highValue & 255,
-    (lowValue >> 8) & 255,
-    lowValue & 255,
-  ].join(".");
-}
-
-function ipv4MappedAddress(hostname: string) {
-  const dottedMatch = /(?:^|:)ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(hostname);
-
-  if (dottedMatch) {
-    return dottedMatch[1];
-  }
-
-  const hexMatch = /(?:^|:)ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(hostname);
-
-  if (hexMatch) {
-    return ipv4FromHexGroups(hexMatch[1], hexMatch[2]);
-  }
-
-  return null;
-}
-
-function isBlockedWorkflowHostname(hostname: string) {
-  const mappedIpv4 = ipv4MappedAddress(hostname);
-
-  if (mappedIpv4) {
-    return isBlockedWorkflowHostname(mappedIpv4);
-  }
-
-  return !(
-    hostname !== "localhost" &&
-    hostname !== "0.0.0.0" &&
-    hostname !== "::" &&
-    hostname !== "::1" &&
-    !hostname.startsWith("127.") &&
-    !hostname.startsWith("10.") &&
-    !hostname.startsWith("169.254.") &&
-    !hostname.startsWith("192.168.") &&
-    !hostname.startsWith("100.64.") &&
-    !hostname.startsWith("198.18.") &&
-    !/^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname) &&
-    !/^(22[4-9]|23\d)\./.test(hostname) &&
-    !/^24\d\./.test(hostname) &&
-    !/^25[0-5]\./.test(hostname) &&
-    !hostname.startsWith("fc") &&
-    !hostname.startsWith("fd") &&
-    !hostname.startsWith("fe80:") &&
-    !hostname.startsWith("::ffff:127.") &&
-    !hostname.startsWith("::ffff:10.") &&
-    !hostname.startsWith("::ffff:169.254.") &&
-    !hostname.startsWith("::ffff:192.168.")
-  );
 }
 
 export async function resolveSafeWorkflowEndpointUrl(value: string) {

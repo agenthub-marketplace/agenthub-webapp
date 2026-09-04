@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BodyTooLargeError, readBoundedBody } from "@/server/bounded-body";
 
 import { getCurrentProfile } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/env.server";
@@ -49,8 +50,10 @@ export async function POST(request: Request) {
   let formData: FormData;
 
   try {
-    formData = await request.formData();
-  } catch {
+    const contenu = await readBoundedBody(request, serverEnv.documentMaxFileBytes + 100_000);
+    formData = await new Response(contenu, { headers: request.headers }).formData();
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) return jsonError(413, "failed", "file-too-large");
     return jsonError(400, "failed", "invalid-multipart");
   }
 

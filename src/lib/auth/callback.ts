@@ -1,15 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getUserHomePath } from "@/lib/auth/session";
+import { isInternalPath } from "@/lib/auth/internal-path";
 import { localizedPath, stripLocalePrefix, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function safeNextPath(value: string | null, locale: Locale) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+  if (!isInternalPath(value)) {
     return getUserHomePath(locale);
   }
 
   const stripped = stripLocalePrefix(value);
+
+  // Le retrait de /en peut transformer un chemin interne en URL commençant par //.
+  if (!isInternalPath(stripped)) return getUserHomePath(locale);
 
   if (stripped === "/code" || stripped.startsWith("/code/")) {
     return stripped;

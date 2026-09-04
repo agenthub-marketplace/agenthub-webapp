@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getRoleHomePath, getUserHomePath } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env";
+import { isInternalPath } from "@/lib/auth/internal-path";
 import { localizedPath, stripLocalePrefix, type Locale } from "@/lib/i18n/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/user";
@@ -65,11 +66,14 @@ function isEmailSendFailure(error: { code?: string; message?: string; status?: n
 }
 
 function safeNextPath(value: string, locale: Locale) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+  if (!isInternalPath(value)) {
     return "";
   }
 
   const stripped = stripLocalePrefix(value);
+
+  // Le retrait de /en peut transformer un chemin interne en URL commençant par //.
+  if (!isInternalPath(stripped)) return "";
 
   if (stripped === "/code" || stripped.startsWith("/code/")) {
     return stripped;

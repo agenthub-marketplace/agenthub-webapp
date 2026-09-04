@@ -34,9 +34,9 @@ yarn-error.log*
 .playwright-cli/
 
 # env files
-.env
-.env.local
-.env.*.local
+# Empêche aussi l'ajout accidentel de .env.production et .env.development.
+# Cela ne retire pas les fichiers déjà présents dans l'historique Git.
+.env*
 
 # vercel
 .vercel

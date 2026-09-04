@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BodyTooLargeError, readBoundedBody } from "@/server/bounded-body";
 
 import { fulfillCheckoutSession, markPaymentCancelled } from "@/server/payments/fulfillment";
 import { verifyStripeWebhookPayload } from "@/server/payments/stripe";
@@ -7,7 +8,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const rawBody = await request.text();
+  let rawBody: string;
+  try {
+    // Vérification HMAC sur le contenu brut, après une limite réelle de réception.
+    rawBody = new TextDecoder().decode(await readBoundedBody(request, 1_000_000));
+  } catch (error) {
+    return NextResponse.json({ error: "invalid-body" }, { status: error instanceof BodyTooLargeError ? 413 : 400 });
+  }
   const signature = request.headers.get("stripe-signature");
 
   let event;
@@ -26,9 +33,9 @@ export async function POST(request: Request) {
     if (event.type === "checkout.session.expired") {
       await markPaymentCancelled(event.data.object.id);
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "webhook-failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    // Ne pas renvoyer les détails internes du paiement ou de la base au client.
+    return NextResponse.json({ error: "webhook-failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
