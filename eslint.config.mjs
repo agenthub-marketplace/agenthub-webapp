@@ -9,9 +9,12 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "node_modules/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Tracked Emergent reference only; it is not part of the active root app.
+    "_emergent-import/**",
   ]),
 ]);
 

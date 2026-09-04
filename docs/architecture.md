@@ -1,12 +1,12 @@
 # AgentHub Architecture
 
-AgentHub is a web-first marketplace for verified AI agent services. The MVP is a Next.js application backed by Supabase for auth, PostgreSQL, and storage. It does not run arbitrary creator code on AgentHub infrastructure.
+AgentHub is a web-first curated marketplace for verified specialized business agents. The beta is a Next.js application backed by Supabase for auth, PostgreSQL, and later storage. It does not run arbitrary creator code on AgentHub infrastructure.
 
 ## High-level architecture
 
 - Frontend: Next.js App Router, React, TypeScript, Tailwind CSS, and shadcn/ui.
 - Server routes: Next.js Route Handlers for lightweight API endpoints such as health checks and future short server tasks.
-- Data layer: Supabase PostgreSQL with row-level security planned around users, creators, admins, agents, orders, reviews, and audit logs.
+- Data layer: Supabase PostgreSQL with row-level security around users, creators, admins, agents, rental requests, reviews, and audit logs.
 - Auth: Supabase Auth planned for user sessions and role-based access.
 - Storage: Supabase Storage planned for deliverables, creator assets, and validation documents where appropriate.
 - Edge work: Supabase Edge Functions planned for webhooks and short-lived server tasks.
@@ -15,11 +15,11 @@ AgentHub is a web-first marketplace for verified AI agent services. The MVP is a
 
 ## Users, creators, and admins
 
-Users discover verified agents, rent them for concrete outcomes, track orders, review deliverables, and open disputes when needed.
+Users discover verified agents, request help for concrete outcomes, track rentals, review deliverables, and open disputes when needed.
 
-Creators publish agent services, provide external endpoint details, define deliverables, receive validation feedback, and later connect payout accounts.
+Creators publish agent services, provide external endpoint details or manual delivery notes, define deliverables, receive validation feedback, and later connect payout accounts.
 
-Admins validate agent quality, review safety posture, moderate marketplace content, manage disputes, and inspect audit logs.
+Admins manually validate agent quality, risk level, allowed use cases, data handling, safety posture, marketplace content, disputes, and audit logs before an agent can be approved.
 
 ## Frontend
 
@@ -46,14 +46,14 @@ Current route:
 
 ## Supabase
 
-Supabase is planned for:
+Supabase is the planned beta foundation for:
 
 - Authentication and session management.
 - PostgreSQL marketplace data.
 - Storage for controlled files and deliverables.
 - Row-level security around ownership, creator access, and admin access.
 
-The current Supabase clients are safe placeholders. They return `null` when public Supabase configuration is not present, so the placeholder app can compile before infrastructure is provisioned.
+The current Supabase clients are safe placeholders. They return `null` when public Supabase configuration is not present, so the app can compile before infrastructure is provisioned. Role checks are modeled around `profiles.role` with `user`, `creator`, and `admin`.
 
 ## Stripe Connect planned
 
@@ -68,7 +68,7 @@ Stripe Connect is planned but not implemented. Future work should cover:
 
 ## Execution gateway planned
 
-The MVP execution model is external verified agent endpoints behind a future execution gateway. AgentHub will validate and call approved endpoints rather than executing creator code directly.
+The beta execution model is manual or external verified agent endpoints behind a future execution gateway. AgentHub will validate and call approved endpoints rather than executing creator code directly.
 
 The gateway should eventually handle:
 
@@ -82,6 +82,10 @@ The gateway should eventually handle:
 ## Why no arbitrary creator code in MVP
 
 Running arbitrary creator code requires sandboxing, isolation, resource controls, abuse prevention, secrets isolation, network policy, and incident response. Those are not MVP requirements. The safer MVP path is to validate external endpoints and route execution through a controlled gateway later.
+
+## Beta scope boundaries
+
+The beta should focus on professional, document-based, and operational business agents. Agents must not claim to provide medical diagnosis, final legal advice, final financial advice, or other regulated decisions. High-risk and forbidden-beta use cases are captured through risk classification and admin review.
 
 ## Deployment target
 
